@@ -20,7 +20,7 @@
 
 .watch-toggle{display:flex;justify-content:center;margin:0 0 15px}.watch-btn{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:12px;padding:11px 16px;font-weight:850;cursor:pointer;box-shadow:var(--shadow)}
 .watch{display:none;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:17px;margin-bottom:16px}.watch.show{display:block}.watch-head{display:flex;justify-content:space-between;gap:15px;align-items:flex-start;margin-bottom:13px}.watch-head h2{margin:0;font-size:18px}.watch-head p{margin:4px 0 0;color:var(--muted);font-size:11px;line-height:1.5}.watch-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.field{min-width:0}.field label{display:block;font-size:9px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.06em;margin:0 0 5px}.field input,.field select{width:100%;min-width:0}.field.full{grid-column:span 2}.watch-actions{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:13px;flex-wrap:wrap}.watch-summary{font-size:11px;color:var(--muted);line-height:1.4}.watch-summary b{color:var(--ink)}.watch-note{font-size:10px;color:var(--muted);margin-top:8px}.watch-status{font-size:10px;font-weight:800}.watch-status.ok{color:var(--green)}.watch-status.warn{color:var(--amber)}
-@media(max-width:900px){.watch-grid{grid-template-columns:1fr 1fr}}@media(max-width:560px){.watch-grid{grid-template-columns:1fr}.field.full{grid-column:span 1}.watch-head{flex-direction:column}}
+@media(max-width:900px){.watch-grid{grid-template-columns:1fr 1fr}}@media(max-width:560px){.watch-grid{grid-template-columns:1fr}.field.full{grid-column:span 1}.watch-head{flex-direction:column}}.watch-consents{display:flex;gap:14px;flex-wrap:wrap;margin-top:5px}.watch-consent{display:flex;gap:7px;align-items:flex-start;font-size:10px;color:var(--muted);line-height:1.4}.watch-consent input{width:auto;margin-top:2px}.manage-list{display:grid;gap:9px}.watch-row{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fafbfc;display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.watch-row h3{margin:0 0 4px;font-size:13px}.watch-meta{font-size:10px;color:var(--muted);line-height:1.5}.watch-badge{display:inline-block;border-radius:999px;padding:4px 7px;background:#edf0f4;font-size:9px;font-weight:800;text-transform:uppercase;margin-right:5px}.watch-badge.active{color:var(--green);background:var(--greenbg)}.watch-badge.paused{color:var(--amber);background:var(--amberbg)}.watch-badge.archived{color:var(--red);background:#fef2f2}.watch-controls{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.watch-control{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 9px;font-size:10px;font-weight:800;cursor:pointer;color:var(--ink)}.watch-control.danger{color:var(--red)}.access-row{display:flex;gap:7px;align-items:center;margin-top:10px;flex-wrap:wrap}.access-row input{flex:1;min-width:220px}.manage-empty{padding:18px;border:1px dashed var(--line);border-radius:12px;text-align:center;color:var(--muted);font-size:11px}.manage-help{font-size:10px;color:var(--muted);line-height:1.5;margin-top:8px}@media(max-width:560px){.watch-row{flex-direction:column}.watch-controls{justify-content:flex-start}}
 </style></head>
 <body><div class="wrap">
 <header><div class="brand"><div class="logo">🚘</div><div><h1>Used &amp; Demo Car Deal Radar</h1><div class="sub">Search India-wide used and demo cars across makes, models and cities — then verify before you travel or pay.</div></div></div>
@@ -31,7 +31,7 @@
 <section class="metrics"><div class="metric"><div class="n" id="seen">—</div><div class="l">Listings scanned</div></div><div class="metric"><div class="n" id="live">—</div><div class="l">Live & under ₹40L</div></div><div class="metric"><div class="n" id="opp">—</div><div class="l">Strong deal signals</div></div><div class="metric"><div class="n" id="verify">—</div><div class="l">Need verification</div></div><div class="metric"><div class="n" id="sources">—</div><div class="l">New sources found</div></div></section>
 
 
-<div class="watch-toggle"><button id="watchToggle" type="button" class="watch-btn">＋ Create a Car Watch</button></div>
+<div class="watch-toggle"><button id="watchToggle" type="button" class="watch-btn">＋ Create a Car Watch</button><button id="manageToggle" type="button" class="watch-btn">My Car Watches</button></div>
 <section id="watchPanel" class="watch" aria-label="Create a car watch">
   <div class="watch-head">
     <div><h2>Tell us what car you want</h2><p>Every field is optional except the alert name. Set only the criteria that matter to you; the matching engine will use the rest of the information available.</p></div>
@@ -62,13 +62,27 @@
       <div class="field full"><label for="wMust">Must have</label><input id="wMust" placeholder="Sunroof, AWD, 7 seats, specific variant, ADAS…"></div>
       <div class="field full"><label for="wNice">Nice to have</label><input id="wNice" placeholder="Certified, warranty, low owners, colour, dealer…"></div>
       <div class="field full"><label for="wAvoid">Avoid</label><input id="wAvoid" placeholder="Accident history, >50k km, multiple owners, specific fuel…"></div>
+      <div class="field full"><label>Alert channels</label><div class="watch-consents"><label class="watch-consent"><input id="wEmailConsent" type="checkbox" checked> Email alerts — I agree to receive Car Watch alerts at this address.</label><label class="watch-consent"><input id="wWhatsappConsent" type="checkbox"> WhatsApp alerts — I explicitly opt in to WhatsApp messages for this watch.</label></div></div>
     </div>
     <div class="watch-actions">
       <div class="watch-summary"><b id="watchPreview">Set as few or as many criteria as you need.</b><br><span>India-wide matching is enabled; an empty field means “don't care”.</span></div>
       <div style="display:flex;gap:7px;align-items:center"><span id="watchStatus" class="watch-status"></span><button type="submit" class="primary" style="border:0;cursor:pointer;flex:0 0 auto">Create Watch</button></div>
     </div>
-    <div class="watch-note">Your watch is saved using your email as the account identity. WhatsApp alerts require a separate explicit opt-in. Live provider delivery requires the deployment environment to be configured.</div>
+    <div class="watch-note">Your watch is saved under a private access key. Keep your private access link to manage watches later. WhatsApp alerts require a separate explicit opt-in. Live provider delivery requires the deployment environment to be configured.</div>
   </form>
+</section>
+<section id="managePanel" class="watch" aria-label="My car watches">
+  <div class="watch-head">
+    <div><h2>My Car Watches</h2><p>Pause or resume a watch, archive old watches, and see the latest alert activity. Your private access key is kept in this browser.</p></div>
+    <button id="manageClose" type="button" class="close" aria-label="Close">✕</button>
+  </div>
+  <div id="manageContent" class="manage-list"></div>
+  <div class="access-row">
+    <input id="watchAccessToken" type="password" placeholder="Paste your private watch access key to use another device">
+    <button id="watchAccessLoad" type="button" class="watch-control">Load watches</button>
+    <button id="watchAccessCopy" type="button" class="watch-control">Copy private link</button>
+  </div>
+  <div id="manageStatus" class="manage-help"></div>
 </section>
 <div class="toolbar"><div class="filters"><div class="search"><input id="q" placeholder="Search any make, model, city, fuel or dealer…"></div><select id="brand"><option value="">All brands</option></select><select id="fuel"><option value="">Fuel</option></select><select id="cls"><option value="">Signal</option><option value="exceptional">Exceptional</option><option value="bargain">Bargain</option><option value="low-mileage-watch">Low-mileage watch</option><option value="market-watch">Market watch</option></select><select id="sort"><option value="score">Radar priority</option><option value="price">Lowest ask</option><option value="km">Lowest mileage</option><option value="discount">Largest market gap</option><option value="year">Newest cars</option></select></div>
 <div class="chips"><span class="chip"><strong>Radar default</strong> ≤ ₹40L · ≤ 4 years</span><span class="chip"><strong>Scope</strong> all makes &amp; models · all India</span><span class="chip"><strong>Preference</strong> low km + 1st owner + certified/demo</span><span class="chip" id="resultCount">— results</span></div></div>
@@ -106,6 +120,108 @@ async function init(){try{const r=await fetch('data/latest.json?ts='+Date.now(),
 ['q','brand','fuel','cls','sort'].forEach(id=>document.getElementById(id).addEventListener('input',render));document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});init();
 
 const byId=id=>document.getElementById(id);
+const manageToggle=byId('manageToggle'),managePanel=byId('managePanel'),manageClose=byId('manageClose');
+const manageContent=byId('manageContent'),manageStatus=byId('manageStatus'),watchAccessToken=byId('watchAccessToken');
+let watchAccess = localStorage.getItem('car_watch_access_token') || '';
+
+function setWatchAccess(token){
+  watchAccess=(token||'').trim();
+  if(watchAccess)localStorage.setItem('car_watch_access_token',watchAccess);
+  else localStorage.removeItem('car_watch_access_token');
+  watchAccessToken.value=watchAccess;
+}
+
+function importWatchAccessFromHash(){
+  const match=location.hash.match(/^#watch=([^&]+)$/);
+  if(match){
+    try{setWatchAccess(decodeURIComponent(match[1]));history.replaceState(null,'',location.pathname+location.search)}catch(_e){}
+  } else {
+    watchAccessToken.value=watchAccess;
+  }
+}
+
+function watchRequest(url,options={}){
+  const headers=new Headers(options.headers||{});
+  if(watchAccess)headers.set('Authorization','Bearer '+watchAccess);
+  return fetch(url,{...options,headers});
+}
+
+function watchConstraintSummary(w){
+  const c=w.constraints||{}, parts=[];
+  const makeModel=[c.make,c.model].filter(Boolean).join(' ');
+  if(makeModel)parts.push(makeModel);
+  if(c.budget_min_lakh!=null||c.budget_max_lakh!=null)parts.push((c.budget_min_lakh!=null?'₹'+c.budget_min_lakh+'L':'No min')+'–'+(c.budget_max_lakh!=null?'₹'+c.budget_max_lakh+'L':'No max'));
+  if(c.min_age_years!=null||c.max_age_years!=null)parts.push((c.min_age_years!=null?c.min_age_years:'Any')+'–'+(c.max_age_years!=null?c.max_age_years:'Any')+' yr');
+  if(c.location)parts.push(c.location);
+  if(c.condition)parts.push(c.condition);
+  return parts.join(' · ')||'Any car matching your other criteria';
+}
+
+function renderWatches(data){
+  const rows=data?.watches||[];
+  if(!rows.length){
+    manageContent.innerHTML='<div class="manage-empty"><b>No saved Car Watches yet.</b><br>Create a watch above and it will appear here.</div>';
+    return;
+  }
+  manageContent.innerHTML=rows.map(w=>{
+    const status=w.status||'active';
+    const action=status==='paused'?'<button class="watch-control" data-action="active" data-id="'+esc(w.watch_id)+'">Resume</button>':status==='active'?'<button class="watch-control" data-action="paused" data-id="'+esc(w.watch_id)+'">Pause</button>':'';
+    const archive=status==='archived'?'':'<button class="watch-control danger" data-action="archived" data-id="'+esc(w.watch_id)+'">Archive</button>';
+    const alerts=w.alerts_sent||0;
+    const last=w.last_alert_at?'Last alert '+new Date(w.last_alert_at).toLocaleString():'No alerts sent yet';
+    return '<div class="watch-row"><div><h3>'+esc(w.name)+'</h3><div><span class="watch-badge '+esc(status)+'">'+esc(status)+'</span><span class="watch-meta">'+esc(w.frequency||'instant')+' · '+esc(w.alert_quality||'any')+'</span></div><div class="watch-meta" style="margin-top:6px">'+esc(watchConstraintSummary(w))+'</div><div class="watch-meta" style="margin-top:4px">'+alerts+' alert'+(alerts===1?'':'s')+' sent · '+esc(last)+'</div></div><div class="watch-controls">'+action+archive+'</div></div>';
+  }).join('');
+}
+
+async function loadWatches(){
+  if(!watchAccess){
+    manageContent.innerHTML='<div class="manage-empty"><b>Private access key required.</b><br>Create your first watch in this browser or paste your private key below.</div>';
+    manageStatus.textContent='';
+    return;
+  }
+  manageStatus.textContent='Loading your watches…';
+  try{
+    const res=await watchRequest('/api/watch',{cache:'no-store'});
+    const payload=await res.json().catch(()=>({}));
+    if(res.status===401){
+      setWatchAccess('');
+      throw new Error('Private watch access could not be verified. Paste a valid key below.');
+    }
+    if(!res.ok)throw new Error(payload.error||'Unable to load watches');
+    renderWatches(payload);
+    manageStatus.textContent=(payload.watches||[]).length+' saved watch'+((payload.watches||[]).length===1?'':'es')+' · '+payload.email;
+    managePanel.classList.add('show');
+  }catch(err){
+    manageContent.innerHTML='<div class="manage-empty">'+esc(err.message||'Unable to load watches')+'</div>';
+    manageStatus.textContent='';
+  }
+}
+
+async function mutateWatch(watchId,status){
+  try{
+    const res=await watchRequest('/api/watch',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({watch_id:watchId,status})});
+    const payload=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(payload.error||'Unable to update watch');
+    await loadWatches();
+  }catch(err){manageStatus.textContent=err.message||'Unable to update watch'}
+}
+
+manageContent.addEventListener('click',e=>{
+  const button=e.target.closest('[data-action]');
+  if(button)mutateWatch(button.dataset.id,button.dataset.action);
+});
+
+manageToggle.addEventListener('click',()=>{managePanel.classList.toggle('show');if(managePanel.classList.contains('show')){manageToggle.textContent='Hide My Watches';loadWatches()}else manageToggle.textContent='My Car Watches'});
+manageClose.addEventListener('click',()=>{managePanel.classList.remove('show');manageToggle.textContent='My Car Watches'});
+watchAccessLoad.addEventListener('click',()=>{setWatchAccess(watchAccessToken.value);loadWatches()});
+watchAccessCopy.addEventListener('click',async ()=>{
+  if(!watchAccess){manageStatus.textContent='Load a private access key first';return}
+  const link=location.origin+location.pathname+'#watch='+encodeURIComponent(watchAccess);
+  try{await navigator.clipboard.writeText(link);manageStatus.textContent='Private access link copied'}
+  catch(_e){watchAccessToken.value=watchAccess;manageStatus.textContent='Clipboard access is unavailable; the key is shown above'}
+});
+
+importWatchAccessFromHash();
 const watchForm=byId('watchForm'),watchPanel=byId('watchPanel'),watchToggle=byId('watchToggle'),watchClose=byId('watchClose');
 const watchPreview=byId('watchPreview'),watchStatus=byId('watchStatus');
 function buildWatch(){
@@ -168,14 +284,17 @@ watchForm.addEventListener('submit',async e=>{
   try{
     const res=await fetch('/api/watch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
       name:intent.name,email,phone:byId('wPhone').value.trim()||null,
+      access_token:storedAccess||null,
       channels,email_consent:byId('wEmailConsent').checked,
       whatsapp_consent:byId('wWhatsappConsent').checked,intent
     })});
     const payload=await res.json().catch(()=>({}));
     if(!res.ok)throw new Error(payload.error||'Unable to save the Car Watch');
+    if(payload.access_token)setWatchAccess(payload.access_token);
     const watchLabel=intent.name+' · '+(intent.query||'Any make/model');
-    watchPreview.innerHTML='<b>'+esc(watchLabel)+'</b><br>Saved. Watch ID: '+esc(payload.watch_id||'created')+'.';
-    watchStatus.textContent='Saved';watchStatus.className='watch-status ok';
+    watchPreview.innerHTML='<b>'+esc(watchLabel)+'</b><br>Saved. <button type="button" class="watch-control" onclick="managePanel.classList.add(\'show\');manageToggle.textContent=\'Hide My Watches\';loadWatches()">Open My Watches</button>';
+    watchStatus.textContent=payload.access_token?'Saved — private access created':'Saved';watchStatus.className='watch-status ok';
+    managePanel.classList.add('show');manageToggle.textContent='Hide My Watches';loadWatches();
   }catch(err){
     watchStatus.textContent=err.message||'Unable to save the Car Watch';
     watchStatus.className='watch-status warn';
