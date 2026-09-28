@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "premium-car-deal-radar"
+version = "0.1.0"
+description = "India-wide premium used/demo car crawler and deal detector"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "crawl4ai==0.9.4",
+  "playwright>=1.52,<2",
+  "ddgs==9.16.0",
+  "beautifulsoup4>=4.12,<5",
+  "PyYAML>=6.0,<7",
+  "pandas>=2.2,<4",
+  "python-dateutil>=2.9,<3",
+  "rapidfuzz>=3.9,<4",
+]
+
+[project.optional-dependencies]
+agent = ["browser-use==0.13.10"]
+
+test = ["pytest>=8,<9", "responses>=0.25,<1"]
+
+[tool.setuptools]
+packages = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
