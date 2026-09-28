@@ -16,19 +16,27 @@ def build_query_bank(search):
     all_india=bool(search.get("all_india",True))
     city_hints=search.get("city_hints",[])
     queries_per_brand=max(1,int(search.get("queries_per_brand",2)))
-    city_hints_per_brand=max(0,int(search.get("city_hints_per_brand",4)))
+    city_hints_per_run=max(0,int(search.get("city_hints_per_run",12)))
     query_bank=[]
+
+    # Brand queries provide India-wide coverage across the full make taxonomy.
     for brand in brands:
         if all_india:
             query_bank.extend([
                 f'"{brand}" "used car" India',
                 f'"{brand}" "demo car" India',
             ][:queries_per_brand])
-        for city in city_hints[:city_hints_per_brand]:
+
+    # Local dealer discovery is deliberately not multiplied by every brand.
+    # Nationwide queries already cover the brand dimension; city queries surface
+    # local dealer domains without creating an O(brands × cities) explosion.
+    if all_india:
+        for city in city_hints[:city_hints_per_run]:
             query_bank.extend([
-                f'"{brand}" "used car" "{city}"',
-                f'"{brand}" "demo car" "{city}"',
-            ][:queries_per_brand])
+                f'"used car" "{city}"',
+                f'"demo car" "{city}"',
+            ])
+
     return list(dict.fromkeys(query_bank))
 
 def discover(settings,known_domains):
