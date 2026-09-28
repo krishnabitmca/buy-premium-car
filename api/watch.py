@@ -214,19 +214,19 @@ class handler(BaseHTTPRequestHandler):
                 user_id = existing_user["user_id"]
                 minted_token = None
                 phone_existing = existing_user.get("phone_e164")
+            elif existing_by_email and existing_by_email.get("access_token_hash"):
+                raise PermissionError("Use your private watch access link to add or manage watches")
             elif existing_by_email:
                 user_id = existing_by_email["user_id"]
                 phone_existing = existing_by_email.get("phone_e164")
-                minted_token = None
-                if not existing_by_email.get("access_token_hash"):
-                    access_token = _new_access_token()
-                    minted_token = access_token
-                    _supabase_request(
-                        "PATCH",
-                        f"deal_watch_users?user_id=eq.{user_id}",
-                        {"access_token_hash": _token_hash(access_token)},
-                        "return=minimal",
-                    )
+                access_token = _new_access_token()
+                minted_token = access_token
+                _supabase_request(
+                    "PATCH",
+                    f"deal_watch_users?user_id=eq.{user_id}",
+                    {"access_token_hash": _token_hash(access_token)},
+                    "return=minimal",
+                )
             else:
                 access_token = _new_access_token()
                 minted_token = access_token
@@ -320,9 +320,9 @@ class handler(BaseHTTPRequestHandler):
                 if channel in channels:
                     _supabase_request(
                         "POST",
-                        "channel_preferences?on_conflict=user_id,channel",
+                        "watch_channel_preferences?on_conflict=watch_id,channel",
                         {
-                            "user_id": user_id,
+                            "watch_id": watch_id,
                             "channel": channel,
                             "enabled": True,
                             "frequency": intent.get("notification_frequency", "instant"),
