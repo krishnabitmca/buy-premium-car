@@ -27,3 +27,35 @@ India is the product market. A future customer can specify any Indian city, dist
 
 ## Vercel
 Deploy this repository using the repository root. The dashboard loads `data/latest.json`.
+
+## Customer Car Watches
+
+The dashboard supports customer-specific Deal Intents with optional budget, vehicle-age, mileage, ownership, fuel, transmission, location/radius, condition, must-have, nice-to-have and avoid criteria.
+
+The crawler intentionally collects a broader inventory than any one customer's constraints. Customer budget and age are applied at match time.
+
+## Persistence and notifications
+
+The MVP includes a Vercel Python API at `api/watch.py` and a Supabase schema at `supabase/migrations/001_deal_watch.sql`.
+
+Configure these deployment variables to persist watches:
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+For Email delivery, add:
+- `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL`
+
+For WhatsApp delivery, add:
+- `WHATSAPP_ACCESS_TOKEN`
+- `WHATSAPP_PHONE_NUMBER_ID`
+- `WHATSAPP_TEMPLATE_NAME`
+- `WHATSAPP_TEMPLATE_LANGUAGE`
+- `WHATSAPP_GRAPH_VERSION`
+
+Optional:
+- `APP_BASE_URL`
+
+GitHub Actions runs the alert processor after the market crawl when Supabase is configured. Until provider credentials are configured, no live notifications are sent.
+
+The dashboard explicitly records separate Email and WhatsApp consent. WhatsApp should only be enabled when the user has intentionally opted in.
