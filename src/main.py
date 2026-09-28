@@ -26,7 +26,7 @@ def main():
         for r in found[:cap]:record_source(conn,r.domain,r.url,r.domain,False,now,"discovered");new_sources.append({"domain":r.domain,"url":r.url,"query":r.query});queue.append((r.domain,r.url,3))
     conn.commit()
     vehicles=dedupe(asyncio.run(crawl_urls(queue,settings)))
-    ref_year=int(settings.market["reference_date"][:4]);min_year=ref_year-int(settings.market["max_age_years"])+1;filtered=[]
+    ref_year=int(settings.market["reference_date"][:4]);min_year=ref_year-int(settings.market["default_dashboard_age_years"])+1;filtered=[]
     for v in vehicles:
         # Collection is intentionally broader than any one customer's watch.
         # Budget/age are user-level intent constraints, not ingestion filters.
