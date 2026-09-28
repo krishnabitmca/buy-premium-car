@@ -39,7 +39,7 @@
   </div>
   <form id="watchForm">
     <div class="watch-grid">
-      <div class="field"><label for="wName">Watch name</label><input id="wName" placeholder="My next car"></div>
+      <div class="field"><label for="wName">Watch name</label><input id="wName" placeholder="My next car" required></div><div class="field"><label for="wEmail">Email</label><input id="wEmail" type="email" placeholder="you@example.com" required></div><div class="field"><label for="wPhone">WhatsApp number</label><input id="wPhone" inputmode="tel" placeholder="+91 98xxxxxx12"></div>
       <div class="field"><label for="wMake">Make</label><input id="wMake" placeholder="BMW, Tata, Mercedes-Benz…"></div>
       <div class="field"><label for="wModel">Model</label><input id="wModel" placeholder="X3, Nexon, GLC…"></div>
       <div class="field"><label for="wCondition">Condition</label><select id="wCondition"><option value="">Used or demo</option><option value="used">Used</option><option value="demo">Demo</option><option value="used_demo">Used or demo</option></select></div>
@@ -71,7 +71,7 @@
       <div class="watch-summary"><b id="watchPreview">Set as few or as many criteria as you need.</b><br><span>India-wide matching is enabled; an empty field means “don't care”.</span></div>
       <div style="display:flex;gap:7px;align-items:center"><span id="watchStatus" class="watch-status"></span><button type="submit" class="primary" style="border:0;cursor:pointer;flex:0 0 auto">Create Watch</button></div>
     </div>
-    <div class="watch-note">Prototype registration on this static dashboard: the form builds and validates a Deal Intent locally. Persistent accounts and email/WhatsApp delivery will be wired to the backend notification service.</div>
+    <div class="watch-note">Your watch is saved using your email as the account identity. WhatsApp alerts require a separate explicit opt-in. Live provider delivery requires the deployment environment to be configured.</div>
   </form>
 </section>
 <div class="toolbar"><div class="filters"><div class="search"><input id="q" placeholder="Search any make, model, city, fuel or dealer…"></div><select id="brand"><option value="">All brands</option></select><select id="fuel"><option value="">Fuel</option></select><select id="cls"><option value="">Signal</option><option value="exceptional">Exceptional</option><option value="bargain">Bargain</option><option value="low-mileage-watch">Low-mileage watch</option><option value="market-watch">Market watch</option></select><select id="sort"><option value="score">Radar priority</option><option value="price">Lowest ask</option><option value="km">Lowest mileage</option><option value="discount">Largest market gap</option><option value="year">Newest cars</option></select></div>
@@ -122,17 +122,22 @@ function buildWatch(){
   const intent={
     category:'automotive',
     query:[get('wMake'),get('wModel'),get('wMust')].filter(Boolean).join(' '),
+    make:get('wMake')||null,model:get('wModel')||null,
     budget_min:budgetMin,budget_max:budgetMax,
     location:get('wLocation')||null,radius_km:get('wRadius')?Number(get('wRadius')):null,
+    condition:get('wCondition')||null,
     must_have:Object.fromEntries([
       ['make',get('wMake')],['model',get('wModel')],['fuel',get('wFuel')],['transmission',get('wTransmission')],
       ['max_mileage_km',get('wMileage')?Number(get('wMileage')):null],['max_owners',get('wOwners')?Number(get('wOwners')):null]
     ].filter(([,v])=>v!==''&&v!==null)),
+    nice_to_have_text:get('wNice')||null,
+    avoid_text:get('wAvoid')||null,
+    must_have_text:get('wMust')||null,
     nice_to_have:{text:get('wNice')||null},
     excluded:{text:get('wAvoid')||null},
-    condition:get('wCondition')||null,
     min_age_years:ageMin,max_age_years:ageMax,
     target_discount_pct:get('wDeal')==='exceptional'?15:get('wDeal')==='good'?10:null,
+    alert_quality:get('wDeal')||'exceptional',
     notification_frequency:get('wNotify'),
     name:get('wName')||'My car watch'
   };
@@ -153,18 +158,32 @@ function updateWatchPreview(){
 watchToggle.addEventListener('click',()=>{watchPanel.classList.toggle('show');if(watchPanel.classList.contains('show')){watchToggle.textContent='Hide Car Watch';byId('wName').focus()}else watchToggle.textContent='＋ Create a Car Watch'});
 watchClose.addEventListener('click',()=>{watchPanel.classList.remove('show');watchToggle.textContent='＋ Create a Car Watch'});
 watchForm.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',updateWatchPreview));
-watchForm.addEventListener('submit',e=>{
+watchForm.addEventListener('submit',async e=>{
   e.preventDefault();
   const {intent,errors}=buildWatch();
   if(errors.length){watchStatus.textContent=errors[0];watchStatus.className='watch-status warn';return}
-  const qp=new URLSearchParams();
-  if(intent.query)qp.set('q',intent.query);
-  if(intent.location)qp.set('location',intent.location);
-  if(intent.budget_max!==null)qp.set('budget_max',String(intent.budget_max));
-  if(intent.max_age_years!==null)qp.set('max_age',String(intent.max_age_years));
-  const watchLabel=intent.name+' · '+(intent.query||'Any make/model');
-  watchPreview.innerHTML='<b>'+esc(watchLabel)+'</b><br>Deal Intent created locally. Persistent account + notifications are the next backend step.';
-  watchStatus.textContent='Created';watchStatus.className='watch-status ok';
+  const email=byId('wEmail').value.trim().toLowerCase();
+  const channels=[];
+  if(byId('wEmailConsent').checked)channels.push('email');
+  if(byId('wWhatsappConsent').checked)channels.push('whatsapp');
+  if(!channels.length){watchStatus.textContent='Choose at least one alert channel';watchStatus.className='watch-status warn';return}
+  if(channels.includes('whatsapp') && !byId('wPhone').value.trim()){watchStatus.textContent='WhatsApp alerts require a phone number';watchStatus.className='watch-status warn';return}
+  watchStatus.textContent='Saving…';watchStatus.className='watch-status';
+  try{
+    const res=await fetch('/api/watch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      name:intent.name,email,phone:byId('wPhone').value.trim()||null,
+      channels,email_consent:byId('wEmailConsent').checked,
+      whatsapp_consent:byId('wWhatsappConsent').checked,intent
+    })});
+    const payload=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(payload.error||'Unable to save the Car Watch');
+    const watchLabel=intent.name+' · '+(intent.query||'Any make/model');
+    watchPreview.innerHTML='<b>'+esc(watchLabel)+'</b><br>Saved. Watch ID: '+esc(payload.watch_id||'created')+'.';
+    watchStatus.textContent='Saved';watchStatus.className='watch-status ok';
+  }catch(err){
+    watchStatus.textContent=err.message||'Unable to save the Car Watch';
+    watchStatus.className='watch-status warn';
+  }
 });
 updateWatchPreview();
 </script></body></html>
