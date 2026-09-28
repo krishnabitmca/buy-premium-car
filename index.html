@@ -122,6 +122,7 @@ async function init(){try{const r=await fetch('data/latest.json?ts='+Date.now(),
 const byId=id=>document.getElementById(id);
 const manageToggle=byId('manageToggle'),managePanel=byId('managePanel'),manageClose=byId('manageClose');
 const manageContent=byId('manageContent'),manageStatus=byId('manageStatus'),watchAccessToken=byId('watchAccessToken');
+const watchAccessLoad=byId('watchAccessLoad'),watchAccessCopy=byId('watchAccessCopy');
 let watchAccess = localStorage.getItem('car_watch_access_token') || '';
 
 function setWatchAccess(token){
@@ -222,6 +223,7 @@ watchAccessCopy.addEventListener('click',async ()=>{
 });
 
 importWatchAccessFromHash();
+if(watchAccess){managePanel.classList.add('show');manageToggle.textContent='Hide My Watches';loadWatches()}
 const watchForm=byId('watchForm'),watchPanel=byId('watchPanel'),watchToggle=byId('watchToggle'),watchClose=byId('watchClose');
 const watchPreview=byId('watchPreview'),watchStatus=byId('watchStatus');
 function buildWatch(){
