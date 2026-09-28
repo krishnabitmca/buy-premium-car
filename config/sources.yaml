@@ -1,0 +1,76 @@
+known_sources:
+- name: Mercedes-Benz Used Cars
+  url: https://www.mercedes-benzusedcar.in/buy-used-cars
+  tier: 1
+  brands: [Mercedes-Benz]
+  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
+- name: Motozite
+  url: https://motozite.com/pre-owned-cars
+  tier: 1
+  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
+  vehicle_link_pattern: /(?:pre-owned-cars|demo-cars)/[^/?#]+
+- name: Motozite Demo
+  url: https://motozite.com/demo-cars
+  tier: 1
+  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
+  vehicle_link_pattern: /(?:pre-owned-cars|demo-cars)/[^/?#]+
+- name: Big Boy Toyz
+  url: https://www.bigboytoyz.com/
+  tier: 2
+  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
+  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
+- name: CarWale Used
+  url: https://www.carwale.com/used/
+  tier: 2
+  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche, Jeep]
+  vehicle_link_pattern: /used/[^?#]+/[a-z0-9]+/?$
+- name: CarDekho Used
+  url: https://www.cardekho.com/used-cars
+  tier: 2
+  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche, Jeep]
+  vehicle_link_pattern: /used-car-details/[^?#]+\.htm
+- name: Cars24
+  url: https://www.cars24.com/buy-used-luxury-cars/
+  tier: 2
+  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI]
+  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
+- name: Spinny
+  url: https://www.spinny.com/used-luxury-cars/s/
+  tier: 2
+  brands: [Mercedes-Benz, BMW, Audi, Volvo, MINI]
+  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
+- name: AutoBest Emperio
+  url: https://autobest.co.in/pre-owned-cars
+  tier: 2
+  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
+  vehicle_link_pattern: /pre-owned-cars/[^/?#]+
+- name: 9th Gear
+  url: https://www.9thgear.co.in/luxury-used-cars-bangalore
+  tier: 2
+  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
+  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
+- name: Luxury Ride
+  url: https://luxuryrideofficial.com/
+  tier: 2
+  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
+  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
+- name: AutoHangar Used Cars
+  url: https://autohangar.net/usedcars/
+  tier: 1
+  brands: [Mercedes-Benz, BMW]
+  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
+- name: Volvo Selekt
+  url: https://www.volvocars.com/in/l/used-cars/
+  tier: 1
+  brands: [Volvo]
+  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
+- name: Audi Approved Plus
+  url: https://www.audi.in/en/used-cars/
+  tier: 1
+  brands: [Audi]
+  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
+- name: BMW Premium Selection
+  url: https://www.bmw-usedcars.in/
+  tier: 1
+  brands: [BMW]
+  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
