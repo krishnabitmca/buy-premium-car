@@ -2,7 +2,9 @@ market:
   country: India
   currency: INR
   # Radar defaults, not product-wide customer limits.
-  # Dashboard defaults only; not crawler ingestion limits.\n  default_dashboard_budget_lakh: 40.0\n  default_dashboard_age_years: 4.0
+  # Dashboard defaults only; not crawler ingestion limits.
+  default_dashboard_budget_lakh: 40.0
+  default_dashboard_age_years: 4.0
   # Legacy scoring/candidate reference; customer watches may override age.
   reference_date: null
   mileage_preference_km: 50000
