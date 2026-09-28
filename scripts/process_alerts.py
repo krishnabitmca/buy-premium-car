@@ -51,7 +51,7 @@ def send_whatsapp(phone,params):
         return json.loads(r.read().decode())
 
 def main():
-    watches=sb_request("GET","deal_watches?select=*,deal_watch_users(*),channel_preferences(*)&status=eq.active")
+    watches=sb_request("GET","deal_watches?select=*,deal_watch_users(*),watch_channel_preferences(*)&status=eq.active")
     latest=Path("data/latest.json")
     if not latest.exists():return
     data=json.loads(latest.read_text(encoding="utf-8"))
@@ -60,7 +60,7 @@ def main():
     for watch in watches:
         matches=evaluate_watch(watch,vehicles)
         user=(watch.get("deal_watch_users") or {})
-        prefs=watch.get("channel_preferences") or []
+        prefs=watch.get("watch_channel_preferences") or []
         for vehicle,evaluation in matches:
             for pref in prefs:
                 if not pref.get("enabled"):continue
