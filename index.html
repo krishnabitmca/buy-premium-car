@@ -44,14 +44,10 @@
       <div class="field"><label for="wModel">Model</label><input id="wModel" placeholder="X3, Nexon, GLC…"></div>
       <div class="field"><label for="wCondition">Condition</label><select id="wCondition"><option value="">Used or demo</option><option value="used">Used</option><option value="demo">Demo</option><option value="used_demo">Used or demo</option></select></div>
 
-      <div class="field"><label for="wBudgetMin">Budget from</label><select id="wBudgetMin">
-        <option value="">No minimum</option><option value="5">₹5L</option><option value="10">₹10L</option><option value="15">₹15L</option><option value="20">₹20L</option><option value="25">₹25L</option><option value="30">₹30L</option><option value="40">₹40L</option><option value="50">₹50L</option><option value="75">₹75L</option><option value="100">₹1Cr</option>
-      </select></div>
-      <div class="field"><label for="wBudgetMax">Budget up to</label><select id="wBudgetMax">
-        <option value="">Any budget</option><option value="5">₹5L</option><option value="10">₹10L</option><option value="15">₹15L</option><option value="20">₹20L</option><option value="25">₹25L</option><option value="30">₹30L</option><option value="40" selected>₹40L</option><option value="50">₹50L</option><option value="75">₹75L</option><option value="100">₹1Cr</option><option value="200">₹2Cr</option>
-      </select></div>
-      <div class="field"><label for="wAgeMin">Vehicle age from</label><select id="wAgeMin"><option value="">Any age</option><option value="0">New / 0 yr</option><option value="1">1 yr</option><option value="2">2 yr</option><option value="3">3 yr</option><option value="4">4 yr</option><option value="5">5 yr</option><option value="7">7 yr</option><option value="10">10 yr</option></select></div>
-      <div class="field"><label for="wAgeMax">Vehicle age up to</label><select id="wAgeMax"><option value="">Any age</option><option value="1">1 yr</option><option value="2">2 yr</option><option value="3">3 yr</option><option value="4" selected>4 yr</option><option value="5">5 yr</option><option value="7">7 yr</option><option value="10">10 yr</option><option value="15">15 yr</option></select></div>
+      <div class="field"><label for="wBudgetMin">Budget from (₹ lakh)</label><input id="wBudgetMin" type="number" min="0" step="0.1" inputmode="decimal" placeholder="No minimum"></div>
+      <div class="field"><label for="wBudgetMax">Budget up to (₹ lakh)</label><input id="wBudgetMax" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Any budget"></div>
+      <div class="field"><label for="wAgeMin">Vehicle age from (years)</label><input id="wAgeMin" type="number" min="0" max="50" step="0.5" inputmode="decimal" placeholder="Any age"></div>
+      <div class="field"><label for="wAgeMax">Vehicle age up to (years)</label><input id="wAgeMax" type="number" min="0" max="50" step="0.5" inputmode="decimal" placeholder="Any age"></div>
 
       <div class="field"><label for="wMileage">Maximum mileage</label><select id="wMileage"><option value="">Any mileage</option><option value="10000">10,000 km</option><option value="20000">20,000 km</option><option value="30000">30,000 km</option><option value="50000">50,000 km</option><option value="75000">75,000 km</option><option value="100000">1,00,000 km</option></select></div>
       <div class="field"><label for="wOwners">Ownership</label><select id="wOwners"><option value="">Any owner count</option><option value="1">1st owner only</option><option value="2">Up to 2 owners</option><option value="3">Up to 3 owners</option></select></div>
@@ -60,7 +56,7 @@
 
       <div class="field"><label for="wLocation">Preferred city / locality</label><input id="wLocation" placeholder="Bengaluru, Pune, Noida, Indore…"></div>
       <div class="field"><label for="wRadius">Travel radius</label><select id="wRadius"><option value="">India-wide</option><option value="25">25 km</option><option value="50">50 km</option><option value="100">100 km</option><option value="250">250 km</option><option value="500">500 km</option><option value="1000">1,000 km</option></select></div>
-      <div class="field"><label for="wDeal">Minimum deal quality</label><select id="wDeal"><option value="any">Any matching car</option><option value="good">Good deal</option><option value="exceptional" selected>Exceptional deal</option></select></div>
+      <div class="field"><label for="wDeal">Minimum deal quality</label><select id="wDeal"><option value="any" selected>Any matching car</option><option value="good">Good deal</option><option value="exceptional">Exceptional deal</option></select></div>
       <div class="field"><label for="wNotify">Alert frequency</label><select id="wNotify"><option value="instant">Instant</option><option value="daily">Daily digest</option><option value="both">Instant + daily digest</option></select></div>
 
       <div class="field full"><label for="wMust">Must have</label><input id="wMust" placeholder="Sunroof, AWD, 7 seats, specific variant, ADAS…"></div>
