@@ -1,6 +1,7 @@
 market:
   country: India
   currency: INR
+  # Radar defaults, not product-wide customer limits.
   max_price_lakh: 40.0
   max_age_years: 4
   reference_date: null
@@ -16,6 +17,8 @@ market:
   low_mileage_km: 20000
   low_mileage_age_years: 4
   max_detail_pages_per_source: 40
+  vehicle_scope: used_and_demo
+  geography_scope: india
 output:
   database_path: data/cars.sqlite
   discovered_sources_path: data/discovered_sources.csv
@@ -30,8 +33,10 @@ search:
   - duckduckgo
   - google
   queries_per_brand: 2
-  cities:
-  - Bangalore
+  all_india: true
+  # Discovery hints improve local-dealer discovery but never restrict matching.
+  city_hints:
+  - Bengaluru
   - Mumbai
   - Delhi NCR
   - Hyderabad
@@ -43,7 +48,62 @@ search:
   - Jaipur
   - Kochi
   - Coimbatore
+  - Lucknow
+  - Surat
+  - Indore
+  - Nagpur
+  - Noida
+  - Gurugram
+  - Ghaziabad
+  - Faridabad
+  - Thane
+  - Navi Mumbai
+  - Nashik
+  - Vadodara
+  - Bhopal
+  - Bhubaneswar
+  - Patna
+  - Ranchi
+  - Guwahati
+  - Visakhapatnam
+  - Vijayawada
+  - Mysuru
+  - Mangaluru
+  - Dehradun
+  - Amritsar
+  - Ludhiana
+  - Kanpur
+  - Agra
+  - Varanasi
+  - Raipur
+  - Jodhpur
+  - Udaipur
+  - Goa
+  city_hints_per_brand: 4
   brands:
+  - Maruti Suzuki
+  - Hyundai
+  - Tata
+  - Mahindra
+  - Toyota
+  - Honda
+  - Kia
+  - Renault
+  - Nissan
+  - Skoda
+  - Volkswagen
+  - MG
+  - Citroen
+  - Jeep
+  - BYD
+  - Isuzu
+  - Force Motors
+  - Ford
+  - Chevrolet
+  - Fiat
+  - Datsun
+  - Mitsubishi
+  - SsangYong
   - Mercedes-Benz
   - BMW
   - Audi
@@ -53,16 +113,25 @@ search:
   - Land Rover
   - MINI
   - Porsche
-  - Jeep
+  - Maserati
+  - Ferrari
+  - Lamborghini
+  - Aston Martin
+  - Bentley
+  - Rolls-Royce
+  - McLaren
+  - Lotus
+  - Alfa Romeo
+  - DS
   intent_terms:
   - used car
   - demo car
   - certified pre owned
   - approved used
-  - pre owned luxury car
+  - pre owned car
   - dealer used car
 network:
-  user_agent: PremiumCarDealRadar/0.1 (research crawler)
+  user_agent: UsedDemoCarDealRadar/0.2 (research crawler)
   request_timeout_seconds: 30
   polite_delay_seconds: 1.0
   max_concurrency: 3
