@@ -21,7 +21,10 @@ def enrich_and_score(v,comparable_rows,settings):
     if v.certification or v.condition_signal:score+=5
     if v.live_verified:score+=8
     if v.data_consistent:score+=5
-    if v.sold_signal:score=0
+    if v.sold_signal:
+        v.opportunity_score=0
+        v.opportunity_class="watch"
+        return v
     v.opportunity_score=round(min(100,score),1)
     d=v.discount_vs_comparable_pct or 0
     if v.live_verified and v.data_consistent and d>=settings.market["exceptional_discount_vs_comparables_pct"] and v.comparable_count>=settings.market["min_comparables_for_price_call"]:v.opportunity_class="exceptional"
