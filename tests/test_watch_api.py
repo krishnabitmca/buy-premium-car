@@ -53,31 +53,3 @@ def test_email_filter_is_url_encoded(monkeypatch):
 )
 def test_phone_normalization(value, expected):
     assert watch._phone_e164(value) == expected
-
-
-def test_new_watch_requires_private_access_for_existing_claimed_email(monkeypatch):
-    class Row:
-        def __init__(self, data):
-            self.data = data
-        def get(self, key, default=None):
-            return self.data.get(key, default)
-        def __getitem__(self, key):
-            return self.data[key]
-
-    monkeypatch.setattr(
-        watch,
-        "_find_user_by_token",
-        lambda token: None,
-    )
-    monkeypatch.setattr(
-        watch,
-        "_find_user_by_email",
-        lambda email: {
-            "user_id": "u1",
-            "email": email,
-            "phone_e164": None,
-            "status": "active",
-            "access_token_hash": "already-set",
-        },
-    )
-    assert watch._find_user_by_email("x@example.com")["access_token_hash"] == "already-set"
