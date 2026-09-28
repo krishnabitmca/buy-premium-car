@@ -68,6 +68,8 @@ class GenericDealEngine:
             ok, reason = constraint(intent, listing)
             if not ok:
                 if reason: risks.append(reason)
+        if intent.budget_min is not None and listing.price < intent.budget_min:
+            risks.append(f"price is below minimum budget by {intent.budget_min - listing.price:.2f}")
         if intent.budget_max is not None and listing.price > intent.budget_max:
             risks.append(f"price exceeds budget by {listing.price - intent.budget_max:.2f}")
         attrs = {str(k).lower(): v for k, v in listing.attributes.items()}
