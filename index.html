@@ -277,6 +277,7 @@ watchForm.addEventListener('submit',async e=>{
   const {intent,errors}=buildWatch();
   if(errors.length){watchStatus.textContent=errors[0];watchStatus.className='watch-status warn';return}
   const email=byId('wEmail').value.trim().toLowerCase();
+  const storedAccess=watchAccess||localStorage.getItem('car_watch_access_token')||'';
   const channels=[];
   if(byId('wEmailConsent').checked)channels.push('email');
   if(byId('wWhatsappConsent').checked)channels.push('whatsapp');
