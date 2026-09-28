@@ -48,3 +48,11 @@ def test_age_constraints_are_optional_and_generic():
         return True,None
     result=GenericDealEngine([age_constraint]).evaluate(intent,listing)
     assert result.eligible
+
+
+def test_minimum_budget_is_hard_constraint():
+    intent=DealIntent(intent_id="i-min-budget",category="automotive",query="car",budget_min=2000000,budget_max=3000000)
+    listing=ListingSnapshot(listing_id="l-min-budget",category="automotive",title="Car",price=1500000,availability="live")
+    result=GenericDealEngine([live_listing]).evaluate(intent,listing)
+    assert not result.eligible
+    assert any("below minimum budget" in x for x in result.risks)
