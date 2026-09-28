@@ -17,6 +17,7 @@ class DealIntent:
     excluded: dict[str, Any] = field(default_factory=dict)
     target_discount_pct: Optional[float] = None
     condition: Optional[str] = None
+    min_age_years: Optional[float] = None
     max_age_years: Optional[float] = None
     notification_channels: tuple[str, ...] = ("email",)
 
