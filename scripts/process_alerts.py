@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import json
 import os
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -83,6 +84,8 @@ def main():
                         body=f"<h2>Car Watch hit</h2><p><b>{html.escape(title)}</b> — {html.escape(price)}</p><p>Fair value: {html.escape(fair_text)} · {html.escape(str(location))}</p><p>{html.escape(reason)}</p><p><a href='{html.escape(dashboard)}'>Open dashboard</a></p>"
                         provider=send_resend(user["email"],f"Car Watch hit: {title} at {price}",body,str(alert_id))
                     else:
+                        if not user.get("phone_e164"):
+                            raise RuntimeError("WhatsApp destination is missing")
                         provider=send_whatsapp(user["phone_e164"],[watch["name"],title,price,fair_text,str(location)])
                     provider_id=(provider.get("id") if isinstance(provider,dict) else None)
                     sb_request("PATCH",f"alert_events?alert_id=eq.{alert_id}",{"status":"sent","provider_message_id":provider_id,"sent_at":datetime.now(timezone.utc).isoformat()})
