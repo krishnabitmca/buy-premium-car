@@ -4,7 +4,10 @@ import hashlib
 import re
 from urllib.parse import urlsplit, urlunsplit
 
-BRANDS = ["Mercedes-Benz","BMW","Audi","Volvo","Lexus","Jaguar","Land Rover","MINI","Porsche","Jeep"]
+from .car_catalog import BRAND_ALIASES, CAR_MAKES, MODEL_STOP_WORDS
+
+# Backward-compatible export for existing callers.
+BRANDS = CAR_MAKES
 
 def canonical_url(url: str) -> str:
     p=urlsplit(url)
@@ -15,8 +18,9 @@ def clean_text(s: str) -> str:
 
 def normalize_brand(text: str):
     low=(text or "").lower()
-    for b in BRANDS:
-        if b.lower() in low: return b
+    for alias, canonical in sorted(BRAND_ALIASES, key=lambda x: len(x[0]), reverse=True):
+        if re.search(r"(?<![a-z0-9])"+re.escape(alias)+r"(?![a-z0-9])", low):
+            return canonical
     return None
 
 def extract_years(text: str):
@@ -116,15 +120,37 @@ def extract_labelled_date(text: str, labels: list[str]):
         if m: return m.group(1)
     return None
 
+def _fallback_model(title: str, brand: str):
+    if not title or not brand:return None
+    value=re.sub(r"\b20\d{2}\b|\b\d{1,2}[,.]?\d{3,6}\s*km?s?\b", " ", title, flags=re.I)
+    value=re.sub(re.escape(brand), " ", value, flags=re.I)
+    value=re.sub(r"[|:/,·()\[\],]+", " ", value)
+    tokens=[t.strip(".-") for t in clean_text(value).split() if t.strip(".-")]
+    candidates=[]
+    for token in tokens:
+        low=token.lower()
+        if low in MODEL_STOP_WORDS:break
+        if re.fullmatch(r"(?:rs|inr|₹)?\d+(?:\.\d+)?[lL]?", token, re.I):continue
+        if re.search(r"[A-Za-z]", token) or re.search(r"\d", token):
+            candidates.append(token)
+        if len(candidates)>=3:break
+    return " ".join(candidates) if candidates else None
+
 def normalize_model(title: str, body: str):
     s=clean_text(f"{title} {body}"); brand=normalize_brand(s)
     if not brand: return None,None,None
     low=s.lower()
-    models=["c-class","c 220d","c220d","gla","glc","a-class","a 200","e-class","e 200","x1","x3","x5","2 series","3 series","5 series","q3","q5","a4","a6","xc40","xc60","s60","ex40","ex30","countryman","q8","evoque","f-pace","discovery sport","es 300h","nx","macan","cayenne","compass"]
-    model=next((m for m in models if m in low),None)
+    known_models=[
+        "c-class","c 220d","c220d","gla","glc","a-class","a 200","e-class","e 200",
+        "x1","x3","x5","2 series","3 series","5 series","q3","q5","a4","a6",
+        "xc40","xc60","s60","ex40","ex30","countryman","q8","evoque","f-pace",
+        "discovery sport","es 300h","nx","macan","cayenne","compass"
+    ]
+    model=next((m for m in known_models if re.search(r"(?<![a-z0-9])"+re.escape(m)+r"(?![a-z0-9])",low)),None)
     if model: model=model.upper() if model in {"x1","x3","x5","q3","q5","q8","a4","a6","nx"} else model.title()
+    if not model:model=_fallback_model(title,brand)
     variant=None
-    m=re.search(r"\b(progressive|avantgarde(?: edition)?|amg line|m sport|premium plus|technology|ultimate|inscription|jcw|quattro|4matic|shadow edition|prime)\b",s,re.I)
+    m=re.search(r"\b(progressive|avantgarde(?: edition)?|amg line|m sport|premium plus|technology|ultimate|inscription|jcw|quattro|4matic|shadow edition|prime|vxi|zxi|sxi|sx\(o\)|sportz|asta|alpha|delta|gtx?|ax[357])\b",s,re.I)
     if m: variant=m.group(1)
     return brand,model,variant
 
