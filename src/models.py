@@ -24,6 +24,7 @@ class Vehicle:
     location: Optional[str]=None
     certification: Optional[str]=None
     condition_signal: Optional[str]=None
+    image_urls: list[str]=field(default_factory=list)
     status_text: Optional[str]=None
     crawled_at: str=field(default_factory=lambda: datetime.utcnow().isoformat())
     final_url: Optional[str]=None
@@ -43,6 +44,4 @@ class Vehicle:
     opportunity_score: Optional[float]=None
     opportunity_class: Optional[str]=None
     verification_notes: list[str]=field(default_factory=list)
-
-    def to_dict(self):
-        return asdict(self)
+    def to_dict(self):return asdict(self)
