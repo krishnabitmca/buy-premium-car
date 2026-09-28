@@ -130,6 +130,10 @@ def _fallback_model(title: str, brand: str):
     for token in tokens:
         low=token.lower()
         if low in MODEL_STOP_WORDS:break
+        # Trim/variant codes are often uppercase short codes (SX, XZA, AX7).
+        # Stop once a plausible base model token has already been captured.
+        if candidates and re.fullmatch(r"[A-Z]{1,4}[0-9A-Z+()\-]{0,4}", token) and len(token) <= 6:
+            break
         if re.fullmatch(r"(?:rs|inr|₹)?\d+(?:\.\d+)?[lL]?", token, re.I):continue
         if re.search(r"[A-Za-z]", token) or re.search(r"\d", token):
             candidates.append(token)
