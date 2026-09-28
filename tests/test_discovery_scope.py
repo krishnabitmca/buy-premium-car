@@ -10,8 +10,8 @@ def test_discovery_is_india_wide_and_not_city_whitelisted():
     })
     assert '"Hyundai" "used car" India' in queries
     assert '"BMW" "demo car" India' in queries
-    assert '"Hyundai" "used car" "Bengaluru"' in queries
-    assert '"BMW" "demo car" "Jaipur"' in queries
+    assert '"used car" "Bengaluru"' in queries
+    assert '"demo car" "Jaipur"' in queries
 
 
 def test_city_discovery_is_not_multiplied_by_brand_count():
