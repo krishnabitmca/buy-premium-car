@@ -118,11 +118,10 @@ def _find_user_by_token(token):
 def _find_user_by_email(email):
     rows = _supabase_request(
         "GET",
-        f"deal_watch_users?email=eq.{email.replace('\\', '\\\\').replace(',', '%2C')}"
+        f"deal_watch_users?email=eq.{quote(email, safe='')}"
         "&select=user_id,email,phone_e164,status,access_token_hash",
     )
     return rows[0] if rows else None
-
 
 def _read_json(handler):
     length = int(handler.headers.get("Content-Length", "0"))
