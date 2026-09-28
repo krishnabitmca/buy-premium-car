@@ -79,7 +79,7 @@ search:
   - Jodhpur
   - Udaipur
   - Goa
-  city_hints_per_brand: 4
+  city_hints_per_run: 12
   brands:
   - Maruti Suzuki
   - Hyundai
