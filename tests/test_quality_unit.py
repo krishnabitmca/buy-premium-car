@@ -84,7 +84,7 @@ def base_vehicle(**overrides):
         sold_signal=False, comparable_count=0, comparable_median_lakh=None,
         comparable_low_lakh=None, comparable_high_lakh=None,
         discount_vs_comparable_pct=None, km_per_year=None,
-        opportunity_score=None, opportunity_class=None, verification_notes=[],
+        opportunity_score=None, opportunity_class=None, price_delta_pct=None, verification_notes=[],
     )
     data.update(overrides)
     return SimpleNamespace(**data)
