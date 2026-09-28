@@ -8,3 +8,25 @@ def test_extractors():
     brand,model,variant=normalize_model("BMW X1 M Sport",text)
     assert brand=="BMW"
     assert model=="X1"
+
+def test_mainstream_make_and_unlisted_model_are_supported():
+    brand,model,variant=normalize_model(
+        "2024 Hyundai Creta SX(O)",
+        "2024 Hyundai Creta SX(O) Petrol Automatic 12,000 km ₹18.5 lakh Bengaluru"
+    )
+    assert brand=="Hyundai"
+    assert model=="Creta"
+
+    brand,model,variant=normalize_model(
+        "2023 Maruti Suzuki Fronx Delta",
+        "2023 Maruti Suzuki Fronx Delta Petrol 9,000 km ₹10.25 lakh Pune"
+    )
+    assert brand=="Maruti Suzuki"
+    assert model=="Fronx"
+
+    brand,model,variant=normalize_model(
+        "2022 Tata Harrier XZA",
+        "2022 Tata Harrier XZA Diesel 32,000 km ₹17 lakh Jaipur"
+    )
+    assert brand=="Tata"
+    assert model=="Harrier"
