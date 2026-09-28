@@ -57,7 +57,7 @@ def test_buyer_discovery_filter_and_evidence_flow(dashboard_url):
         assert page.locator("#modal.show").count() == 1
         assert page.locator("#mTitle").inner_text() == "Audi Q3"
         assert page.locator(".modal-grid .kv").count() >= 9
-        page.locator(".close").click()
+        page.locator("#modal .close").click()
         assert page.locator("#modal.show").count() == 0
         browser.close()
 
