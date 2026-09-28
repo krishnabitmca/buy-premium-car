@@ -1,0 +1,69 @@
+market:
+  country: India
+  currency: INR
+  max_price_lakh: 40.0
+  max_age_years: 4
+  reference_date: null
+  mileage_preference_km: 50000
+  high_mileage_km_per_year: 18000
+  max_discovery_results_per_query: 8
+  max_urls_per_source: 6
+  max_discovered_sources_per_run: 20
+  min_comparables_for_price_call: 4
+  material_price_change_pct: 2.0
+  bargain_discount_vs_comparables_pct: 10.0
+  exceptional_discount_vs_comparables_pct: 15.0
+  low_mileage_km: 20000
+  low_mileage_age_years: 4
+  max_detail_pages_per_source: 40
+output:
+  database_path: data/cars.sqlite
+  discovered_sources_path: data/discovered_sources.csv
+  latest_report_path: reports/latest.md
+  run_report_dir: reports
+  candidates_csv: reports/candidates.csv
+  dashboard_json_path: data/latest.json
+search:
+  engines:
+  - bing
+  - brave
+  - duckduckgo
+  - google
+  queries_per_brand: 2
+  cities:
+  - Bangalore
+  - Mumbai
+  - Delhi NCR
+  - Hyderabad
+  - Pune
+  - Chennai
+  - Kolkata
+  - Ahmedabad
+  - Chandigarh
+  - Jaipur
+  - Kochi
+  - Coimbatore
+  brands:
+  - Mercedes-Benz
+  - BMW
+  - Audi
+  - Volvo
+  - Lexus
+  - Jaguar
+  - Land Rover
+  - MINI
+  - Porsche
+  - Jeep
+  intent_terms:
+  - used car
+  - demo car
+  - certified pre owned
+  - approved used
+  - pre owned luxury car
+  - dealer used car
+network:
+  user_agent: PremiumCarDealRadar/0.1 (research crawler)
+  request_timeout_seconds: 30
+  polite_delay_seconds: 1.0
+  max_concurrency: 3
+  vehicle_link_pattern: /(?:pre-owned-cars|demo-cars|used-car-details|used/|pre-owned|used|demo)[^?#]*
