@@ -43,13 +43,16 @@ def car_constraints(intent: DealIntent, listing: ListingSnapshot):
         if max_owners is None:return False,"owner count is not verified"
         if max_owners > requested_owners:return False,"owner count exceeds your limit"
     for label,key in (("make","make"),("model","model"),("fuel","fuel"),("transmission","transmission")):
-        desired=attrs_intent=attrs.get(f"intent_{key}")
+        desired=intent.must_have.get(f"intent_{key}")
         if desired and not _contains(attrs.get(key) or listing.title, desired):
             return False,f"{label} does not match"
-    preferred=_text(attrs.get("preferred_location"))
+    preferred=_text(intent.location)
     actual_location=_text(listing.location)
     if preferred and actual_location and preferred.lower() not in actual_location.lower():
+        # Location is a hard constraint only when the listing exposes a conflicting
+        # concrete location. Unknown location is handled as an evidence risk.
         return False,f"listing location does not match {preferred}"
+
     return True,None
 
 def watch_to_intent(watch: dict) -> DealIntent:
