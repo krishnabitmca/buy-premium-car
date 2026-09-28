@@ -48,8 +48,9 @@ def main():
     report_path=settings.output["latest_report_path"];dated_path=str(Path(settings.output["run_report_dir"])/f"run-{settings.market['reference_date']}.md")
     render_report(dated_path,settings.market["reference_date"],changed,new_sources,negotiation_band);render_report(report_path,settings.market["reference_date"],changed,new_sources,negotiation_band)
     write_csv(settings.output["candidates_csv"],changed,negotiation_band)
-    write_dashboard_json(settings.output.get("dashboard_json_path","data/latest.json"),settings.market["reference_date"],changed,new_sources,negotiation_band,stats={"vehicles_seen":len(vehicles),"live_under_budget":len(filtered),"changed":len(changed),"opportunities":sum(v.opportunity_class in {"exceptional","bargain"} for v in changed),"new_sources":len(new_sources)})
-    opportunities=sum(v.opportunity_class in {"exceptional","bargain"} for v in changed);conn.execute("UPDATE run_history SET finished_at=?,vehicles_seen=?,live_vehicles=?,opportunities=?,new_sources=? WHERE run_id=?",(datetime.now(timezone.utc).isoformat(),len(vehicles),len(filtered),opportunities,len(new_sources),run_id));conn.commit();conn.close()
+    current_opportunities=sum(v.opportunity_class in {"exceptional","bargain"} for v in filtered)
+    write_dashboard_json(settings.output.get("dashboard_json_path","data/latest.json"),settings.market["reference_date"],filtered,new_sources,negotiation_band,stats={"vehicles_seen":len(vehicles),"live_under_budget":len(filtered),"changed":len(changed),"opportunities":current_opportunities,"new_sources":len(new_sources)})
+    opportunities=current_opportunities;conn.execute("UPDATE run_history SET finished_at=?,vehicles_seen=?,live_vehicles=?,opportunities=?,new_sources=? WHERE run_id=?",(datetime.now(timezone.utc).isoformat(),len(vehicles),len(filtered),opportunities,len(new_sources),run_id));conn.commit();conn.close()
     print(f"vehicles={len(vehicles)} live_under_budget={len(filtered)} changed={len(changed)} new_sources={len(new_sources)} opportunities={opportunities}")
 
 if __name__=="__main__":main()
