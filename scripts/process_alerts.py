@@ -66,11 +66,15 @@ def main():
                 if not pref.get("enabled"):continue
                 channel=pref.get("channel")
                 event_type="deal_match"
-                existing=sb_request("GET",f"alert_events?select=alert_id&watch_id=eq.{watch['watch_id']}&listing_id=eq.{evaluation.listing_id}&channel=eq.{channel}&event_type=eq.{event_type}&limit=1")
-                if existing:continue
+                existing=sb_request("GET",f"alert_events?select=alert_id,status&watch_id=eq.{watch['watch_id']}&listing_id=eq.{evaluation.listing_id}&channel=eq.{channel}&event_type=eq.{event_type}&limit=1")
                 payload={"vehicle":vehicle,"evaluation":{"match_score":evaluation.match_score,"deal_score":evaluation.deal_score,"confidence":evaluation.confidence,"reasons":evaluation.reasons,"risks":evaluation.risks}}
-                row=sb_request("POST","alert_events",{"user_id":watch["user_id"],"watch_id":watch["watch_id"],"listing_id":evaluation.listing_id,"channel":channel,"event_type":event_type,"status":"pending","payload":payload},"return=representation")
-                alert_id=row[0]["alert_id"]
+                if existing:
+                    if existing[0]["status"] in {"sent","pending"}:continue
+                    alert_id=existing[0]["alert_id"]
+                    sb_request("PATCH",f"alert_events?alert_id=eq.{alert_id}",{"status":"pending","payload":payload,"error_message":None})
+                else:
+                    row=sb_request("POST","alert_events",{"user_id":watch["user_id"],"watch_id":watch["watch_id"],"listing_id":evaluation.listing_id,"channel":channel,"event_type":event_type,"status":"pending","payload":payload},"return=representation")
+                    alert_id=row[0]["alert_id"]
                 try:
                     title=f"{vehicle.get('brand','')} {vehicle.get('model','')}".strip()
                     price=f"₹{float(vehicle.get('price_lakh') or 0):.2f}L"
