@@ -5,7 +5,8 @@ import threading
 from pathlib import Path
 
 import pytest
-from playwright.sync_api import sync_playwright
+playwright = pytest.importorskip("playwright.sync_api", reason="Playwright is required only for E2E tests")
+sync_playwright = playwright.sync_playwright
 
 
 pytestmark = pytest.mark.e2e
