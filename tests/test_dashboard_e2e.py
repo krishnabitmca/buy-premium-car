@@ -44,7 +44,7 @@ def test_buyer_discovery_filter_and_evidence_flow(dashboard_url):
         page.goto(dashboard_url, wait_until="networkidle")
 
         assert not page_errors, "Dashboard JavaScript error: " + " | ".join(page_errors)
-        assert page.title() == "Premium Car Deal Radar"
+        assert page.title() == "Used & Demo Car Deal Radar"
         assert page.locator(".card").count() == 3
         assert page.locator(".photo img").count() >= 2
         assert page.locator("#resultCount").inner_text().startswith("3 result")
