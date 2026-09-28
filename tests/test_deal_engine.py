@@ -35,3 +35,16 @@ def test_same_engine_supports_automotive():
                               fair_value=4000000, availability="live")
     result = GenericDealEngine([live_listing]).evaluate(intent, listing)
     assert result.eligible and result.deal_score == 40.0
+
+
+def test_age_constraints_are_optional_and_generic():
+    intent=DealIntent(intent_id="i-age",category="automotive",query="car",min_age_years=2,max_age_years=5)
+    listing=ListingSnapshot(listing_id="l-age",category="automotive",title="Car",price=100,
+                            attributes={"age_years":3},availability="live",fair_value=110)
+    def age_constraint(i,l):
+        age=l.attributes.get("age_years")
+        if i.min_age_years is not None and age < i.min_age_years:return False,"below minimum age"
+        if i.max_age_years is not None and age > i.max_age_years:return False,"above maximum age"
+        return True,None
+    result=GenericDealEngine([age_constraint]).evaluate(intent,listing)
+    assert result.eligible
