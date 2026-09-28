@@ -137,7 +137,7 @@ def _fallback_model(title: str, brand: str):
     return " ".join(candidates) if candidates else None
 
 def normalize_model(title: str, body: str):
-    s=clean_text(f"{title} {body}"); brand=normalize_brand(s)
+    s=clean_text(f"{title} {body}"); brand=normalize_brand(title) or normalize_brand(body)
     if not brand: return None,None,None
     low=s.lower()
     known_models=[
