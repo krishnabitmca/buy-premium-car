@@ -2,8 +2,8 @@ market:
   country: India
   currency: INR
   # Radar defaults, not product-wide customer limits.
-  max_price_lakh: 40.0
-  max_age_years: 4
+  # Dashboard defaults only; not crawler ingestion limits.\n  default_dashboard_budget_lakh: 40.0\n  default_dashboard_age_years: 4.0
+  # Legacy scoring/candidate reference; customer watches may override age.
   reference_date: null
   mileage_preference_km: 50000
   high_mileage_km_per_year: 18000
