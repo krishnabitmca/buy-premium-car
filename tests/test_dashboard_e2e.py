@@ -38,9 +38,12 @@ def test_buyer_discovery_filter_and_evidence_flow(dashboard_url):
             else:
                 route.continue_()
 
+        page_errors = []
+        page.on("pageerror", lambda error: page_errors.append(str(error)))
         page.route("**/*", route_images)
         page.goto(dashboard_url, wait_until="networkidle")
 
+        assert not page_errors, "Dashboard JavaScript error: " + " | ".join(page_errors)
         assert page.title() == "Premium Car Deal Radar"
         assert page.locator(".card").count() == 3
         assert page.locator(".photo img").count() >= 2
