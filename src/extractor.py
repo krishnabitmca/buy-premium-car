@@ -13,7 +13,7 @@ def extract_image_urls(html,base_url,limit=8):
         u=urljoin(base_url,str(raw).strip());p=urlparse(u)
         if p.scheme not in {"http","https"}:return
         low=u.lower()
-        if any(x in low for x in ("logo","icon","avatar","favicon","placeholder","spinner","loader","youtube","playstore","apple-store")):score-=6
+        if any(x in low for x in ("logo","icon","avatar","favicon","placeholder","spinner","loader","youtube","playstore","apple-store")):return
         if any(x in low for x in (".jpg",".jpeg",".png",".webp",".avif")):score+=2
         key=u.split("#",1)[0]
         if key in seen:return
@@ -83,15 +83,15 @@ def extract_page(source_name,source_tier,url,result):
     if len(body)<80:return None
     sold_signal,sold_reason=extract_status(f"{title} {body}");years=extract_years(body);year_m=years[0] if years else None
     for label in ["manufactur(?:ing)? year","year of manufacturing","mfg","built"]:
-        m=re.search(label+r"[^0-9]{0,25}(20d{2})",body,re.I)
+        m=re.search(label+r"[^0-9]{0,25}(20\d{2})",body,re.I)
         if m:year_m=int(m.group(1));break
     year_r=None
     for label in ["registration year","date of registration","registered"]:
-        m=re.search(label+r"[^0-9]{0,25}(20d{2})",body,re.I)
+        m=re.search(label+r"[^0-9]{0,25}(20\d{2})",body,re.I)
         if m:year_r=int(m.group(1));break
     manufacture_date=extract_labelled_date(body,["year of manufacturing","manufacturing year","manufactured","mfg","built"]);registration_date=extract_labelled_date(body,["date of registration","registration year","registered"])
     brand,model,variant=normalize_model(title,body);km=extract_mileage(body);price=extract_price_lakh(body);owners=extract_owner(body);fuel=extract_fuel(body);transmission=extract_transmission(body);location=None
-    m=re.search(r"(?:location|car available at)s*[:-]?s*([A-Za-z][A-Za-z .,&/-]{2,60})",body,re.I)
+    m=re.search(r"(?:location|car available at)\s*[:\-]?\s*([A-Za-z][A-Za-z .,&/-]{2,60})",body,re.I)
     if m:location=clean_text(m.group(1))
     if not brand or not model or (km is None and price is None):return None
     notes=[]
