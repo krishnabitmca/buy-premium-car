@@ -192,7 +192,7 @@ return'<article class="card"><div class="photo">'+photo(v,i)+'<div class="shade"
 function stepGallery(i,d){const a=imgList(D.vehicles[i]);if(!a.length)return;galleryState[i]=((galleryState[i]||0)+d+a.length)%a.length;render()}
 function render(){
  const locationTerm=(document.getElementById('locationSearch')?.value||'').trim().toLowerCase();
- const term=[(q.value||'').trim(),locationTerm].filter(Boolean).join(' ').toLowerCase();
+ const queryTerm=(q.value||'').trim().toLowerCase();
  const ageYears=document.getElementById('searchAge')?.value===''?null:Number(document.getElementById('searchAge')?.value);
  if(ageYears!==null){const minYearValue=new Date().getFullYear()-ageYears; if(!yearMin.value || Number(yearMin.value)<minYearValue) yearMin.value=String(minYearValue);}
  const minPrice=priceMin.value===''?null:Number(priceMin.value);
@@ -204,10 +204,12 @@ function render(){
  const minGap=gapMin.value===''?null:Number(gapMin.value);
  let rows=D.vehicles.filter(v=>{
    const hay=[v.brand,v.model,v.variant,v.location,v.fuel,v.transmission,v.source,v.title].map(x=>String(x||'')).join(' ').toLowerCase();
+   const queryMatch=!queryTerm||queryTerm.split(/\s+/).filter(Boolean).every(token=>hay.includes(token));
+   const locationMatch=!locationTerm||locationTerm.split(/\s+/).filter(Boolean).every(token=>hay.includes(token));
    const verified=v.live_verified&&v.data_consistent;
    const cert=String(v.certification||'').trim();
    const conditionValue=vehicleCondition(v);
-   return (!term||hay.includes(term))
+   return queryMatch&&locationMatch
      &&(!brand.value||v.brand===brand.value)
      &&(!model.value||v.model===model.value)
      &&(!city.value||v.location===city.value)
