@@ -29,7 +29,10 @@ def _response(handler,status,payload):
     handler.wfile.write(raw)
 
 def _vehicle_condition(v):
-    return str(v.get("condition_signal") or "").lower() or ("demo" if "demo" in (str(v.get("variant",""))+" "+str(v.get("source",""))).lower() else "used")
+    explicit=str(v.get("condition_signal") or "").strip().lower()
+    if explicit in {"used","demo","demonstrator"}:
+        return "demo" if explicit=="demonstrator" else explicit
+    return "demo" if "demo" in (str(v.get("variant",""))+" "+str(v.get("source",""))).lower() else "used"
 
 def _match(v,query,budget_min,budget_max,max_age,destination):
     hay=" ".join(str(v.get(k) or "") for k in ("brand","model","variant","location","fuel","transmission","source")).lower()
