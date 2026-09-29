@@ -117,7 +117,7 @@ def _json_objects(html: str) -> list[Any]:
     # whitespace around the JSON-LD script type. Keep extraction tolerant so
     # valid structured-data blocks are not silently discarded.
     values=[]
-    pattern = r'<script[^>]*?type\\s*=\\s*["\\\']application/ld\\+json(?:;[^"\\\']*)?["\\\'][^>]*>(.*?)</script>'
+    pattern = r'<script[^>]*?type\s*=\s*["\']application/ld\+json(?:;[^"\']*)?["\'][^>]*>(.*?)</script>'
     for match in re.finditer(pattern,html,re.I|re.S):
         raw=re.sub(r"<!--|-->","",match.group(1)).strip()
         try:
