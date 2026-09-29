@@ -49,7 +49,7 @@
 let inventory=[],shown=[],condition='both',liveAt=null,sourceStatus=[];
 const $=id=>document.getElementById(id), money=x=>x==null?'—':'₹'+Number(x).toFixed(2)+'L', esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const age=v=>v.mfg_year?new Date().getFullYear()-Number(v.mfg_year):99;
-function conditionOf(v){const s=String(v.condition_signal||'').toLowerCase();return s||(String(v.variant||'')+' '+String(v.source||'')).toLowerCase().includes('demo')?'demo':'used'}
+function conditionOf(v){const s=String(v.condition_signal||'').toLowerCase();if(s==='used')return 'used';if(s==='demo'||s==='demonstrator')return 'demo';return (String(v.variant||'')+' '+String(v.source||'')).toLowerCase().includes('demo')?'demo':'used'}
 document.querySelectorAll('#condition button').forEach(b=>b.onclick=()=>{condition=b.dataset.value;document.querySelectorAll('#condition button').forEach(x=>x.classList.toggle('active',x===b))});
 
 async function loadCatalog(){
