@@ -51,7 +51,7 @@ def test_carcanner_search_first_journey(dashboard_url):
         assert page.locator("#budgetMin").count() == 1
         assert page.locator("#budgetMax").count() == 1
         assert page.locator("#searchCars").count() == 1
-        assert "all India" in page.locator(".scope").inner_text().lower()
+        assert "all india" in page.locator(".scope").inner_text().lower()
         assert page.locator(".card").count() == 3
 
         page.locator("#q").fill("Audi Q3")
