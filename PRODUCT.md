@@ -1,17 +1,51 @@
 # CarScanner Product Definition
 
+## Product name
+
+**CarScanner**
+
+CarScanner is the system name and customer-facing product name.
+
+## Core promise
+
+**Find the lowest and best possible rate for a used or demonstrator car across the marketplaces where that vehicle is listed.**
+
+CarScanner should search across available automotive marketplaces and seller sources, identify comparable vehicles, and help the buyer understand which listing represents the strongest price opportunity based on available evidence.
+
+"Lowest price" and "best possible rate" must be treated as evidence-based concepts, not absolute guarantees. CarScanner can only compare the inventory and evidence it has discovered.
+
 ## Vision
-Help an Indian car buyer find the right premium used or demonstrator car wherever the deal is, while making the trade-offs of buying from another city understandable.
+
+Help an Indian car buyer find the right premium used or demonstrator car wherever the deal is, with the strongest available price intelligence across marketplaces and clear understanding of the trade-offs of buying from another city.
 
 ## Product category
-CarScanner is a search and decision-support aggregator. It aggregates vehicle listings and supporting market evidence from multiple sources. It does not own inventory, negotiate on behalf of sellers, or present itself as the seller.
+
+CarScanner is a **vehicle search, price-comparison, and decision-support aggregator**.
+
+It aggregates vehicle listings and supporting market evidence from multiple sources. It does not own inventory, negotiate on behalf of sellers, or present itself as the seller.
 
 ## Primary user problem
-A buyer may know approximate car type/brand/model, budget, whether used or demonstrator is acceptable, and where they live or intend to register the vehicle. But the best available deal may be outside their city or state.
 
-Traditional local search can hide those opportunities. CarScanner should expose them and explain the practical implications.
+A buyer may know:
+- approximate car type/brand/model
+- budget
+- whether used or demonstrator is acceptable
+- where they live or intend to register the vehicle
 
-## Core journey
+The same or similar vehicle may be listed on multiple marketplaces, by dealers, or through other seller sources at different prices.
+
+The buyer should not have to manually search every marketplace to determine:
+- where the vehicle is listed
+- what the asking prices are
+- whether the listings represent the same vehicle
+- which asking price is lowest
+- whether the lowest asking price is actually a strong deal
+- whether a cheaper vehicle in another city/state is worth considering
+
+CarScanner exists to perform that comparison.
+
+## Core customer journey
+
 First search should be lightweight:
 - Condition: Used / Demonstrator
 - Brand
@@ -21,24 +55,65 @@ First search should be lightweight:
 
 Optional refinements appear after results.
 
-Results should help answer:
-1. What cars are available?
-2. Why is this car relevant?
-3. Is the price interesting relative to the market?
-4. How much evidence do we have?
-5. Where is the vehicle?
-6. What does buying it from there imply?
-7. Where can I see the original listing?
+The first result experience should prioritize:
+1. Lowest comparable price
+2. Best price opportunity based on evidence
+3. Market/reference price
+4. Vehicle location
+5. Vehicle age, mileage, ownership and variant
+6. Number and quality of corroborating sources
+7. Local vs interstate purchase context
+8. Original marketplace/seller listing
 
-## Evidence hierarchy
-Prefer, where available:
-1. Current original seller/listing evidence
-2. Multiple corroborating sources
-3. Market comparison evidence
-4. Historical observations clearly labelled as historical
-5. Model-level assumptions clearly labelled as assumptions
+## Lowest price vs best deal
+
+These are deliberately different concepts.
+
+### Lowest listed price
+
+The lowest observed asking price among comparable vehicles currently discovered by CarScanner.
+
+This is a factual comparison subject to:
+- inventory coverage
+- listing freshness
+- vehicle identity accuracy
+- variant/condition differences
+
+### Best possible rate
+
+The strongest price opportunity CarScanner can identify after considering relevant evidence such as:
+- comparable market prices
+- vehicle age
+- mileage
+- ownership
+- exact variant/trim
+- condition/evidence
+- source corroboration
+- price history where available
+- seller/source quality
+- location and potential interstate costs
+- confidence in vehicle/listing identity
+
+CarScanner must not present a derived "best rate" as a guaranteed final transaction price.
+
+## Marketplace comparison
+
+A core capability is **cross-marketplace comparison**.
+
+When the same vehicle appears on multiple sources, CarScanner should attempt to identify the canonical vehicle and group its listings.
+
+For example:
+
+| Vehicle | Marketplace A | Marketplace B | Marketplace C |
+|---|---:|---:|---:|
+| Same identified vehicle | ₹38.50L | ₹37.75L | ₹39.00L |
+
+The buyer should be able to see that ₹37.75L is the lowest observed listing for that identified vehicle, rather than treating the three listings as three independent cars.
+
+If identity cannot be established confidently, CarScanner should compare them as comparable vehicles and clearly label the confidence.
 
 ## Search geography
+
 The default inventory search scope is India-wide.
 
 Destination is used for context such as:
@@ -50,7 +125,20 @@ Destination is used for context such as:
 
 A distance filter may exist later as an explicit user preference, but it must not silently turn destination into a hard inventory boundary.
 
+A better deal in another city must remain discoverable.
+
+## Evidence hierarchy
+
+Prefer, where available:
+1. Current original seller/listing evidence
+2. Multiple marketplace listings for the same vehicle
+3. Multiple corroborating sources
+4. Market comparison evidence
+5. Historical observations clearly labelled as historical
+6. Model-level assumptions clearly labelled as assumptions
+
 ## Deal interpretation
+
 A lower asking price does not automatically mean a better deal.
 
 Deal intelligence may consider:
@@ -63,23 +151,41 @@ Deal intelligence may consider:
 - condition/evidence
 - price history when available
 - seller/source quality
+- location and potential acquisition cost
 - confidence
 
-The UI should distinguish facts, derived signals, and assumptions.
+The UI should distinguish:
+- **Observed fact**
+- **Calculated comparison**
+- **Derived deal signal**
+- **Assumption**
 
 ## Coverage philosophy
+
 PAN-India coverage is built incrementally.
 
-A source is not considered covered merely because its city/category is represented in a static list. Coverage should be measurable by:
-- source
+CarScanner should measure coverage by:
+- marketplace/source
 - city/region
 - brand/model
 - listing freshness
 - successful crawl rate
-- deduplication/identity quality
+- vehicle identity quality
+- deduplication quality
 
-## Non-goals
-CarScanner should not initially become:
+CarScanner must never imply complete PAN-India marketplace coverage if only a subset of sources has been indexed.
+
+## Product boundaries
+
+CarScanner should initially remain focused on:
+- used cars
+- demonstrator cars
+- cross-marketplace discovery
+- price comparison
+- vehicle/deal evidence
+- buyer decision support
+
+It should not initially become:
 - a full dealership marketplace
 - a financing platform
 - an insurance marketplace
@@ -88,14 +194,20 @@ CarScanner should not initially become:
 - a system that claims certainty when evidence is weak
 
 ## Product success signals
-Early success should focus on:
-- useful search completion
-- relevant results per search
-- source coverage
-- fresh listing rate
-- deduplication quality
+
+The most important early signals are:
+- percentage of searches returning useful comparable vehicles
+- percentage of vehicles with multiple source observations
+- lowest-price discovery rate
+- cross-marketplace match/deduplication accuracy
+- listing freshness
+- price-comparison accuracy
 - evidence completeness
-- click-through to original listings
+- click-through to original marketplace/seller
 - engagement with cross-city opportunities
 
-Do not optimize only for number of listings.
+Do not optimize only for the number of listings.
+
+## Product principle
+
+**CarScanner should reduce the work of searching many marketplaces into one evidence-backed car-price comparison experience.**
