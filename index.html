@@ -22,17 +22,49 @@
 .watch-toggle{display:flex;justify-content:center;margin:0 0 15px}.watch-btn{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:12px;padding:11px 16px;font-weight:850;cursor:pointer;box-shadow:var(--shadow)}
 .watch{display:none;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:17px;margin-bottom:16px}.watch.show{display:block}.watch-head{display:flex;justify-content:space-between;gap:15px;align-items:flex-start;margin-bottom:13px}.watch-head h2{margin:0;font-size:18px}.watch-head p{margin:4px 0 0;color:var(--muted);font-size:11px;line-height:1.5}.watch-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.field{min-width:0}.field label{display:block;font-size:9px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.06em;margin:0 0 5px}.field input,.field select{width:100%;min-width:0}.field.full{grid-column:span 2}.watch-actions{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:13px;flex-wrap:wrap}.watch-summary{font-size:11px;color:var(--muted);line-height:1.4}.watch-summary b{color:var(--ink)}.watch-note{font-size:10px;color:var(--muted);margin-top:8px}.watch-status{font-size:10px;font-weight:800}.watch-status.ok{color:var(--green)}.watch-status.warn{color:var(--amber)}
 @media(max-width:900px){.watch-grid{grid-template-columns:1fr 1fr}}@media(max-width:560px){.watch-grid{grid-template-columns:1fr}.field.full{grid-column:span 1}.watch-head{flex-direction:column}}.watch-consents{display:flex;gap:14px;flex-wrap:wrap;margin-top:5px}.watch-consent{display:flex;gap:7px;align-items:flex-start;font-size:10px;color:var(--muted);line-height:1.4}.watch-consent input{width:auto;margin-top:2px}.manage-list{display:grid;gap:9px}.watch-row{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fafbfc;display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.watch-row h3{margin:0 0 4px;font-size:13px}.watch-meta{font-size:10px;color:var(--muted);line-height:1.5}.watch-badge{display:inline-block;border-radius:999px;padding:4px 7px;background:#edf0f4;font-size:9px;font-weight:800;text-transform:uppercase;margin-right:5px}.watch-badge.active{color:var(--green);background:var(--greenbg)}.watch-badge.paused{color:var(--amber);background:var(--amberbg)}.watch-badge.archived{color:var(--red);background:#fef2f2}.watch-controls{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.watch-control{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 9px;font-size:10px;font-weight:800;cursor:pointer;color:var(--ink)}.watch-control.danger{color:var(--red)}.access-row{display:flex;gap:7px;align-items:center;margin-top:10px;flex-wrap:wrap}.access-row input{flex:1;min-width:220px}.manage-empty{padding:18px;border:1px dashed var(--line);border-radius:12px;text-align:center;color:var(--muted);font-size:11px}.manage-help{font-size:10px;color:var(--muted);line-height:1.5;margin-top:8px}@media(max-width:560px){.watch-row{flex-direction:column}.watch-controls{justify-content:flex-start}}
-</style></head>
+.search-hero{background:#fff;border:1px solid var(--line);border-radius:20px;padding:24px;margin-bottom:14px;box-shadow:var(--shadow)}.search-hero-copy{margin-bottom:17px}.eyebrow{text-transform:uppercase;letter-spacing:.08em;font-size:10px;font-weight:850;color:var(--blue);margin-bottom:6px}.search-hero h2{margin:0 0 5px;font-size:27px;letter-spacing:-.04em}.search-hero p{margin:0;color:var(--muted);font-size:12px;line-height:1.55;max-width:720px}.search-box{border:1px solid var(--line);border-radius:15px;padding:10px;background:#f8fafc}.search-main{display:grid;grid-template-columns:2fr 1.35fr .85fr .85fr auto;gap:8px;align-items:end}.search-field label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.06em;font-weight:850;color:var(--muted);margin:0 0 5px}.search-field input,.search-field select{width:100%;height:44px;border-radius:10px}.search-primary{height:44px;border:0;border-radius:10px;padding:0 18px;background:var(--navy);color:#fff;font-weight:850;cursor:pointer;white-space:nowrap}.search-actions{display:flex;justify-content:space-between;align-items:center;padding:8px 3px 1px}.link-button{border:0;background:none;color:var(--blue);font-size:10px;font-weight:850;cursor:pointer;padding:5px 2px}.search-helper{font-size:10px;color:var(--muted)}.watch-toggle{justify-content:flex-end;gap:7px;margin-bottom:14px}.watch-toggle .watch-btn{padding:9px 13px;font-size:10px}.toolbar{position:static;background:transparent;border:0;padding:0;margin-bottom:14px}.advanced-filters{margin-top:0;box-shadow:none}.content{grid-template-columns:1fr}.panel-head{background:#fff}.chip{margin-left:8px}@media(max-width:1000px){.search-main{grid-template-columns:1.6fr 1.1fr 1fr 1fr}.search-primary{grid-column:span 4}}@media(max-width:700px){.wrap{padding:18px 14px 40px}.search-hero{padding:18px}.search-main{grid-template-columns:1fr 1fr}.search-wide{grid-column:1/-1}.search-primary{grid-column:1/-1}.search-actions{align-items:flex-start;gap:8px;flex-direction:column}.watch-toggle{justify-content:stretch}.watch-toggle .watch-btn{flex:1}.content{display:block}}</style></head>
 <body><div class="wrap">
 <header><div class="brand"><div class="logo">🚘</div><div><h1>Used &amp; Demo Car Deal Radar</h1><div class="sub">Search India-wide used and demo cars across makes, models and cities — then verify before you travel or pay.</div></div></div>
 <div class="status" id="status"><div><span class="dot"></span><b>Loading latest crawl</b></div><div class="muted small" id="status2">data/latest.json</div></div></header>
 
-<section class="hero"><div class="hero-row"><div><h2>What deserves your attention today?</h2><p>Used and demo cars are surfaced using asking price, comparable market evidence, mileage, ownership and verification signals. The dashboard is designed to answer <b>what to inspect next</b>, not just display a spreadsheet.</p></div><div class="hero-stat"><b id="heroCount">—</b><span>cars currently surfaced</span></div></div></section>
+<section class="search-hero">
+  <div class="search-hero-copy">
+    <div class="eyebrow">India-wide used & demo cars</div>
+    <h2>Find your next car</h2>
+    <p>Search by make or model, choose where you want to buy, set a budget and we’ll show the matching cars we have found.</p>
+  </div>
+  <div class="search-box">
+    <div class="search-main">
+      <div class="search-field search-wide">
+        <label for="q">What car?</label>
+        <input id="q" placeholder="BMW X3, Mercedes GLA, Toyota Fortuner…">
+      </div>
+      <div class="search-field">
+        <label for="locationSearch">Where?</label>
+        <input id="locationSearch" placeholder="Bengaluru or anywhere in India">
+      </div>
+      <div class="search-field compact">
+        <label for="priceMax">Budget up to</label>
+        <select id="priceMax">
+          <option value="">Any budget</option><option value="10">₹10L</option><option value="15">₹15L</option><option value="20">₹20L</option><option value="25">₹25L</option><option value="30">₹30L</option><option value="40">₹40L</option><option value="50">₹50L</option><option value="75">₹75L</option><option value="100">₹1Cr</option>
+        </select>
+      </div>
+      <div class="search-field compact">
+        <label for="searchAge">Car age</label>
+        <select id="searchAge">
+          <option value="">Any age</option><option value="2">Up to 2 years</option><option value="3">Up to 3 years</option><option value="4">Up to 4 years</option><option value="5">Up to 5 years</option><option value="7">Up to 7 years</option><option value="10">Up to 10 years</option>
+        </select>
+      </div>
+      <button id="searchCars" type="button" class="search-primary">Search cars</button>
+    </div>
+    <div class="search-actions">
+      <button id="filterToggle" type="button" class="link-button" aria-expanded="false">More filters <span id="filterCount" class="filter-count">0</span>⌄</button>
+      <div class="search-helper">Used + demo · all makes & models · all India</div>
+    </div>
+  </div>
+</section>
 
-<section class="metrics"><div class="metric"><div class="n" id="seen">—</div><div class="l">Listings scanned</div></div><div class="metric"><div class="n" id="live">—</div><div class="l">Live & under ₹40L</div></div><div class="metric"><div class="n" id="opp">—</div><div class="l">Strong deal signals</div></div><div class="metric"><div class="n" id="verify">—</div><div class="l">Need verification</div></div><div class="metric"><div class="n" id="sources">—</div><div class="l">New sources found</div></div></section>
-
-
-<div class="watch-toggle"><button id="watchToggle" type="button" class="watch-btn">＋ Create a Car Watch</button><button id="manageToggle" type="button" class="watch-btn">My Car Watches</button></div>
+<div class="watch-toggle"><button id="watchToggle" type="button" class="watch-btn">Save this search</button><button id="manageToggle" type="button" class="watch-btn">My Car Watches</button></div>
 <section id="watchPanel" class="watch" aria-label="Create a car watch">
   <div class="watch-head">
     <div><h2>Tell us what car you want</h2><p>Every field is optional except the alert name. Set only the criteria that matter to you; the matching engine will use the rest of the information available.</p></div>
@@ -86,42 +118,37 @@
   <div id="manageStatus" class="manage-help"></div>
 </section>
 <div class="toolbar">
-<div class="filters-primary">
-  <div class="search"><input id="q" placeholder="Search make, model, city, variant, fuel or dealer…"></div>
-  <select id="brand" aria-label="Brand"><option value="">All brands</option></select>
-  <select id="model" aria-label="Model"><option value="">All models</option></select>
-  <select id="city" aria-label="City or location"><option value="">All cities / locations</option></select>
-  <button id="filterToggle" type="button" class="filter-toggle" aria-expanded="true">Filters <span id="filterCount" class="filter-count">0</span>⌄</button>
+  <div class="advanced-filters collapsed" id="advancedFilters">
+    <div class="filter-field"><label for="brand">Brand</label><select id="brand"><option value="">All brands</option></select></div>
+    <div class="filter-field"><label for="model">Model</label><select id="model"><option value="">All models</option></select></div>
+    <div class="filter-field"><label for="city">City / location</label><select id="city"><option value="">All cities / locations</option></select></div>
+    <div class="filter-field"><label for="priceMin">Price from</label><input id="priceMin" type="number" min="0" step="0.1" placeholder="₹ min (L)"></div>
+    <div class="filter-field"><label for="yearMin">Manufacture year from</label><select id="yearMin"><option value="">Any year</option></select></div>
+    <div class="filter-field"><label for="yearMax">Manufacture year to</label><select id="yearMax"><option value="">Any year</option></select></div>
+    <div class="filter-field"><label for="mileageMax">Mileage up to</label><select id="mileageMax"><option value="">Any mileage</option><option value="10000">10,000 km</option><option value="20000">20,000 km</option><option value="30000">30,000 km</option><option value="50000">50,000 km</option><option value="75000">75,000 km</option><option value="100000">1,00,000 km</option><option value="150000">1,50,000 km</option></select></div>
+    <div class="filter-field"><label for="ownersMax">Owners up to</label><select id="ownersMax"><option value="">Any owners</option><option value="1">1st owner only</option><option value="2">Up to 2 owners</option><option value="3">Up to 3 owners</option><option value="4">Up to 4 owners</option></select></div>
+    <div class="filter-field"><label for="fuel">Fuel</label><select id="fuel"><option value="">All fuels</option></select></div>
+    <div class="filter-field"><label for="transmission">Transmission</label><select id="transmission"><option value="">All transmissions</option></select></div>
+    <div class="filter-field"><label for="condition">Condition</label><select id="condition"><option value="">Used + demo</option><option value="used">Used</option><option value="demo">Demo</option></select></div>
+    <div class="filter-field"><label for="verification">Verification</label><select id="verification"><option value="">All verification states</option><option value="verified">Page verified</option><option value="needs-review">Needs verification</option></select></div>
+    <div class="filter-field"><label for="certification">Certification</label><select id="certification"><option value="">All certification states</option><option value="certified">Certified</option><option value="not-certified">Not certified / not established</option></select></div>
+    <div class="filter-field"><label for="cls">Deal signal</label><select id="cls"><option value="">All signals</option><option value="exceptional">Exceptional</option><option value="bargain">Bargain</option><option value="low-mileage-watch">Low-mileage watch</option><option value="market-watch">Market watch</option></select></div>
+    <div class="filter-field"><label for="source">Dealer / source</label><select id="source"><option value="">All sources</option></select></div>
+    <div class="filter-field"><label for="gapMin">Minimum market gap</label><select id="gapMin"><option value="">Any market gap</option><option value="0">At / below comps</option><option value="3">≥ 3% below comps</option><option value="5">≥ 5% below comps</option><option value="10">≥ 10% below comps</option><option value="15">≥ 15% below comps</option></select></div>
+    <div class="filter-field"><label for="sort">Sort by</label><select id="sort"><option value="score">Radar priority</option><option value="price">Lowest ask</option><option value="km">Lowest mileage</option><option value="discount">Largest market gap</option><option value="year">Newest cars</option></select></div>
+    <div class="filter-actions"><button id="clearFilters" type="button" class="clear-filter">Clear filters</button><span id="filterSummary" class="filter-summary">Showing all available cars</span></div>
+  </div>
 </div>
-<div id="advancedFilters" class="advanced-filters">
-  <div class="filter-field"><label for="priceMin">Price from</label><input id="priceMin" type="number" min="0" step="0.1" placeholder="₹ min (L)"></div>
-  <div class="filter-field"><label for="priceMax">Price up to</label><input id="priceMax" type="number" min="0" step="0.1" placeholder="₹ max (L)"></div>
-  <div class="filter-field"><label for="yearMin">Manufacture year from</label><select id="yearMin"><option value="">Any year</option></select></div>
-  <div class="filter-field"><label for="yearMax">Manufacture year to</label><select id="yearMax"><option value="">Any year</option></select></div>
-  <div class="filter-field"><label for="mileageMax">Mileage up to</label><select id="mileageMax"><option value="">Any mileage</option><option value="10000">10,000 km</option><option value="20000">20,000 km</option><option value="30000">30,000 km</option><option value="50000">50,000 km</option><option value="75000">75,000 km</option><option value="100000">1,00,000 km</option><option value="150000">1,50,000 km</option></select></div>
-  <div class="filter-field"><label for="ownersMax">Owners up to</label><select id="ownersMax"><option value="">Any owners</option><option value="1">1st owner only</option><option value="2">Up to 2 owners</option><option value="3">Up to 3 owners</option><option value="4">Up to 4 owners</option></select></div>
-  <div class="filter-field"><label for="fuel">Fuel</label><select id="fuel"><option value="">All fuels</option></select></div>
-  <div class="filter-field"><label for="transmission">Transmission</label><select id="transmission"><option value="">All transmissions</option></select></div>
-  <div class="filter-field"><label for="condition">Condition</label><select id="condition"><option value="">Used + demo</option><option value="used">Used</option><option value="demo">Demo</option></select></div>
-  <div class="filter-field"><label for="verification">Verification</label><select id="verification"><option value="">All verification states</option><option value="verified">Page verified</option><option value="needs-review">Needs verification</option></select></div>
-  <div class="filter-field"><label for="certification">Certification</label><select id="certification"><option value="">All certification states</option><option value="certified">Certified</option><option value="not-certified">Not certified / not established</option></select></div>
-  <div class="filter-field"><label for="cls">Signal</label><select id="cls"><option value="">All signals</option><option value="exceptional">Exceptional</option><option value="bargain">Bargain</option><option value="low-mileage-watch">Low-mileage watch</option><option value="market-watch">Market watch</option></select></div>
-  <div class="filter-field"><label for="source">Dealer / source</label><select id="source"><option value="">All sources</option></select></div>
-  <div class="filter-field"><label for="gapMin">Minimum market gap</label><select id="gapMin"><option value="">Any market gap</option><option value="0">At / below comps</option><option value="3">≥ 3% below comps</option><option value="5">≥ 5% below comps</option><option value="10">≥ 10% below comps</option><option value="15">≥ 15% below comps</option></select></div>
-  <div class="filter-field"><label for="sort">Sort results by</label><select id="sort"><option value="score">Radar priority</option><option value="price">Lowest ask</option><option value="km">Lowest mileage</option><option value="discount">Largest market gap</option><option value="year">Newest cars</option></select></div>
-  <div class="filter-actions"><button id="clearFilters" type="button" class="clear-filter">Clear all filters</button><span id="filterSummary" class="filter-summary">Showing all available cars</span></div>
-</div>
-<div class="chips"><span class="chip"><strong>Radar default</strong> ≤ ₹40L · ≤ 4 years</span><span class="chip"><strong>Scope</strong> all makes &amp; models · all India</span><span class="chip"><strong>Preference</strong> low km + 1st owner + certified/demo</span><span class="chip" id="resultCount">— results</span></div></div>
-
-<div class="content"><section class="panel"><div class="panel-head"><h2>Cars worth investigating</h2><span class="muted small">Inspect the evidence before opening the original listing</span></div><div id="cars" class="grid"></div></section>
-<aside class="side"><div class="side-section"><h3>How to read the radar</h3><div class="muted small" style="line-height:1.55"><b style="color:var(--ink)">Market gap</b> is asking price vs current comparable median in the evidence set.<br><br><b style="color:var(--ink)">Page verified</b> means the vehicle page was reachable and not marked sold/unavailable. It does not confirm physical dealer stock.<br><br><b style="color:var(--ink)">Need verification</b> flags missing, conflicting or time-sensitive facts.</div></div><div class="side-section"><h3>New sources discovered</h3><div id="sourceList"></div></div></aside></div>
-
+<div class="content"><section class="panel">
+  <div class="panel-head"><div><h2>Cars matching your search</h2><span id="filterSummaryTop" class="muted small">Search the India-wide inventory</span></div><span id="resultCount" class="chip">— results</span></div>
+  <div id="cars" class="grid"></div>
+</section></div>
 <div class="footer">India-wide used &amp; demo car radar. Research only. Before paying, confirm VIN, physical stock, manufacturing/registration dates, accident/paint history, service records, insurance, warranty, hypothecation and the full Bangalore landed cost.</div></div>
 
 <div id="modal" class="modal" onclick="if(event.target===this)closeModal()"><div class="modal-card"><div class="modal-head"><div><div id="mTitle" class="title"></div><div id="mSub" class="variant"></div></div><button class="close" onclick="closeModal()">✕</button></div><div class="modal-body" id="mBody"></div></div></div>
 
 <script>
-let D={vehicles:[],new_sources:[],stats:{}},galleryState={};
+let D={vehicles:[],new_sources:[],stats:{}},galleryState={},dashboardStats={};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=x=>x==null?'—':'₹'+Number(x).toFixed(2)+'L';
 const km=x=>x==null?'—':Number(x).toLocaleString('en-IN')+' km';
@@ -164,7 +191,10 @@ return'<article class="card"><div class="photo">'+photo(v,i)+'<div class="shade"
 '<div class="reason"><b>Why it surfaced:</b> '+esc(why.join(' · '))+'.</div><div class="actions"><button class="secondary" onclick="openModal('+i+')">Inspect evidence</button><a class="primary" href="'+esc(v.url)+'" target="_blank" rel="noopener">Open listing ↗</a></div></div></article>'}
 function stepGallery(i,d){const a=imgList(D.vehicles[i]);if(!a.length)return;galleryState[i]=((galleryState[i]||0)+d+a.length)%a.length;render()}
 function render(){
- const term=(q.value||'').trim().toLowerCase();
+ const locationTerm=(document.getElementById('locationSearch')?.value||'').trim().toLowerCase();
+ const term=[(q.value||'').trim(),locationTerm].filter(Boolean).join(' ').toLowerCase();
+ const ageYears=document.getElementById('searchAge')?.value===''?null:Number(document.getElementById('searchAge')?.value);
+ if(ageYears!==null){const minYearValue=new Date().getFullYear()-ageYears; if(!yearMin.value || Number(yearMin.value)<minYearValue) yearMin.value=String(minYearValue);}
  const minPrice=priceMin.value===''?null:Number(priceMin.value);
  const maxPrice=priceMax.value===''?null:Number(priceMax.value);
  const minYear=yearMin.value===''?null:Number(yearMin.value);
@@ -197,27 +227,30 @@ function render(){
      &&(minGap===null||(v.discount_pct!=null&&Number(v.discount_pct)>=minGap));
  });
  rows.sort((a,b)=>sort.value==='price'?(a.price_lakh||999999)-(b.price_lakh||999999):sort.value==='km'?(a.km||999999999)-(b.km||999999999):sort.value==='discount'?(b.discount_pct||-999)-(a.discount_pct||-999):sort.value==='year'?(b.mfg_year||0)-(a.mfg_year||0):(b.score||0)-(a.score||0));
- const active=[q.value,brand.value,model.value,city.value,priceMin.value,priceMax.value,yearMin.value,yearMax.value,mileageMax.value,ownersMax.value,fuel.value,transmission.value,condition.value,verification.value,certification.value,cls.value,source.value,gapMin.value].filter(Boolean).length;
+ const active=[q.value,locationTerm,brand.value,model.value,city.value,priceMin.value,priceMax.value,document.getElementById('searchAge')?.value,yearMin.value,yearMax.value,mileageMax.value,ownersMax.value,fuel.value,transmission.value,condition.value,verification.value,certification.value,cls.value,source.value,gapMin.value].filter(Boolean).length;
  filterCount.textContent=active;
  filterSummary.textContent=active?(active+' filter'+(active===1?'':'s')+' applied · '+rows.length+' matching cars'):'Showing all available cars';
+ document.getElementById('filterSummaryTop').textContent=active?(rows.length+' matching cars · '+active+' filters applied'):'Search the India-wide inventory';
  resultCount.textContent=rows.length+' result'+(rows.length===1?'':'s');
- heroCount.textContent=rows.length;
+ 
  cars.innerHTML=rows.length?rows.map(v=>card(v,D.vehicles.indexOf(v))).join(''):'<div class="empty" style="grid-column:1/-1"><b>No cars match these filters.</b>Try removing a filter or changing the search term.</div>';
 }
 function openModal(i){const v=D.vehicles[i],a=imgList(v);mTitle.textContent=v.brand+' '+v.model;mSub.textContent=(v.variant||'')+' · '+(v.location||'');const main=a[0];mBody.innerHTML='<div class="gallery"><div class="main-img">'+(main?'<img id="mMain" src="'+esc(main)+'" alt="">':placeholder(v))+'</div><div class="thumbs">'+(a.length?a.slice(0,4).map(u=>"<div class=\"thumb\" onclick='document.getElementById(\"mMain\").src="+JSON.stringify(u)+"'><img src=\""+esc(u)+"\" alt=\"\" loading=\"lazy\"></div>").join(""):placeholder(v))+'</div></div>'+
 '<div class="modal-grid">'+[['Ask price',money(v.price_lakh)],['Comparable median',money(v.comp_median)],['Market gap',v.discount_pct!=null?Number(v.discount_pct).toFixed(1)+'%':'Not established'],['Manufacture',v.manufacture_date||v.mfg_year],['Registration',v.registration_date||v.reg_year],['Mileage',km(v.km)],['Ownership',v.owners?String(v.owners)+' owner':'Not found'],['Fuel / gearbox',(v.fuel||'—')+' · '+(v.transmission||'—')],['Live page',v.live_verified?'Yes':'No'],['Data consistency',v.data_consistent?'Consistent':'Needs review'],['Certification',v.certification||'Not established'],['Last crawl',v.crawled_at||'—']].map(x=>'<div class="kv"><div class="k">'+esc(x[0])+'</div><div class="v">'+esc(x[1])+'</div></div>').join('')+'</div><div class="notes"><b>Verification notes</b><br>'+esc((v.verification_notes_list||[]).join(' · ')||'No additional notes recorded.')+'</div><div style="margin-top:13px"><a class="primary" style="display:inline-block" href="'+esc(v.url)+'" target="_blank" rel="noopener">Open original listing ↗</a></div>';modal.classList.add('show');document.body.style.overflow='hidden'}
 function closeModal(){modal.classList.remove('show');document.body.style.overflow=''}
-async function init(){try{const r=await fetch('data/latest.json?ts='+Date.now(),{cache:'no-store'});D=await r.json()}catch(e){status.innerHTML='<b>Dashboard data unavailable</b>';return}const need=D.vehicles.filter(v=>!v.live_verified||!v.data_consistent||(v.verification_notes_list||[]).length).length;seen.textContent=D.stats?.vehicles_seen??D.vehicles.length;live.textContent=D.stats?.live_under_budget??D.vehicles.length;opp.textContent=D.stats?.opportunities??0;verify.textContent=need;sources.textContent=D.stats?.new_sources??D.new_sources.length;status.innerHTML='<div><span class="dot"></span><b>Latest crawl '+esc(D.run_date||'—')+'</b></div>';status2.textContent='Generated '+(D.generated_at||'—');filters();sourceList.innerHTML=(D.new_sources||[]).map(s=>'<div class="source"><b>'+esc(s.domain)+'</b><br><a href="'+esc(s.url)+'" target="_blank" rel="noopener">Open source ↗</a></div>').join('')||'<span class="small muted">No new sources.</span>';render()}
-['q','brand','model','city','priceMin','priceMax','yearMin','yearMax','mileageMax','ownersMax','fuel','transmission','condition','verification','certification','cls','source','gapMin','sort'].forEach(id=>document.getElementById(id).addEventListener('input',render));
+async function init(){try{const r=await fetch('data/latest.json?ts='+Date.now(),{cache:'no-store'});D=await r.json()}catch(e){status.innerHTML='<b>Dashboard data unavailable</b>';return}const need=D.vehicles.filter(v=>!v.live_verified||!v.data_consistent||(v.verification_notes_list||[]).length).length;dashboardStats={needVerification:need};status.innerHTML='<div><span class="dot"></span><b>Latest inventory '+esc(D.run_date||'—')+'</b></div>';status2.textContent='Updated '+(D.generated_at||'—');filters();render();
+['q','locationSearch','brand','model','city','priceMin','priceMax','searchAge','yearMin','yearMax','mileageMax','ownersMax','fuel','transmission','condition','verification','certification','cls','source','gapMin','sort'].forEach(id=>{document.getElementById(id).addEventListener('input',render)});
 brand.addEventListener('change',()=>{refreshModels();render()});
+document.getElementById('searchCars').addEventListener('click',()=>{render();document.getElementById('cars').scrollIntoView({behavior:'smooth',block:'start'})});
 document.getElementById('filterToggle').addEventListener('click',()=>{
  const panel=document.getElementById('advancedFilters');
- const collapsed=!panel.classList.toggle('collapsed');
- document.getElementById('filterToggle').setAttribute('aria-expanded',String(collapsed));
- document.getElementById('filterToggle').innerHTML='Filters <span id="filterCount" class="filter-count">'+document.getElementById('filterCount').textContent+'</span>'+(collapsed?'⌃':'⌄');
+ const isOpen=!panel.classList.contains('collapsed');
+ panel.classList.toggle('collapsed',isOpen);
+ document.getElementById('filterToggle').setAttribute('aria-expanded',String(!isOpen));
+ document.getElementById('filterToggle').innerHTML='More filters <span id="filterCount" class="filter-count">'+document.getElementById('filterCount').textContent+'</span>'+(isOpen?'⌄':'⌃');
 });
 document.getElementById('clearFilters').addEventListener('click',()=>{
- ['q','brand','model','city','priceMin','priceMax','yearMin','yearMax','mileageMax','ownersMax','fuel','transmission','condition','verification','certification','cls','source','gapMin'].forEach(id=>{const el=document.getElementById(id);el.value=''});
+ ['q','locationSearch','brand','model','city','priceMin','priceMax','searchAge','yearMin','yearMax','mileageMax','ownersMax','fuel','transmission','condition','verification','certification','cls','source','gapMin'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
  refreshModels();render();
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});init();
