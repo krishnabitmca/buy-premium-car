@@ -64,7 +64,7 @@ def test_buyer_discovery_filter_and_evidence_flow(dashboard_url):
         assert page.locator("#model option").count() >= 4
         assert page.locator("#city option").count() >= 3
 
-        page.locator("#priceMax").fill("35")
+        page.locator("#priceMax").select_option("35")
         assert page.locator(".card").count() == 1
         assert "Audi Q3" in page.locator(".card").inner_text()
 
