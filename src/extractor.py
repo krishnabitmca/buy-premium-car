@@ -3,6 +3,7 @@ import json,re
 from urllib.parse import urljoin,urlparse
 from bs4 import BeautifulSoup
 from .models import Vehicle
+from .india_geo import infer_city,infer_state
 from .normalize import clean_text,extract_fuel,extract_labelled_date,extract_mileage,extract_owner,extract_price_lakh,extract_status,extract_transmission,extract_years,fingerprint,normalize_model
 
 def extract_image_urls(html,base_url,limit=8):
@@ -91,8 +92,13 @@ def extract_page(source_name,source_tier,url,result):
         if m:year_r=int(m.group(1));break
     manufacture_date=extract_labelled_date(body,["year of manufacturing","manufacturing year","manufactured","mfg","built"]);registration_date=extract_labelled_date(body,["date of registration","registration year","registered"])
     brand,model,variant=normalize_model(title,body);km=extract_mileage(body);price=extract_price_lakh(body);owners=extract_owner(body);fuel=extract_fuel(body);transmission=extract_transmission(body);location=None
-    m=re.search(r"(?:location|car available at)\s*[:\-]?\s*([A-Za-z][A-Za-z .,&/-]{2,60})",body,re.I)
+    m=re.search(r"(?:location|car available at|available in|dealer location)\s*[:\-]?\s*([A-Za-z][A-Za-z .,&/-]{2,60})",body,re.I)
     if m:location=clean_text(m.group(1))
+    seller_city=infer_city(location, f"{title} {body}")
+    seller_state=infer_state(location, f"{title} {body}")
+    registration_state=None
+    m=re.search(r"(?:registration|registered).*?\b(Karnataka|Tamil Nadu|Telangana|Maharashtra|Delhi|Haryana|Uttar Pradesh|Rajasthan|Gujarat|Kerala|West Bengal|Odisha|Bihar|Jharkhand|Assam|Andhra Pradesh|Madhya Pradesh|Chhattisgarh|Punjab|Uttarakhand|Himachal Pradesh|Goa|Chandigarh)\b",body,re.I)
+    if m:registration_state=m.group(1)
     if not brand or not model or (km is None and price is None):return None
     notes=[]
     if sold_reason:notes.append(sold_reason)
@@ -102,4 +108,4 @@ def extract_page(source_name,source_tier,url,result):
     if not price:notes.append("asking price not found on page")
     images=extract_image_urls(html,final_url)
     if not images:notes.append("listing photos not captured from page")
-    return Vehicle(source_name=source_name,source_tier=source_tier,url=url,title=title or url,brand=brand,model=model,variant=variant,year_manufacture=year_m,year_registration=year_r,manufacture_date=manufacture_date,registration_date=registration_date,mileage_km=km,owner_count=owners,price_lakh=price,fuel=fuel,transmission=transmission,location=location,status_text=sold_reason or None,crawled_at=getattr(result,"crawled_at",None) or __import__("datetime").datetime.utcnow().isoformat(),final_url=final_url,http_status=status,live_verified=bool(getattr(result,"success",False) and not sold_signal),sold_signal=sold_signal,data_consistent=not any("gap looks unusual" in x for x in notes),fingerprint=fingerprint(url,title,brand,model,year_m,km,price),verification_notes=notes,image_urls=images)
+    return Vehicle(source_name=source_name,source_tier=source_tier,url=url,title=title or url,brand=brand,model=model,variant=variant,year_manufacture=year_m,year_registration=year_r,manufacture_date=manufacture_date,registration_date=registration_date,mileage_km=km,owner_count=owners,price_lakh=price,fuel=fuel,transmission=transmission,location=location,seller_city=seller_city,seller_state=seller_state,registration_state=registration_state,status_text=sold_reason or None,crawled_at=getattr(result,"crawled_at",None) or __import__("datetime").datetime.utcnow().isoformat(),final_url=final_url,http_status=status,live_verified=bool(getattr(result,"success",False) and not sold_signal),sold_signal=sold_signal,data_consistent=not any("gap looks unusual" in x for x in notes),fingerprint=fingerprint(url,title,brand,model,year_m,km,price),verification_notes=notes,image_urls=images)

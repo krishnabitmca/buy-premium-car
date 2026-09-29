@@ -22,6 +22,10 @@ class Vehicle:
     fuel: Optional[str]=None
     transmission: Optional[str]=None
     location: Optional[str]=None
+    seller_city: Optional[str]=None
+    seller_state: Optional[str]=None
+    registration_state: Optional[str]=None
+    source_listings: list[dict]=field(default_factory=list)
     certification: Optional[str]=None
     condition_signal: Optional[str]=None
     image_urls: list[str]=field(default_factory=list)
@@ -44,4 +48,17 @@ class Vehicle:
     opportunity_score: Optional[float]=None
     opportunity_class: Optional[str]=None
     verification_notes: list[str]=field(default_factory=list)
+    source_count: int=1
+    lowest_observed_price_lakh: Optional[float]=None
+    highest_observed_price_lakh: Optional[float]=None
+    identity_confidence: float=0.0
+    def __post_init__(self):
+        if not self.source_listings:
+            self.source_listings=[{"source":self.source_name,"url":self.url,"price_lakh":self.price_lakh,"location":self.location,"tier":self.source_tier}]
+        self.source_count=max(1,len(self.source_listings))
+        prices=[float(x["price_lakh"]) for x in self.source_listings if x.get("price_lakh") is not None]
+        if prices:
+            self.lowest_observed_price_lakh=min(prices)
+            self.highest_observed_price_lakh=max(prices)
+        self.identity_confidence=0.9 if self.brand and self.model and self.year_manufacture and self.mileage_km else 0.65 if self.brand and self.model else 0.4
     def to_dict(self):return asdict(self)

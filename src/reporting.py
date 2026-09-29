@@ -5,7 +5,36 @@ from pathlib import Path
 
 def format_car(v,nego):
     target,walk=nego(v)
-    return {"brand":v.brand,"model":v.model,"variant":v.variant or "","mfg_year":v.year_manufacture,"reg_year":v.year_registration,"km":v.mileage_km,"owners":v.owner_count,"price_lakh":v.price_lakh,"location":v.location or "","source":v.source_name,"url":v.url,"image_urls":v.image_urls,"live":v.live_verified,"comparables":v.comparable_count,"comp_median":v.comparable_median_lakh,"discount_pct":v.discount_vs_comparable_pct,"km_per_year":v.km_per_year,"score":v.opportunity_score,"class":v.opportunity_class,"negotiation_target_lakh":target,"walk_away_lakh":walk,"notes":"; ".join(v.verification_notes)}
+    source_listings=getattr(v,"source_listings",None) or [{"source":getattr(v,"source_name",""),"url":getattr(v,"url",""),"price_lakh":getattr(v,"price_lakh",None),"location":getattr(v,"location",None),"tier":getattr(v,"source_tier",None)}]
+    source_count=max(1,len(source_listings))
+    prices=[float(x["price_lakh"]) for x in source_listings if isinstance(x,dict) and x.get("price_lakh") is not None]
+    lowest=min(prices) if prices else getattr(v,"price_lakh",None)
+    highest=max(prices) if prices else getattr(v,"price_lakh",None)
+    discount=getattr(v,"discount_vs_comparable_pct",None)
+    identity=getattr(v,"identity_confidence",0.0)
+    return {
+        "brand":getattr(v,"brand",None),"model":getattr(v,"model",None),"variant":getattr(v,"variant",None) or "",
+        "mfg_year":getattr(v,"year_manufacture",None),"reg_year":getattr(v,"year_registration",None),
+        "km":getattr(v,"mileage_km",None),"owners":getattr(v,"owner_count",None),"price_lakh":getattr(v,"price_lakh",None),
+        "location":getattr(v,"location",None) or "","seller_city":getattr(v,"seller_city",None) or getattr(v,"location",None) or "",
+        "seller_state":getattr(v,"seller_state",None) or "","registration_state":getattr(v,"registration_state",None) or "",
+        "source":getattr(v,"source_name",None),"url":getattr(v,"url",None),"image_urls":getattr(v,"image_urls",[]),
+        "source_count":source_count,"source_listings":source_listings,
+        "lowest_observed_price_lakh":lowest,"highest_observed_price_lakh":highest,
+        "identity_confidence":identity,
+        "live":getattr(v,"live_verified",False),"comparables":getattr(v,"comparable_count",0),
+        "comp_median":getattr(v,"comparable_median_lakh",None),"comp_low":getattr(v,"comparable_low_lakh",None),
+        "comp_high":getattr(v,"comparable_high_lakh",None),"discount_pct":discount,
+        "km_per_year":getattr(v,"km_per_year",None),"score":getattr(v,"opportunity_score",None),"class":getattr(v,"opportunity_class",None),
+        "negotiation_target_lakh":target,"walk_away_lakh":walk,
+        "certification":getattr(v,"certification",None),"condition_signal":getattr(v,"condition_signal",None),
+        "notes":"; ".join(getattr(v,"verification_notes",[]) or []),
+        "decision_signals":{
+            "price_context":f"{discount:.1f}% below comparable median" if discount is not None else "Market comparison not established",
+            "sources":source_count,
+            "verification":"verified" if getattr(v,"live_verified",False) and getattr(v,"data_consistent",False) else "needs review"
+        }
+    }
 
 def write_csv(path,vehicles,negotiation_lookup):
     Path(path).parent.mkdir(parents=True,exist_ok=True);rows=[format_car(v,negotiation_lookup) for v in vehicles]

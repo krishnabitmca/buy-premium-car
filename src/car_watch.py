@@ -4,6 +4,7 @@ from datetime import date
 from typing import Any
 
 from .deal_engine import DealIntent, GenericDealEngine, ListingSnapshot, live_listing
+from .normalize import normalize_model
 
 def _text(v: Any) -> str:
     return str(v or "").strip()
@@ -57,13 +58,17 @@ def car_constraints(intent: DealIntent, listing: ListingSnapshot):
 
 def watch_to_intent(watch: dict) -> DealIntent:
     c=watch.get("constraints") or {}
+    query=_text(watch.get("natural_language_request"))
+    parsed_make,parsed_model,_=normalize_model(query,query) if query else (None,None,None)
+    make=c.get("make") or parsed_make
+    model=c.get("model") or parsed_model
     must={}
-    for key in ("make","model","fuel","transmission"):
-        if c.get(key):must[f"intent_{key}"]=c[key]
+    for key,value in (("make",make),("model",model),("fuel",c.get("fuel")),("transmission",c.get("transmission"))):
+        if value:must[f"intent_{key}"]=value
     return DealIntent(
         intent_id=str(watch.get("watch_id") or ""),
         category="automotive",
-        query=_text(watch.get("natural_language_request")),
+        query=query,
         budget_min=_num(c.get("budget_min_lakh")),
         budget_max=_num(c.get("budget_max_lakh")),
         location=_text(c.get("location")) or None,
