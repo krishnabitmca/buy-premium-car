@@ -2,6 +2,19 @@
 
 ## 2026-09-29
 
+### Live search foundation
+- Replaced the customer search dependency on data/latest.json with a live marketplace query path.
+- Added live CarDekho-backed brand/model catalog discovery.
+- Added live marketplace adapters for CarDekho, CarWale, Cars24 and Spinny.
+- Fixed the UI/API GET-vs-POST mismatch that prevented the redesigned search experience from loading correctly.
+- Added explicit live-source status and observation timestamps.
+- Prevented silent fallback to stale/offline inventory when live search fails.
+- Fixed Used vs Demonstrator condition matching.
+
+
+
+## 2026-09-29
+
 ### Product foundation
 - Established persistent project context documentation.
 - Formalized CarScanner as an India-wide automotive search aggregator rather than a marketplace.
