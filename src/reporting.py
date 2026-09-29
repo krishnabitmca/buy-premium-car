@@ -5,7 +5,30 @@ from pathlib import Path
 
 def format_car(v,nego):
     target,walk=nego(v)
-    return {"brand":v.brand,"model":v.model,"variant":v.variant or "","mfg_year":v.year_manufacture,"reg_year":v.year_registration,"km":v.mileage_km,"owners":v.owner_count,"price_lakh":v.price_lakh,"location":v.location or "","source":v.source_name,"url":v.url,"image_urls":v.image_urls,"live":v.live_verified,"comparables":v.comparable_count,"comp_median":v.comparable_median_lakh,"discount_pct":v.discount_vs_comparable_pct,"km_per_year":v.km_per_year,"score":v.opportunity_score,"class":v.opportunity_class,"negotiation_target_lakh":target,"walk_away_lakh":walk,"notes":"; ".join(v.verification_notes)}
+    return {
+        "brand":v.brand,"model":v.model,"variant":v.variant or "",
+        "mfg_year":v.year_manufacture,"reg_year":v.year_registration,
+        "km":v.mileage_km,"owners":v.owner_count,"price_lakh":v.price_lakh,
+        "location":v.location or "","seller_city":v.seller_city or v.location or "",
+        "seller_state":v.seller_state or "","registration_state":v.registration_state or "",
+        "source":v.source_name,"url":v.url,"image_urls":v.image_urls,
+        "source_count":v.source_count,"source_listings":v.source_listings,
+        "lowest_observed_price_lakh":v.lowest_observed_price_lakh,
+        "highest_observed_price_lakh":v.highest_observed_price_lakh,
+        "identity_confidence":v.identity_confidence,
+        "live":v.live_verified,"comparables":v.comparable_count,
+        "comp_median":v.comparable_median_lakh,"comp_low":v.comparable_low_lakh,
+        "comp_high":v.comparable_high_lakh,"discount_pct":v.discount_vs_comparable_pct,
+        "km_per_year":v.km_per_year,"score":v.opportunity_score,"class":v.opportunity_class,
+        "negotiation_target_lakh":target,"walk_away_lakh":walk,
+        "certification":v.certification,"condition_signal":v.condition_signal,
+        "notes":"; ".join(v.verification_notes),
+        "decision_signals":{
+            "price_context":f"{v.discount_vs_comparable_pct:.1f}% below comparable median" if v.discount_vs_comparable_pct is not None else "Market comparison not established",
+            "sources":v.source_count,
+            "verification":"verified" if v.live_verified and v.data_consistent else "needs review"
+        }
+    }
 
 def write_csv(path,vehicles,negotiation_lookup):
     Path(path).parent.mkdir(parents=True,exist_ok=True);rows=[format_car(v,negotiation_lookup) for v in vehicles]
