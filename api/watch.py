@@ -153,8 +153,13 @@ def _list_watches(user_id):
     )
     channels = _supabase_request(
         "GET",
-        f"channel_preferences?user_id=eq.{user_id}&select=channel,enabled,frequency",
+        "watch_channel_preferences"
+        "?select=watch_id,channel,enabled,frequency"
+        "&order=watch_id.asc,channel.asc",
     )
+    channels_by_watch = {}
+    for channel in channels:
+        channels_by_watch.setdefault(channel.get("watch_id"), []).append(channel)
     events = _supabase_request(
         "GET",
         f"alert_events?user_id=eq.{user_id}"
@@ -171,7 +176,8 @@ def _list_watches(user_id):
         sent = [e for e in bucket if e.get("status") == "sent"]
         watch["alerts_sent"] = len(sent)
         watch["last_alert_at"] = (sent[0].get("sent_at") or sent[0].get("created_at")) if sent else None
-    return {"watches": watches, "channels": channels}
+        watch["channels"] = channels_by_watch.get(watch_id, [])
+    return {"watches": watches}
 
 
 class handler(BaseHTTPRequestHandler):
