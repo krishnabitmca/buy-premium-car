@@ -1,128 +1,115 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="CarScanner searches used and demonstrator cars across India and helps compare the best available options.">
-<title>CarScanner — Search everywhere. Find the right car.</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="CarScanner compares live used and demonstrator car listings across India to find the lowest observed and strongest available deal.">
+<title>CarScanner — Compare every marketplace</title>
 <style>
-:root{--ink:#152238;--muted:#64748b;--line:#e3e9f2;--bg:#f6f8fb;--card:#fff;--blue:#1769e0;--blue2:#eaf2ff;--navy:#12213a;--green:#16804a;--greenbg:#eaf8f0;--amber:#9a6510;--amberbg:#fff6df;--shadow:0 14px 40px rgba(20,39,68,.08)}
+:root{--ink:#172033;--muted:#697386;--line:#e4e8ef;--bg:#f7f8fa;--card:#fff;--navy:#101b2d;--blue:#155bd7;--bluebg:#eef4ff;--green:#087443;--greenbg:#eaf8f0;--orange:#a45b00;--shadow:0 8px 24px rgba(20,31,50,.07)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,select{font:inherit}
-.container{max-width:1160px;margin:auto;padding:0 20px}.nav{height:72px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}.logo{font-size:22px;font-weight:900;letter-spacing:-.05em}.logo span{color:var(--blue)}.navlinks{display:flex;gap:25px;color:var(--muted);font-size:13px}.navlinks a{cursor:pointer}
-.hero{background:linear-gradient(135deg,#10284c 0%,#155fca 100%);color:#fff;padding:68px 0 124px}.eyebrow{font-size:11px;letter-spacing:.16em;font-weight:800;color:#a9d7ff}.hero h1{font-size:clamp(34px,6vw,58px);line-height:1.03;letter-spacing:-.055em;margin:12px 0}.hero p{max-width:700px;color:#d9e9ff;line-height:1.6;margin:0;font-size:15px}
-.searchbox{background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);margin:-82px auto 32px;position:relative;padding:25px;color:var(--ink)}.label{font-size:12px;font-weight:850;margin-bottom:9px}.condition{display:flex;gap:8px;margin-bottom:21px;flex-wrap:wrap}.condition button{border:1px solid var(--line);background:#f7f9fc;color:#44536a;border-radius:9px;padding:11px 18px;font-weight:750;cursor:pointer}.condition button.active{border-color:#7fb0f5;background:var(--blue2);color:#1257ba}
-.fields{display:grid;grid-template-columns:1.1fr 1.1fr .8fr .8fr 1fr;gap:11px}.field label{display:block;font-size:9px;font-weight:850;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px}.field input,.field select{height:45px;width:100%;border:1px solid var(--line);border-radius:9px;background:#fff;padding:0 11px;color:var(--ink);outline:none}.field input:focus,.field select:focus{border-color:#78aaf2;box-shadow:0 0 0 3px #1769e012}.searchbtn{height:45px;border:0;border-radius:9px;background:var(--navy);color:#fff;font-weight:850;cursor:pointer;padding:0 20px;margin-top:15px}.searchbtn:hover{background:#0c1930}.search-foot{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:12px;color:var(--muted);font-size:10px}.search-foot strong{color:var(--ink)}
-.feature{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:10px 0 48px}.feature div{background:#fff;border:1px solid var(--line);border-radius:14px;padding:17px}.feature b{display:block;font-size:13px;margin-bottom:5px}.feature span{font-size:11px;color:var(--muted);line-height:1.5}
-.results{padding-bottom:70px;display:none}.results.show{display:block}.resulthead{display:flex;justify-content:space-between;align-items:end;gap:15px;margin-bottom:14px}.resulthead h2{font-size:24px;letter-spacing:-.04em;margin:0 0 4px}.meta{font-size:11px;color:var(--muted)}.sort{height:38px;border:1px solid var(--line);border-radius:9px;background:#fff;padding:0 10px;font-size:11px}.summary{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;justify-content:space-between;gap:15px;font-size:11px}.summary span{color:var(--muted);text-align:right}.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.filters select{height:35px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:0 9px;font-size:10px}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.card{background:#fff;border:1px solid var(--line);border-radius:15px;overflow:hidden;box-shadow:0 7px 25px rgba(20,39,68,.05)}.cardtop{padding:16px 16px 9px;display:flex;justify-content:space-between;gap:10px}.title{font-size:18px;font-weight:900;letter-spacing:-.035em}.variant{font-size:10px;color:var(--muted);margin-top:3px}.place{font-size:10px;color:var(--muted);margin-top:7px}.badges{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.badge{font-size:9px;font-weight:800;border-radius:99px;padding:5px 7px;background:#f0f3f7;color:#526177;white-space:nowrap}.badge.green{background:var(--greenbg);color:var(--green)}.badge.blue{background:var(--blue2);color:#1257ba}.badge.amber{background:var(--amberbg);color:var(--amber)}
-.cardbody{padding:0 16px 16px}.price{font-size:26px;font-weight:950;letter-spacing:-.04em;margin-top:8px}.caption{font-size:9px;color:var(--muted)}.deal{margin-top:11px;padding:10px;border-radius:9px;background:#f8fafc;border:1px solid var(--line);font-size:10px;line-height:1.45}.deal.good{background:var(--greenbg);border-color:#b9e5ca}.deal b{color:var(--ink)}.specs{display:flex;gap:5px;flex-wrap:wrap;margin:10px 0}.spec{font-size:9px;background:#f1f3f6;border-radius:7px;padding:5px 7px;color:#526177}.spec b{color:var(--ink)}.context{border:1px solid var(--line);border-radius:9px;padding:9px 10px;font-size:9px;margin-bottom:10px}.context b{display:block;font-size:10px;margin-bottom:2px}.context span{color:var(--muted)}.sources{border-top:1px solid var(--line);padding-top:9px;font-size:9px;color:var(--muted);display:flex;justify-content:space-between;gap:8px;align-items:start}.sources a{color:var(--blue);text-decoration:none}.actions{display:flex;gap:7px;margin-top:11px}.actions button,.actions a{flex:1;height:35px;border-radius:8px;font-size:9px;font-weight:850;text-decoration:none;display:grid;place-items:center;cursor:pointer}.secondary{border:1px solid var(--line);background:#fff;color:var(--ink)}.primary{border:0;background:var(--navy);color:#fff}.empty{grid-column:1/-1;background:#fff;border:1px dashed var(--line);border-radius:14px;text-align:center;padding:45px;color:var(--muted);font-size:11px}.empty b{display:block;color:var(--ink);margin-bottom:4px}
-.modal{display:none;position:fixed;inset:0;background:#0c1728aa;z-index:50;align-items:center;justify-content:center;padding:18px}.modal.show{display:flex}.modalbox{width:min(900px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:16px}.modalhead{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.modalhead h3{margin:0;font-size:16px}.close{border:0;background:#f1f3f6;border-radius:8px;width:32px;height:32px;cursor:pointer}.modalbody{padding:18px}.compare{width:100%;border-collapse:collapse;font-size:10px}.compare th,.compare td{padding:9px;border-bottom:1px solid var(--line);text-align:left}.compare th{color:var(--muted);font-size:9px}
-@media(max-width:850px){.fields{grid-template-columns:1fr 1fr}.searchbtn{width:100%}.feature{grid-template-columns:1fr}.grid{grid-template-columns:1fr}}@media(max-width:560px){.navlinks{display:none}.hero{padding:50px 0 100px}.searchbox{padding:18px;margin:-70px 12px 25px}.fields{grid-template-columns:1fr}.resulthead{align-items:start;flex-direction:column}.sort{width:100%}.summary{flex-direction:column}.summary span{text-align:left}}
+.container{max-width:1240px;margin:auto;padding:0 22px}.nav{height:70px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center}.navin{width:100%;display:flex;align-items:center;justify-content:space-between}.logo{font-size:23px;font-weight:950;letter-spacing:-.06em}.logo span{color:var(--blue)}.navlinks{display:flex;gap:26px;color:#566176;font-size:13px;font-weight:650}.navlinks a{cursor:pointer}
+.hero{background:#fff;border-bottom:1px solid var(--line)}.heroIn{padding:35px 22px 28px}.crumb{font-size:11px;color:var(--muted);margin-bottom:15px}.hero h1{font-size:34px;letter-spacing:-.045em;margin:0 0 8px}.hero p{font-size:13px;color:var(--muted);margin:0;max-width:720px;line-height:1.55}
+.searchbar{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:18px;display:grid;grid-template-columns:130px 1fr 1fr 140px 140px 165px;gap:8px;box-shadow:0 5px 18px rgba(20,31,50,.05)}.searchbar select,.searchbar input{height:42px;border:1px solid var(--line);border-radius:7px;background:#fff;padding:0 10px;color:var(--ink);outline:none;font-size:12px}.searchbar button{height:42px;border:0;border-radius:7px;background:var(--navy);color:#fff;font-size:12px;font-weight:850;cursor:pointer}
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}.chip{border:1px solid var(--line);background:#fff;border-radius:20px;padding:7px 12px;font-size:10px;color:#536075;cursor:pointer}.chip.active{border-color:#94b7f1;background:var(--bluebg);color:#1555b5;font-weight:800}
+.layout{display:grid;grid-template-columns:230px 1fr;gap:20px;padding-top:22px;padding-bottom:70px}.filters{background:#fff;border:1px solid var(--line);border-radius:12px;height:max-content;position:sticky;top:15px}.filterHead{padding:14px 15px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.filterHead b{font-size:13px}.clear{border:0;background:none;color:var(--blue);font-size:10px;cursor:pointer}.filterSec{padding:14px 15px;border-bottom:1px solid var(--line)}.filterSec:last-child{border-bottom:0}.filterSec h4{margin:0 0 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#778197}.checklist{display:grid;gap:7px}.check{display:flex;align-items:center;gap:8px;font-size:11px;color:#4e5a6f}.check input{accent-color:var(--blue)}.filterSec select,.filterSec input{width:100%;height:35px;border:1px solid var(--line);border-radius:7px;padding:0 8px;font-size:10px;background:#fff}.range{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.contentHead{display:flex;justify-content:space-between;align-items:end;margin-bottom:14px}.contentHead h2{font-size:22px;letter-spacing:-.04em;margin:0 0 4px}.meta{font-size:10px;color:var(--muted)}.sort{height:36px;border:1px solid var(--line);border-radius:7px;background:#fff;padding:0 9px;font-size:10px}
+.livebar{background:#fff;border:1px solid var(--line);border-radius:9px;padding:9px 12px;margin-bottom:13px;font-size:10px;color:var(--muted);display:flex;justify-content:space-between;gap:10px}.livebar strong{color:var(--green)}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.card{background:#fff;border:1px solid var(--line);border-radius:11px;overflow:hidden;box-shadow:0 4px 16px rgba(20,31,50,.04)}.photo{height:155px;background:linear-gradient(135deg,#e9edf3,#f7f8fa);display:flex;align-items:center;justify-content:center;color:#a2adbd;font-size:11px;position:relative}.photo span{position:absolute;left:10px;top:10px;background:#fff;border-radius:5px;padding:5px 7px;font-size:9px;color:#4d5a70}.cardbody{padding:13px}.title{font-size:15px;font-weight:900;letter-spacing:-.025em}.variant{font-size:9px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.location{font-size:9px;color:var(--muted);margin-top:7px}.price{font-size:22px;font-weight:950;letter-spacing:-.04em;margin-top:11px}.priceLabel{font-size:8px;color:var(--muted)}.deal{margin-top:9px;border-radius:7px;padding:8px;background:#f6f8fb;font-size:9px;line-height:1.4}.deal.good{background:var(--greenbg);color:var(--green)}.specs{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}.spec{font-size:8px;color:#5e6a7e;background:#f1f3f6;border-radius:5px;padding:5px 6px}.sourceRow{border-top:1px solid var(--line);margin-top:11px;padding-top:9px;display:flex;justify-content:space-between;gap:7px;font-size:8px;color:var(--muted)}.sourceRow a{color:var(--blue);text-decoration:none}.actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}.actions button,.actions a{height:34px;border-radius:6px;display:grid;place-items:center;font-size:9px;font-weight:800;text-decoration:none;cursor:pointer}.secondary{border:1px solid var(--line);background:#fff;color:var(--ink)}.primary{border:0;background:var(--navy);color:#fff}.empty{grid-column:1/-1;background:#fff;border:1px dashed var(--line);border-radius:12px;padding:50px;text-align:center;color:var(--muted);font-size:11px}.empty b{display:block;color:var(--ink);margin-bottom:5px}
+.modal{display:none;position:fixed;inset:0;background:#081326aa;z-index:20;align-items:center;justify-content:center;padding:18px}.modal.show{display:flex}.modalbox{width:min(760px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:12px}.modalhead{padding:14px 17px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}.modalhead h3{margin:0;font-size:15px}.close{border:0;background:#f0f2f5;border-radius:6px;width:30px;height:30px;cursor:pointer}.modalbody{padding:17px}.compare{width:100%;border-collapse:collapse;font-size:10px}.compare th,.compare td{padding:8px;border-bottom:1px solid var(--line);text-align:left}.compare th{color:var(--muted);font-size:9px}
+@media(max-width:1000px){.searchbar{grid-template-columns:1fr 1fr 1fr}.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:720px){.layout{grid-template-columns:1fr}.filters{position:static}.searchbar{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.navlinks{display:none}.hero h1{font-size:28px}}@media(max-width:480px){.searchbar{grid-template-columns:1fr}.heroIn{padding-left:15px;padding-right:15px}.container{padding:0 15px}}
 </style>
 </head>
 <body>
-<header class="nav"><div class="container" style="display:flex;justify-content:space-between;width:100%;align-items:center"><div class="logo">Car<span>Scanner</span></div><nav class="navlinks"><a href="#search">Search</a><a href="#how">How it works</a></nav></div></header>
-<section class="hero"><div class="container"><div class="eyebrow">INDIA-WIDE USED & DEMONSTRATOR SEARCH</div><h1>Find the car.<br>Wherever the deal is.</h1><p>Tell CarScanner what you want. We search the inventory we have collected across India, group matching listings, and surface the options worth investigating.</p></div></section>
-<main class="container">
-<section id="search" class="searchbox">
-<div class="label">What are you looking for?</div>
-<div id="condition" class="condition"><button class="active" data-value="both">Used + Demonstrator</button><button data-value="used">Used only</button><button data-value="demo">Demonstrator only</button></div>
-<div class="fields">
-<div class="field"><label>Brand</label><select id="brand"><option value="">Any brand</option></select></div>
-<div class="field"><label>Model</label><select id="model"><option value="">Any model</option></select></div>
-<div class="field"><label>Budget from (₹L)</label><input id="min" type="number" min="0" step=".5" placeholder="30"></div>
-<div class="field"><label>Budget up to (₹L)</label><input id="max" type="number" min="0" step=".5" placeholder="40"></div>
-<div class="field"><label>Where will you buy / register?</label><input id="destination" value="Bengaluru" placeholder="Bengaluru"></div>
+<header class="nav"><div class="container navin"><div class="logo">Car<span>Scanner</span></div><nav class="navlinks"><a href="#results">Used Cars</a><a href="#results">Demo Cars</a><a href="#filters">All Filters</a><a href="#compare">Compare</a></nav></div></header>
+<section class="hero"><div class="container heroIn">
+<div class="crumb">Home / India / Used & Demonstrator Cars</div>
+<h1>Find the right car at the right price</h1>
+<p>Search live listings across marketplaces and seller sources. CarScanner compares the market and shows the lowest observed price and the strongest available deal evidence.</p>
+<div class="searchbar">
+<select id="condition"><option value="both">Used + Demo</option><option value="used">Used only</option><option value="demo">Demo only</option></select>
+<select id="brand"><option value="">All brands</option></select>
+<select id="model"><option value="">All models</option></select>
+<input id="min" type="number" min="0" step=".5" placeholder="Min ₹ lakh">
+<input id="max" type="number" min="0" step=".5" placeholder="Max ₹ lakh">
+<button id="search">Search cars</button>
 </div>
-<div style="display:flex;justify-content:flex-end"><button id="search" class="searchbtn">Search cars →</button></div>
-<div class="search-foot"><span><strong>Search scope:</strong> all India — destination is not a search boundary.</span><span>Advanced filters appear after search.</span></div>
-</section>
-<section id="how" class="feature"><div><b>Search everywhere</b><span>CarScanner is an aggregator, not another marketplace. The goal is to search multiple sources for you.</span></div><div><b>Group the market</b><span>Normalize vehicle details and identify likely duplicate listings so the same car doesn't look like five opportunities.</span></div><div><b>Decide with evidence</b><span>See source coverage, price context, location and purchase considerations before visiting the original seller.</span></div></section>
-<section id="results" class="results">
-<div class="resulthead"><div><h2>Best options we found</h2><div id="meta" class="meta"></div></div><select id="sort" class="sort"><option value="match">Recommended</option><option value="price">Lowest asking price</option><option value="gap">Largest market gap</option><option value="km">Lowest mileage</option><option value="year">Newest</option></select></div>
-<div class="summary"><strong id="count">0 cars</strong><span id="summary"></span></div>
-<div class="filters"><select id="fuel"><option value="">All fuel types</option></select><select id="city"><option value="">All seller locations</option></select><select id="year"><option value="">Any age</option><option value="2">≤ 2 years</option><option value="3">≤ 3 years</option><option value="5">≤ 5 years</option><option value="7">≤ 7 years</option></select></div>
-<div id="grid" class="grid"></div>
+<div class="chips" id="quickchips"><button class="chip active" data-filter="">All</button><button class="chip" data-filter="petrol">Petrol</button><button class="chip" data-filter="diesel">Diesel</button><button class="chip" data-filter="electric">Electric</button><button class="chip" data-filter="hybrid">Hybrid</button><button class="chip" data-filter="suv">SUV</button><button class="chip" data-filter="sedan">Sedan</button></div>
+</div></section>
+<main class="container layout">
+<aside id="filters" class="filters">
+<div class="filterHead"><b>All Filters</b><button class="clear" id="clear">Clear all</button></div>
+<div class="filterSec"><h4>Condition</h4><div class="checklist"><label class="check"><input type="radio" name="cond" value="both" checked> Used + Demonstrator</label><label class="check"><input type="radio" name="cond" value="used"> Used cars</label><label class="check"><input type="radio" name="cond" value="demo"> Demonstrator</label></div></div>
+<div class="filterSec"><h4>Price range</h4><div class="range"><input id="fmin" type="number" placeholder="₹ Min L"><input id="fmax" type="number" placeholder="₹ Max L"></div></div>
+<div class="filterSec"><h4>Fuel type</h4><div class="checklist"><label class="check"><input type="checkbox" class="fuelCheck" value="petrol"> Petrol</label><label class="check"><input type="checkbox" class="fuelCheck" value="diesel"> Diesel</label><label class="check"><input type="checkbox" class="fuelCheck" value="electric"> Electric</label><label class="check"><input type="checkbox" class="fuelCheck" value="hybrid"> Hybrid</label></div></div>
+<div class="filterSec"><h4>Seller location</h4><select id="city"><option value="">All India</option></select></div>
+<div class="filterSec"><h4>Age</h4><select id="year"><option value="">Any age</option><option value="2">≤ 2 years</option><option value="3">≤ 3 years</option><option value="5">≤ 5 years</option><option value="7">≤ 7 years</option></select></div>
+<div class="filterSec"><h4>Where will you buy/register?</h4><input id="destination" value="Bengaluru" placeholder="City"></div>
+</aside>
+<section id="results">
+<div class="contentHead"><div><h2>Cars found</h2><div id="meta" class="meta">Search live marketplace inventory</div></div><select id="sort" class="sort"><option value="match">Recommended</option><option value="price">Lowest price</option><option value="gap">Best market gap</option><option value="km">Lowest mileage</option><option value="year">Newest</option></select></div>
+<div class="livebar"><span><strong>● LIVE</strong> Current marketplace query</span><span id="summary">Search to see live inventory</span></div>
+<div id="grid" class="grid"><div class="empty"><b>Search live car inventory</b>Select a brand/model or budget and CarScanner will query current marketplace sources.</div></div>
 </section>
 </main>
 <div id="modal" class="modal" onclick="if(event.target===this)closeModal()"><div class="modalbox"><div class="modalhead"><h3 id="modalTitle"></h3><button class="close" onclick="closeModal()">✕</button></div><div id="modalBody" class="modalbody"></div></div></div>
 <script>
-let inventory=[],shown=[],condition='both',liveAt=null,sourceStatus=[];
-const $=id=>document.getElementById(id), money=x=>x==null?'—':'₹'+Number(x).toFixed(2)+'L', esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let inventory=[],shown=[],liveAt=null,sourceStatus=[],quickFilter='',condition='both';
+const $=id=>document.getElementById(id);
+const money=x=>x==null?'—':'₹'+Number(x).toFixed(2)+'L';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const age=v=>v.mfg_year?new Date().getFullYear()-Number(v.mfg_year):99;
-function conditionOf(v){const s=String(v.condition_signal||'').toLowerCase();if(s==='used')return 'used';if(s==='demo'||s==='demonstrator')return 'demo';return (String(v.variant||'')+' '+String(v.source||'')).toLowerCase().includes('demo')?'demo':'used'}
-document.querySelectorAll('#condition button').forEach(b=>b.onclick=()=>{condition=b.dataset.value;document.querySelectorAll('#condition button').forEach(x=>x.classList.toggle('active',x===b))});
-
+function conditionOf(v){const s=String(v.condition_signal||'').toLowerCase();if(s==='used')return'used';if(s==='demo'||s==='demonstrator')return'demo';return(String(v.variant||'')+' '+String(v.source||'')).toLowerCase().includes('demo')?'demo':'used'}
 async function loadCatalog(){
- $('brand').disabled=true;$('model').disabled=true;
- $('brand').innerHTML='<option>Loading live brands…</option>';
- try{
-   const r=await fetch('/api/catalog?ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('Live catalog unavailable');
-   const p=await r.json();if(!p.ok||p.mode!=='live')throw new Error(p.error||'Live catalog unavailable');
-   const brands=(p.brands||[]).map(x=>x.name).filter(Boolean);
-   $('brand').innerHTML='<option value="">Any brand</option>'+brands.map(x=>'<option>'+esc(x)+'</option>').join('');
-   $('model').innerHTML='<option value="">Any model</option>';
- }catch(e){
-   $('brand').innerHTML='<option value="">Live catalog unavailable</option>';
-   $('model').innerHTML='<option value="">Select brand after live catalog loads</option>';
- }finally{$('brand').disabled=false;$('model').disabled=false}
+ $('brand').disabled=true;$('model').disabled=true;$('brand').innerHTML='<option>Loading live brands…</option>';
+ try{const r=await fetch('/api/catalog?ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error();const p=await r.json();if(!p.ok||p.mode!=='live')throw Error();
+ const brands=(p.brands||[]).map(x=>x.name).filter(Boolean);$('brand').innerHTML='<option value="">All brands</option>'+brands.map(x=>'<option>'+esc(x)+'</option>').join('');
+ }catch(e){$('brand').innerHTML='<option value="">Live catalog unavailable</option>'}
+ finally{$('brand').disabled=false;$('model').disabled=false}
 }
 async function loadModels(){
- const b=$('brand').value;$('model').disabled=true;
- if(!b){$('model').innerHTML='<option value="">Any model</option>';$('model').disabled=false;return}
+ const b=$('brand').value;$('model').disabled=true;if(!b){$('model').innerHTML='<option value="">All models</option>';$('model').disabled=false;return}
  $('model').innerHTML='<option>Loading live models…</option>';
- try{
-   const r=await fetch('/api/catalog?brand='+encodeURIComponent(b)+'&ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error();
-   const p=await r.json();if(!p.ok||p.mode!=='live')throw new Error();
-   const models=(p.models||[]).map(x=>x.name).filter(Boolean);
-   $('model').innerHTML='<option value="">Any model</option>'+models.map(x=>'<option>'+esc(x)+'</option>').join('');
- }catch(e){$('model').innerHTML='<option value="">Live models unavailable</option>'}
- finally{$('model').disabled=false}
+ try{const r=await fetch('/api/catalog?brand='+encodeURIComponent(b)+'&ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error();const p=await r.json();if(!p.ok||p.mode!=='live')throw Error();
+ const models=(p.models||[]).map(x=>x.name).filter(Boolean);$('model').innerHTML='<option value="">All models</option>'+models.map(x=>'<option>'+esc(x)+'</option>').join('');
+ }catch(e){$('model').innerHTML='<option value="">Live models unavailable</option>'}finally{$('model').disabled=false}
 }
 $('brand').onchange=loadModels;
-
 async function searchLive(){
- const b=$('brand').value,m=$('model').value,min=$('min').value,max=$('max').value,destination=$('destination').value.trim();
- if(min&&max&&Number(min)>Number(max)){alert('Minimum budget cannot exceed maximum budget');return}
- $('search').disabled=true;$('search').textContent='Searching live marketplaces…';
- $('results').classList.add('show');$('grid').innerHTML='<div class="empty"><b>Searching live marketplace inventory…</b>CarScanner is querying current source pages. No offline snapshot is being used.</div>';
+ condition=$('condition').value;const b=$('brand').value,m=$('model').value,min=$('min').value,max=$('max').value,destination=$('destination').value.trim();
+ const fmin=$('fmin').value||min,fmax=$('fmax').value||max;
+ if(fmin&&fmax&&Number(fmin)>Number(fmax)){alert('Minimum budget cannot exceed maximum budget');return}
+ $('search').disabled=true;$('search').textContent='Searching…';$('grid').innerHTML='<div class="empty"><b>Searching live marketplaces…</b>CarScanner is querying current source pages.</div>';
  try{
-   const body={query:[b,m].filter(Boolean).join(' '),destination,budget_min:min||null,budget_max:max||null,condition};
-   const r=await fetch('/api/search?ts='+Date.now(),{method:'POST',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify(body)});
-   if(!r.ok)throw new Error((await r.text()).slice(0,200));
-   const p=await r.json();if(!p.ok||p.mode!=='live')throw new Error(p.error||'Live search unavailable');
-   inventory=(p.results||[]).filter(v=>condition==='both'||conditionOf(v)===condition);
-   liveAt=p.live_at;sourceStatus=p.sources||[];
-   populateRefinements();applyResults();
- }catch(e){
-   inventory=[];shown=[];$('grid').innerHTML='<div class="empty"><b>Live search is currently unavailable.</b>CarScanner will not substitute an offline inventory snapshot. Please try again in a moment.</div>';
-   $('count').textContent='0 cars';$('summary').textContent='Live source query failed';
- }finally{$('search').disabled=false;$('search').textContent='Search live cars →'}
+  const r=await fetch('/api/search?ts='+Date.now(),{method:'POST',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({query:[b,m].filter(Boolean).join(' '),destination,budget_min:fmin||null,budget_max:fmax||null,condition})});
+  if(!r.ok)throw Error((await r.text()).slice(0,150));const p=await r.json();if(!p.ok||p.mode!=='live')throw Error(p.error||'Live search unavailable');
+  inventory=p.results||[];liveAt=p.live_at;sourceStatus=p.sources||[];populateRefinements();applyResults();
+ }catch(e){inventory=[];shown=[];$('grid').innerHTML='<div class="empty"><b>Live search is currently unavailable.</b>CarScanner will not show an offline snapshot.</div>';$('summary').textContent='Live source query failed'}
+ finally{$('search').disabled=false;$('search').textContent='Search cars'}
 }
-function populateRefinements(){
- const fuels=[...new Set(inventory.map(v=>v.fuel).filter(Boolean))].sort(),cities=[...new Set(inventory.map(v=>v.location).filter(Boolean))].sort();
- $('fuel').innerHTML='<option value="">All fuel types</option>'+fuels.map(x=>'<option>'+esc(x)+'</option>').join('');
- $('city').innerHTML='<option value="">All seller locations</option>'+cities.map(x=>'<option>'+esc(x)+'</option>').join('');
-}
+function populateRefinements(){const cities=[...new Set(inventory.map(v=>v.location).filter(Boolean))].sort();$('city').innerHTML='<option value="">All India</option>'+cities.map(x=>'<option>'+esc(x)+'</option>').join('')}
+function selectedFuels(){return [...document.querySelectorAll('.fuelCheck:checked')].map(x=>x.value)}
 function applyResults(){
- const f=$('fuel').value,c=$('city').value,y=$('year').value===''?null:Number($('year').value);
- shown=inventory.filter(v=>(!f||v.fuel===f)&&(!c||v.location===c)&&(y===null||age(v)<=y));
+ const city=$('city').value,y=$('year').value===''?null:Number($('year').value),fuels=selectedFuels();
+ shown=inventory.filter(v=>(!city||v.location===city)&&(y===null||age(v)<=y)&&(!fuels.length||fuels.includes(String(v.fuel||'').toLowerCase()))&&(quickFilter===''||String(v.fuel||'').toLowerCase()===quickFilter||String(v.body_type||'').toLowerCase()===quickFilter));
  const mode=$('sort').value;
  shown.sort((a,b)=>mode==='price'?(a.price_lakh||999)-(b.price_lakh||999):mode==='gap'?(b.discount_pct||-999)-(a.discount_pct||-999):mode==='km'?(a.km||999999)-(b.km||999999):mode==='year'?(b.mfg_year||0)-(a.mfg_year||0):score(b)-score(a));
- $('count').textContent=shown.length+' live car'+(shown.length===1?'':'s')+' matched';
- $('summary').textContent='Live marketplace results · '+(sourceStatus.filter(s=>s.status==='live').length)+' source(s) responded · checked '+(liveAt?new Date(liveAt).toLocaleTimeString('en-IN'):'now');
- $('meta').textContent='Live query only. No offline inventory snapshot is used. Source pages may change or disappear after this search.';
- $('results').classList.add('show');render();
+ $('summary').textContent=shown.length+' live result'+(shown.length===1?'':'s')+' · '+sourceStatus.filter(s=>s.status==='live').length+' source(s) responded'+(liveAt?' · checked '+new Date(liveAt).toLocaleTimeString('en-IN'):'');
+ $('meta').textContent='Live marketplace results. No offline inventory snapshot is used.';
+ render();
 }
 function score(v){return Number(v.discount_pct||0)*4+Number(v.source_count||1)*5+(v.live_verified&&v.data_consistent?10:0)+(v.owners===1?4:0)+(v.km&&v.km<30000?4:0)}
 function card(v){
- const gap=v.discount_pct!=null?Number(v.discount_pct):null,good=gap>0,ctx=String(v.location||'').toLowerCase().includes('beng')?'Same-city context':'Interstate / cross-city purchase',verified=v.live_verified&&v.data_consistent;
- return '<article class="card"><div class="cardtop"><div><div class="title">'+esc((v.brand||'')+' '+(v.model||''))+'</div><div class="variant">'+esc(v.variant||'Variant not established')+'</div><div class="place">📍 '+esc(v.location||'Location not established')+'</div></div><div class="badges"><span class="badge '+(verified?'green':'amber')+'">'+(verified?'✓ Live source':'⚠ Review source')+'</span><span class="badge blue">'+(conditionOf(v)==='demo'?'Demonstrator':'Used')+'</span></div></div><div class="cardbody"><div class="price">'+money(v.price_lakh)+'</div><div class="caption">current asking price observed live</div>'+(gap!=null?'<div class="deal '+(good?'good':'')+'"><b>'+(good?gap.toFixed(1)+'% below comparable median':'Price context is not below comparable median')+'</b><br>'+ (v.comp_median!=null?'Comparable median '+money(v.comp_median):'Comparable market not established')+'</div>':'<div class="deal"><b>Market context not established</b><br>CarScanner is showing the live listing without inventing a deal signal.</div>')+'<div class="specs"><span class="spec"><b>'+esc(v.mfg_year||'—')+'</b> year</span><span class="spec"><b>'+esc(v.km!=null?Number(v.km).toLocaleString('en-IN'):'—')+'</b> km</span><span class="spec"><b>'+esc(v.owners||'—')+'</b> owner</span><span class="spec"><b>'+esc(v.fuel||'—')+'</b></span><span class="spec"><b>'+esc(v.transmission||'—')+'</b></span></div><div class="context"><b>'+ctx+'</b><span>Listing was observed from a live marketplace query. Verify final availability and transaction details with the original seller.</span></div><div class="sources"><span>'+esc(v.source||'Live marketplace')+'</span><span><a href="'+esc(v.url||'#')+'" target="_blank" rel="noopener">Original listing/source ↗</a></span></div><div class="actions"><button class="secondary" onclick="inspect('+JSON.stringify(v).replace(/</g,'\\u003c')+')">Why this car?</button><a class="primary" href="'+esc(v.url||'#')+'" target="_blank" rel="noopener">Open source ↗</a></div></div></article>';
+ const gap=v.discount_pct!=null?Number(v.discount_pct):null,good=gap>0,verified=v.live_verified&&v.data_consistent;
+ return '<article class="card"><div class="photo"><span>'+(conditionOf(v)==='demo'?'DEMONSTRATOR':'USED')+'</span>CarScanner live listing</div><div class="cardbody"><div class="title">'+esc((v.brand||'')+' '+(v.model||''))+'</div><div class="variant">'+esc(v.variant||'Variant not established')+'</div><div class="location">📍 '+esc(v.location||'Location not established')+'</div><div class="price">'+money(v.price_lakh)+'</div><div class="priceLabel">current asking price observed live</div>'+(gap!=null?'<div class="deal '+(good?'good':'')+'"><b>'+(good?gap.toFixed(1)+'% below comparable median':'Price advantage not established')+'</b>'+(v.comp_median!=null?'<br>Market reference '+money(v.comp_median):'')+'</div>':'<div class="deal"><b>Market reference unavailable</b><br>CarScanner will not invent a deal signal.</div>')+'<div class="specs"><span class="spec">'+esc(v.mfg_year||'—')+'</span><span class="spec">'+esc(v.km!=null?Number(v.km).toLocaleString('en-IN'):'—')+' km</span><span class="spec">'+esc(v.fuel||'—')+'</span><span class="spec">'+esc(v.transmission||'—')+'</span></div><div class="sourceRow"><span>'+(verified?'● Live source':'⚠ Review source')+' · '+esc(v.source||'Marketplace')+'</span><a href="'+esc(v.url||'#')+'" target="_blank" rel="noopener">Original ↗</a></div><div class="actions"><button class="secondary" onclick="inspect('+JSON.stringify(v).replace(/</g,'\\u003c')+')">Why this car?</button><a class="primary" href="'+esc(v.url||'#')+'" target="_blank" rel="noopener">View listing</a></div></div></article>';
 }
-function render(){$('grid').innerHTML=shown.length?shown.map(card).join(''):'<div class="empty"><b>No matching live cars found.</b>Try another brand/model/budget or search again. CarScanner does not fall back to offline data.</div>'}
-function inspect(v){$('modalTitle').textContent=(v.brand||'')+' '+(v.model||'');$('modalBody').innerHTML='<div class="deal"><b>Live marketplace observation</b><br>This listing was returned by a current source query. Price and availability can change at any time.</div><table class="compare"><tbody>'+[['Asking price',money(v.price_lakh)],['Year',v.mfg_year||'—'],['Mileage',v.km!=null?Number(v.km).toLocaleString('en-IN')+' km':'—'],['Fuel / transmission',(v.fuel||'—')+' / '+(v.transmission||'—')],['Location',v.location||'—'],['Source',v.source||'—'],['Live verification',v.live_verified?'Source response received':'Not verified']].map(r=>'<tr><th>'+esc(r[0])+'</th><td>'+esc(r[1])+'</td></tr>').join('')+'</tbody></table><p class="meta" style="margin-top:12px">CarScanner is an aggregator. The original marketplace/seller remains the source of truth.</p>';$('modal').classList.add('show')}
+function render(){$('grid').innerHTML=shown.length?shown.map(card).join(''):'<div class="empty"><b>No matching live cars found.</b>Try another brand, model, budget or filter. CarScanner does not fall back to stale inventory.</div>'}
+function inspect(v){$('modalTitle').textContent=(v.brand||'')+' '+(v.model||'');$('modalBody').innerHTML='<div class="deal"><b>Live marketplace observation</b><br>This listing was returned by a current source query.</div><table class="compare"><tbody>'+[['Asking price',money(v.price_lakh)],['Year',v.mfg_year||'—'],['Mileage',v.km!=null?Number(v.km).toLocaleString('en-IN')+' km':'—'],['Fuel / transmission',(v.fuel||'—')+' / '+(v.transmission||'—')],['Location',v.location||'—'],['Source',v.source||'—'],['Live verification',v.live_verified?'Source response received':'Not verified']].map(r=>'<tr><th>'+esc(r[0])+'</th><td>'+esc(r[1])+'</td></tr>').join('')+'</tbody></table>';$('modal').classList.add('show')}
 function closeModal(){$('modal').classList.remove('show')}
-$('search').onclick=searchLive;
-$('sort').onchange=applyResults;$('fuel').onchange=applyResults;$('city').onchange=applyResults;$('year').onchange=applyResults;
+$('search').onclick=searchLive;$('sort').onchange=applyResults;$('city').onchange=applyResults;$('year').onchange=applyResults;document.querySelectorAll('.fuelCheck').forEach(x=>x.onchange=applyResults);
+document.querySelectorAll('input[name="cond"]').forEach(x=>x.onchange=()=>{$('condition').value=x.value;condition=x.value});
+document.querySelectorAll('.chip').forEach(x=>x.onclick=()=>{document.querySelectorAll('.chip').forEach(y=>y.classList.remove('active'));x.classList.add('active');quickFilter=x.dataset.filter;applyResults()});
+$('clear').onclick=()=>{document.querySelectorAll('.fuelCheck').forEach(x=>x.checked=false);$('city').value='';$('year').value='';$('fmin').value='';$('fmax').value='';$('destination').value='Bengaluru';quickFilter='';document.querySelectorAll('.chip').forEach((x,i)=>x.classList.toggle('active',i===0));applyResults()};
 loadCatalog();
 </script>
 </body></html>
