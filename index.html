@@ -1,410 +1,477 @@
 <!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f4f6f9">
-<title>Used &amp; Demo Car Deal Radar</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f7f8fa">
+<title>Carcanner — Search Used & Demo Cars in India</title>
 <style>
-:root{--bg:#f4f6f9;--card:#fff;--ink:#172033;--muted:#687386;--line:#e5e9f0;--navy:#172033;--blue:#2563eb;--bluebg:#eef4ff;--green:#15803d;--greenbg:#ecfdf3;--amber:#b45309;--amberbg:#fff7e8;--red:#b42318;--shadow:0 8px 28px rgba(18,29,47,.07)}
+:root{--bg:#f7f8fa;--card:#fff;--ink:#172033;--muted:#687386;--line:#e4e8ef;--navy:#18243a;--blue:#2563eb;--bluebg:#eef4ff;--green:#15803d;--greenbg:#ecfdf3;--amber:#b45309;--amberbg:#fff7e8;--red:#b42318;--redbg:#fef2f2;--shadow:0 8px 28px rgba(18,29,47,.06)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,select{font:inherit}
-.wrap{max-width:1480px;margin:auto;padding:28px 28px 50px}header{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:22px}.brand{display:flex;gap:13px}.logo{width:44px;height:44px;border-radius:13px;background:var(--navy);color:#fff;display:grid;place-items:center;font-size:21px;box-shadow:var(--shadow)}h1{margin:0 0 5px;font-size:30px;letter-spacing:-.04em}.sub,.muted{color:var(--muted)}.sub{font-size:14px}.small{font-size:11px}
-.status,.metric,.panel,.side{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}.status{padding:11px 13px;min-width:205px}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#16a34a;margin-right:7px}
-.hero{background:linear-gradient(135deg,#18233a,#294c82);color:#fff;border-radius:22px;padding:24px 25px;margin-bottom:16px;box-shadow:0 14px 34px rgba(31,57,97,.18)}.hero-row{display:flex;justify-content:space-between;gap:18px;align-items:flex-end}.hero h2{margin:0 0 7px;font-size:23px;letter-spacing:-.02em}.hero p{margin:0;color:#dce8fb;max-width:800px;font-size:13px;line-height:1.55}.hero-stat{background:#ffffff18;border:1px solid #ffffff25;border-radius:13px;padding:12px 14px;min-width:160px}.hero-stat b{display:block;font-size:22px}.hero-stat span{font-size:11px;color:#dce8fb}
-.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}.metric{padding:14px 15px}.metric .n{font-size:23px;font-weight:850}.metric .l{font-size:11px;color:var(--muted);margin-top:4px}
-.toolbar{position:sticky;top:0;z-index:10;padding:10px 0;background:#f4f6f9ee;backdrop-filter:blur(10px);border-bottom:1px solid #e5e9f088;margin-bottom:15px}.filters-primary{display:grid;grid-template-columns:minmax(280px,2.3fr) minmax(150px,.8fr) minmax(150px,.8fr) minmax(170px,.9fr) auto;gap:9px;align-items:center}.search input{width:100%}input,select{background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:11px;padding:10px 11px;outline:none}.filter-toggle{height:40px;padding:0 13px;border:1px solid var(--line);background:#fff;border-radius:11px;color:var(--ink);font-weight:800;cursor:pointer;white-space:nowrap}.filter-count{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;margin:0 6px;border-radius:999px;background:#edf0f4;font-size:10px}.advanced-filters{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:9px;margin-top:9px;padding:11px;background:#fff;border:1px solid var(--line);border-radius:13px}.advanced-filters.collapsed{display:none}.filter-field label{display:block;font-size:9px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;margin:0 0 4px}.filter-field input,.filter-field select{width:100%;min-width:0}.filter-actions{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:10px;padding-top:2px}.clear-filter{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 11px;font-size:10px;font-weight:800;cursor:pointer;color:var(--ink)}.filter-summary{font-size:10px;color:var(--muted)}.chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}.chip{background:#edf0f4;border-radius:999px;padding:5px 9px;font-size:10px;color:#4b5563}.chip strong{color:var(--ink)}
-@media(max-width:1150px){.filters-primary{grid-template-columns:minmax(220px,1.8fr) repeat(3,minmax(125px,1fr)) auto}.advanced-filters{grid-template-columns:repeat(4,minmax(125px,1fr))}}@media(max-width:760px){.filters-primary{grid-template-columns:1fr 1fr}.filters-primary .search{grid-column:1/-1}.filter-toggle{width:100%}.advanced-filters{grid-template-columns:1fr 1fr}.filter-actions{align-items:stretch;flex-direction:column}}@media(max-width:480px){.advanced-filters{grid-template-columns:1fr}.filters-primary select{min-width:0}.filters-primary{grid-template-columns:1fr 1fr}}
-.content{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:17px}.panel{overflow:hidden}.panel-head{padding:15px 17px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.panel-head h2{font-size:17px;margin:0}.grid{padding:16px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
-.card{border:1px solid var(--line);border-radius:15px;overflow:hidden;background:#fff;transition:.18s}.card:hover{transform:translateY(-2px);box-shadow:0 13px 28px rgba(18,29,47,.1)}.photo{height:228px;background:linear-gradient(135deg,#e9edf4,#dbe2eb);position:relative;overflow:hidden}.photo img{width:100%;height:100%;object-fit:cover;display:block}.shade{position:absolute;inset:auto 0 0;height:75px;background:linear-gradient(transparent,#0b1726a8)}.badges{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between}.badge{padding:5px 8px;border-radius:999px;background:#fffffff2;font-size:10px;font-weight:800}.good{color:var(--green)}.watch{color:var(--amber)}.risk{color:var(--red)}.gallery-count{position:absolute;left:11px;bottom:10px;color:#fff;font-size:11px;font-weight:800}.gallery-nav{position:absolute;right:10px;bottom:8px;display:flex;gap:4px}.gallery-nav button{width:28px;height:28px;border:0;border-radius:50%;background:#0f172acc;color:#fff;cursor:pointer}
-.body{padding:15px}.title{font-size:17px;font-weight:850;letter-spacing:-.02em}.variant{font-size:12px;color:var(--muted);margin-top:3px}.location{font-size:10px;color:var(--muted);margin-top:5px}.price-row{display:flex;justify-content:space-between;align-items:end;margin:13px 0 10px}.ask{font-size:23px;font-weight:900;letter-spacing:-.035em}.market{text-align:right}.market small{display:block;color:var(--muted);font-size:9px}.market b{font-size:13px}.gap{display:flex;gap:8px;align-items:center;padding:8px 9px;background:#f7f8fa;border:1px solid var(--line);border-radius:10px;margin-bottom:10px}.gap.positive{background:var(--greenbg);border-color:#b8e6c7}.gap .pct{font-weight:900;font-size:14px}.gap.positive .pct{color:var(--green)}.gap .txt{font-size:10px;color:var(--muted)}.specs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}.spec{padding:5px 7px;border-radius:8px;background:#f2f4f7;color:#4b5563;font-size:10px}.spec b{color:var(--ink)}.reason{font-size:11px;line-height:1.45;margin-bottom:12px}.actions{display:flex;gap:7px}.primary,.secondary{flex:1;text-align:center;text-decoration:none;border-radius:9px;padding:9px 10px;font-size:11px;font-weight:800}.primary{background:var(--navy);color:#fff}.secondary{background:#fff;color:var(--ink);border:1px solid var(--line);cursor:pointer}
-.side{overflow:hidden;height:max-content}.side-section{padding:16px;border-bottom:1px solid var(--line)}.side-section:last-child{border:0}.side-section h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px}.source{padding:8px 0;border-bottom:1px solid var(--line)}.source:last-child{border:0}.source b{font-size:11px}.source a{font-size:10px;color:var(--blue);text-decoration:none}.footer{margin-top:15px;font-size:10px;line-height:1.55;color:var(--muted)}
-.empty{padding:45px 20px;text-align:center;color:var(--muted)}.empty b{display:block;color:var(--ink);margin-bottom:5px}
-.modal{position:fixed;inset:0;background:#0b1421a8;display:none;z-index:50;padding:5vh 18px}.modal.show{display:flex;align-items:center;justify-content:center}.modal-card{width:min(1050px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 30px 80px #0003}.modal-head{padding:17px 19px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}.close{border:0;background:#f1f3f6;border-radius:8px;width:34px;height:34px;cursor:pointer}.modal-body{padding:18px}.gallery{display:grid;grid-template-columns:1.7fr .8fr;gap:9px;margin-bottom:16px}.main-img{height:340px;border-radius:13px;overflow:hidden;background:#eef1f5}.main-img img{width:100%;height:100%;object-fit:cover}.thumbs{display:grid;grid-template-columns:1fr 1fr;gap:8px}.thumb{height:166px;border-radius:9px;overflow:hidden;background:#eef1f5;cursor:pointer}.thumb img{width:100%;height:100%;object-fit:cover}.modal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.kv{padding:10px;background:#f8fafc;border:1px solid var(--line);border-radius:9px}.kv .k{font-size:9px;color:var(--muted);text-transform:uppercase}.kv .v{font-size:11px;font-weight:800;margin-top:3px}.notes{margin-top:13px;padding:11px;background:var(--amberbg);border:1px solid #f0d7a7;border-radius:10px;font-size:10px;line-height:1.5}
-@media(max-width:1100px){.content{grid-template-columns:1fr}.side{display:grid;grid-template-columns:1fr 1fr}.metrics{grid-template-columns:repeat(3,1fr)}}@media(max-width:760px){.wrap{padding:18px 14px 35px}header{flex-direction:column}.status{width:100%}.hero-row{flex-direction:column;align-items:stretch}.hero-stat{min-width:0}.metrics{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr;padding:11px}.photo{height:215px}.gallery{grid-template-columns:1fr}.thumbs{grid-template-columns:repeat(4,1fr)}.thumb{height:85px}.modal-grid{grid-template-columns:1fr 1fr}.side{display:block}}@media(max-width:480px){.filters select{flex:1;min-width:120px}.modal{padding:0}.modal-card{max-height:100vh;border-radius:0}.main-img{height:235px}}
-
-.watch-toggle{display:flex;justify-content:center;margin:0 0 15px}.watch-btn{background:#fff;color:var(--navy);border:1px solid var(--line);border-radius:12px;padding:11px 16px;font-weight:850;cursor:pointer;box-shadow:var(--shadow)}
-.watch{display:none;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:17px;margin-bottom:16px}.watch.show{display:block}.watch-head{display:flex;justify-content:space-between;gap:15px;align-items:flex-start;margin-bottom:13px}.watch-head h2{margin:0;font-size:18px}.watch-head p{margin:4px 0 0;color:var(--muted);font-size:11px;line-height:1.5}.watch-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.field{min-width:0}.field label{display:block;font-size:9px;font-weight:800;text-transform:uppercase;color:var(--muted);letter-spacing:.06em;margin:0 0 5px}.field input,.field select{width:100%;min-width:0}.field.full{grid-column:span 2}.watch-actions{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:13px;flex-wrap:wrap}.watch-summary{font-size:11px;color:var(--muted);line-height:1.4}.watch-summary b{color:var(--ink)}.watch-note{font-size:10px;color:var(--muted);margin-top:8px}.watch-status{font-size:10px;font-weight:800}.watch-status.ok{color:var(--green)}.watch-status.warn{color:var(--amber)}
-@media(max-width:900px){.watch-grid{grid-template-columns:1fr 1fr}}@media(max-width:560px){.watch-grid{grid-template-columns:1fr}.field.full{grid-column:span 1}.watch-head{flex-direction:column}}.watch-consents{display:flex;gap:14px;flex-wrap:wrap;margin-top:5px}.watch-consent{display:flex;gap:7px;align-items:flex-start;font-size:10px;color:var(--muted);line-height:1.4}.watch-consent input{width:auto;margin-top:2px}.manage-list{display:grid;gap:9px}.watch-row{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fafbfc;display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.watch-row h3{margin:0 0 4px;font-size:13px}.watch-meta{font-size:10px;color:var(--muted);line-height:1.5}.watch-badge{display:inline-block;border-radius:999px;padding:4px 7px;background:#edf0f4;font-size:9px;font-weight:800;text-transform:uppercase;margin-right:5px}.watch-badge.active{color:var(--green);background:var(--greenbg)}.watch-badge.paused{color:var(--amber);background:var(--amberbg)}.watch-badge.archived{color:var(--red);background:#fef2f2}.watch-controls{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.watch-control{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 9px;font-size:10px;font-weight:800;cursor:pointer;color:var(--ink)}.watch-control.danger{color:var(--red)}.access-row{display:flex;gap:7px;align-items:center;margin-top:10px;flex-wrap:wrap}.access-row input{flex:1;min-width:220px}.manage-empty{padding:18px;border:1px dashed var(--line);border-radius:12px;text-align:center;color:var(--muted);font-size:11px}.manage-help{font-size:10px;color:var(--muted);line-height:1.5;margin-top:8px}@media(max-width:560px){.watch-row{flex-direction:column}.watch-controls{justify-content:flex-start}}
-</style></head>
-<body><div class="wrap">
-<header><div class="brand"><div class="logo">🚘</div><div><h1>Used &amp; Demo Car Deal Radar</h1><div class="sub">Search India-wide used and demo cars across makes, models and cities — then verify before you travel or pay.</div></div></div>
-<div class="status" id="status"><div><span class="dot"></span><b>Loading latest crawl</b></div><div class="muted small" id="status2">data/latest.json</div></div></header>
-
-<section class="hero"><div class="hero-row"><div><h2>What deserves your attention today?</h2><p>Used and demo cars are surfaced using asking price, comparable market evidence, mileage, ownership and verification signals. The dashboard is designed to answer <b>what to inspect next</b>, not just display a spreadsheet.</p></div><div class="hero-stat"><b id="heroCount">—</b><span>cars currently surfaced</span></div></div></section>
-
-<section class="metrics"><div class="metric"><div class="n" id="seen">—</div><div class="l">Listings scanned</div></div><div class="metric"><div class="n" id="live">—</div><div class="l">Live & under ₹40L</div></div><div class="metric"><div class="n" id="opp">—</div><div class="l">Strong deal signals</div></div><div class="metric"><div class="n" id="verify">—</div><div class="l">Need verification</div></div><div class="metric"><div class="n" id="sources">—</div><div class="l">New sources found</div></div></section>
-
-
-<div class="watch-toggle"><button id="watchToggle" type="button" class="watch-btn">＋ Create a Car Watch</button><button id="manageToggle" type="button" class="watch-btn">My Car Watches</button></div>
-<section id="watchPanel" class="watch" aria-label="Create a car watch">
-  <div class="watch-head">
-    <div><h2>Tell us what car you want</h2><p>Every field is optional except the alert name. Set only the criteria that matter to you; the matching engine will use the rest of the information available.</p></div>
-    <button id="watchClose" type="button" class="close" aria-label="Close">✕</button>
-  </div>
-  <form id="watchForm">
-    <div class="watch-grid">
-      <div class="field"><label for="wName">Watch name</label><input id="wName" placeholder="My next car" required></div><div class="field"><label for="wEmail">Email</label><input id="wEmail" type="email" placeholder="you@example.com" required></div><div class="field"><label for="wPhone">WhatsApp number</label><input id="wPhone" inputmode="tel" placeholder="+91 98xxxxxx12"></div>
-      <div class="field"><label for="wMake">Make</label><input id="wMake" placeholder="BMW, Tata, Mercedes-Benz…"></div>
-      <div class="field"><label for="wModel">Model</label><input id="wModel" placeholder="X3, Nexon, GLC…"></div>
-      <div class="field"><label for="wCondition">Condition</label><select id="wCondition"><option value="">Used or demo</option><option value="used">Used</option><option value="demo">Demo</option><option value="used_demo">Used or demo</option></select></div>
-
-      <div class="field"><label for="wBudgetMin">Budget from (₹ lakh)</label><input id="wBudgetMin" type="number" min="0" step="0.1" inputmode="decimal" placeholder="No minimum"></div>
-      <div class="field"><label for="wBudgetMax">Budget up to (₹ lakh)</label><input id="wBudgetMax" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Any budget"></div>
-      <div class="field"><label for="wAgeMin">Vehicle age from (years)</label><input id="wAgeMin" type="number" min="0" max="50" step="0.5" inputmode="decimal" placeholder="Any age"></div>
-      <div class="field"><label for="wAgeMax">Vehicle age up to (years)</label><input id="wAgeMax" type="number" min="0" max="50" step="0.5" inputmode="decimal" placeholder="Any age"></div>
-
-      <div class="field"><label for="wMileage">Maximum mileage</label><select id="wMileage"><option value="">Any mileage</option><option value="10000">10,000 km</option><option value="20000">20,000 km</option><option value="30000">30,000 km</option><option value="50000">50,000 km</option><option value="75000">75,000 km</option><option value="100000">1,00,000 km</option></select></div>
-      <div class="field"><label for="wOwners">Ownership</label><select id="wOwners"><option value="">Any owner count</option><option value="1">1st owner only</option><option value="2">Up to 2 owners</option><option value="3">Up to 3 owners</option></select></div>
-      <div class="field"><label for="wFuel">Fuel</label><select id="wFuel"><option value="">Any fuel</option><option>Petrol</option><option>Diesel</option><option>Electric</option><option>Hybrid</option></select></div>
-      <div class="field"><label for="wTransmission">Transmission</label><select id="wTransmission"><option value="">Any transmission</option><option>Automatic</option><option>Manual</option><option>DCT</option><option>CVT</option><option>DSG</option></select></div>
-
-      <div class="field"><label for="wLocation">Preferred city / locality</label><input id="wLocation" placeholder="Bengaluru, Pune, Noida, Indore…"></div>
-      <div class="field"><label for="wRadius">Travel radius</label><select id="wRadius"><option value="">India-wide</option><option value="25">25 km</option><option value="50">50 km</option><option value="100">100 km</option><option value="250">250 km</option><option value="500">500 km</option><option value="1000">1,000 km</option></select></div>
-      <div class="field"><label for="wDeal">Minimum deal quality</label><select id="wDeal"><option value="any" selected>Any matching car</option><option value="good">Good deal</option><option value="exceptional">Exceptional deal</option></select></div>
-      <div class="field"><label for="wNotify">Alert frequency</label><select id="wNotify"><option value="instant">Instant</option><option value="daily">Daily digest</option><option value="both">Instant + daily digest</option></select></div>
-
-      <div class="field full"><label for="wMust">Must have</label><input id="wMust" placeholder="Sunroof, AWD, 7 seats, specific variant, ADAS…"></div>
-      <div class="field full"><label for="wNice">Nice to have</label><input id="wNice" placeholder="Certified, warranty, low owners, colour, dealer…"></div>
-      <div class="field full"><label for="wAvoid">Avoid</label><input id="wAvoid" placeholder="Accident history, >50k km, multiple owners, specific fuel…"></div>
-      <div class="field full"><label>Alert channels</label><div class="watch-consents"><label class="watch-consent"><input id="wEmailConsent" type="checkbox" checked> Email alerts — I agree to receive Car Watch alerts at this address.</label><label class="watch-consent"><input id="wWhatsappConsent" type="checkbox"> WhatsApp alerts — I explicitly opt in to WhatsApp messages for this watch.</label></div></div>
+.wrap{max-width:1260px;margin:auto;padding:22px 22px 55px}
+header{display:flex;justify-content:space-between;gap:18px;align-items:center;margin-bottom:22px}
+.brand{display:flex;align-items:center;gap:11px}.logo{width:40px;height:40px;border-radius:12px;background:var(--navy);color:#fff;display:grid;place-items:center;font-size:19px;box-shadow:var(--shadow)}
+h1{margin:0;font-size:23px;letter-spacing:-.04em}.sub{margin-top:3px;color:var(--muted);font-size:11px}
+.header-actions{display:flex;gap:7px}.header-btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:10px;padding:9px 12px;font-size:10px;font-weight:850;cursor:pointer}
+.search-hero{background:#fff;border:1px solid var(--line);border-radius:20px;padding:25px;box-shadow:var(--shadow);margin-bottom:14px}
+.eyebrow{text-transform:uppercase;letter-spacing:.09em;color:var(--blue);font-size:9px;font-weight:900;margin-bottom:6px}.hero-title{font-size:31px;letter-spacing:-.05em;margin:0 0 6px}.hero-copy{margin:0;color:var(--muted);font-size:12px;line-height:1.55;max-width:760px}
+.search-panel{margin-top:18px;padding:10px;border:1px solid var(--line);background:#f8fafc;border-radius:15px}
+.search-row{display:grid;grid-template-columns:2fr 1.2fr .95fr .95fr auto;gap:8px;align-items:end}
+.field label{display:block;font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 5px}.field input,.field select{width:100%;height:44px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:0 11px;color:var(--ink);outline:none}
+.search-btn{height:44px;border:0;background:var(--navy);color:#fff;border-radius:10px;padding:0 17px;font-size:11px;font-weight:900;cursor:pointer;white-space:nowrap}
+.search-meta{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 3px 0}.scope{font-size:10px;color:var(--muted)}.more-btn{border:0;background:none;color:var(--blue);font-size:10px;font-weight:900;cursor:pointer;padding:4px 0}
+.filter-count{display:inline-grid;place-items:center;min-width:19px;height:19px;margin-left:5px;padding:0 5px;background:var(--bluebg);border-radius:999px;font-size:9px}
+.advanced{display:none;margin-top:10px;padding:11px;background:#fff;border:1px solid var(--line);border-radius:13px}.advanced.show{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.filter-actions{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding-top:3px}.clear-btn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 10px;font-size:9px;font-weight:850;cursor:pointer}.filter-help{font-size:9px;color:var(--muted)}
+.search-note{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.note-pill{background:#eef1f5;border-radius:999px;padding:5px 8px;font-size:9px;color:#4b5563}.note-pill strong{color:var(--ink)}
+.results-shell{margin-top:18px}.results-top{display:flex;justify-content:space-between;align-items:end;gap:12px;margin-bottom:10px}.results-title{margin:0;font-size:18px;letter-spacing:-.03em}.results-meta{font-size:10px;color:var(--muted);margin-top:3px}.result-tools{display:flex;gap:7px;align-items:center}.sort{height:36px;border:1px solid var(--line);border-radius:9px;background:#fff;padding:0 10px;font-size:10px}
+.result-summary{padding:10px 12px;background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:11px;display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:10px}.result-summary strong{font-size:11px}.summary-right{color:var(--muted);text-align:right}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}.card-top{display:flex;justify-content:space-between;gap:10px;padding:15px 15px 7px}.car-title{font-size:17px;font-weight:900;letter-spacing:-.03em}.variant{font-size:10px;color:var(--muted);margin-top:3px}.location{font-size:10px;color:var(--muted);margin-top:6px}
+.badges{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.badge{padding:5px 7px;border-radius:999px;background:#f1f3f6;font-size:9px;font-weight:850;white-space:nowrap}.badge.green{color:var(--green);background:var(--greenbg)}.badge.amber{color:var(--amber);background:var(--amberbg)}.badge.blue{color:var(--blue);background:var(--bluebg)}
+.card-body{padding:0 15px 15px}.price-line{display:flex;justify-content:space-between;align-items:end;gap:14px;margin:10px 0}.ask{font-size:23px;font-weight:950;letter-spacing:-.04em}.small-muted{font-size:9px;color:var(--muted)}.market{text-align:right}.market b{display:block;font-size:12px}.market small{font-size:9px;color:var(--muted)}
+.price-context{padding:10px;border-radius:10px;background:#f8fafc;border:1px solid var(--line);font-size:10px;line-height:1.45;margin-bottom:9px}.price-context.good{background:var(--greenbg);border-color:#b8e6c7}.price-context b{color:var(--ink)}
+.specs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px}.spec{background:#f2f4f7;border-radius:8px;padding:5px 7px;font-size:9px;color:#4b5563}.spec b{color:var(--ink)}
+.buy-context{display:flex;justify-content:space-between;gap:10px;padding:9px 10px;border-radius:10px;background:#fbfbfc;border:1px solid var(--line);margin-bottom:9px}.context-main b{display:block;font-size:10px}.context-main span{font-size:9px;color:var(--muted)}.context-status{font-size:9px;text-align:right;color:var(--muted);max-width:42%}
+.source-row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:9px;color:var(--muted)}.source-count{font-weight:850;color:var(--ink)}.source-links{display:flex;gap:5px;flex-wrap:wrap}.source-links a{color:var(--blue);text-decoration:none}
+.card-actions{display:flex;gap:7px;margin-top:9px}.action{flex:1;border-radius:9px;padding:9px 10px;font-size:9px;font-weight:900;text-align:center;text-decoration:none;cursor:pointer}.action.secondary{border:1px solid var(--line);background:#fff;color:var(--ink)}.action.primary{border:0;background:var(--navy);color:#fff}
+.empty{background:#fff;border:1px dashed var(--line);border-radius:14px;padding:48px 20px;text-align:center;color:var(--muted);font-size:11px;grid-column:1/-1}.empty b{display:block;color:var(--ink);margin-bottom:5px}
+.compare-tray{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);width:min(1000px,calc(100% - 28px));background:var(--navy);color:#fff;border-radius:15px;padding:11px 13px;display:none;align-items:center;gap:10px;box-shadow:0 18px 50px rgba(18,29,47,.2);z-index:40}.compare-tray.show{display:flex}.compare-list{display:flex;gap:7px;flex:1;overflow:auto}.compare-pill{background:#ffffff18;border:1px solid #ffffff26;border-radius:999px;padding:6px 8px;font-size:9px;white-space:nowrap}.compare-open{border:0;background:#fff;color:var(--navy);border-radius:9px;padding:8px 11px;font-size:9px;font-weight:900;cursor:pointer}.compare-clear{border:0;background:transparent;color:#dce8fb;font-size:9px;cursor:pointer}
+.modal{position:fixed;inset:0;background:#101827a8;display:none;align-items:center;justify-content:center;padding:18px;z-index:60}.modal.show{display:flex}.modal-card{width:min(1050px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 30px 90px #0004}.modal-head{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.modal-head h2{margin:0;font-size:16px}.close{border:0;background:#f1f3f6;border-radius:8px;width:33px;height:33px;cursor:pointer}.modal-body{padding:17px}
+.inspect-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}.inspect-card{border:1px solid var(--line);border-radius:12px;padding:12px}.inspect-card h3{margin:0 0 9px;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}.inspect-price{font-size:27px;font-weight:950}.compare-table{width:100%;border-collapse:collapse;font-size:9px}.compare-table th,.compare-table td{padding:8px;border-bottom:1px solid var(--line);text-align:left}.compare-table th{color:var(--muted);font-size:8px;text-transform:uppercase}
+.save-modal .save-summary{background:#f8fafc;border:1px solid var(--line);border-radius:11px;padding:10px;font-size:10px;line-height:1.5;margin-bottom:10px}.save-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.consent{display:flex;gap:7px;font-size:9px;color:var(--muted);line-height:1.35;margin-top:9px}.save-actions{display:flex;justify-content:flex-end;margin-top:12px}
+.watches{display:grid;gap:8px}.watch-row{border:1px solid var(--line);border-radius:11px;padding:11px;display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.watch-row h3{margin:0 0 4px;font-size:11px}.watch-meta{font-size:9px;color:var(--muted);line-height:1.5}.watch-controls{display:flex;gap:5px}.watch-control{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 8px;font-size:9px;font-weight:850;cursor:pointer}.manage-note{font-size:9px;color:var(--muted);margin-top:9px}
+.footer{margin-top:18px;color:var(--muted);font-size:9px;line-height:1.55;text-align:center}
+@media(max-width:980px){.search-row{grid-template-columns:1.7fr 1fr 1fr 1fr}.search-btn{grid-column:span 4}.advanced.show{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.wrap{padding:15px 12px 45px}header{align-items:flex-start}.sub{max-width:420px}.header-actions{display:none}.search-hero{padding:18px}.hero-title{font-size:26px}.search-row{grid-template-columns:1fr 1fr}.search-row .search-car{grid-column:1/-1}.search-btn{grid-column:1/-1}.search-meta{align-items:flex-start;flex-direction:column}.advanced.show{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.results-top{align-items:flex-start;flex-direction:column}.result-tools{width:100%}.sort{flex:1}.inspect-grid{grid-template-columns:1fr}.save-grid{grid-template-columns:1fr}}
+@media(max-width:430px){.advanced.show{grid-template-columns:1fr}.hero-copy{font-size:11px}.ask{font-size:21px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="brand">
+    <div class="logo">🚘</div>
+    <div>
+      <h1>Carcanner</h1>
+      <div class="sub">Search used & demo cars across India. Compare the market before you decide where to buy.</div>
     </div>
-    <div class="watch-actions">
-      <div class="watch-summary"><b id="watchPreview">Set as few or as many criteria as you need.</b><br><span>India-wide matching is enabled; an empty field means “don't care”.</span></div>
-      <div style="display:flex;gap:7px;align-items:center"><span id="watchStatus" class="watch-status"></span><button type="submit" class="primary" style="border:0;cursor:pointer;flex:0 0 auto">Create Watch</button></div>
+  </div>
+  <div class="header-actions">
+    <button id="saveTop" class="header-btn" type="button">Save this search</button>
+    <button id="watchesTop" class="header-btn" type="button">My Car Watches</button>
+  </div>
+</header>
+
+<section class="search-hero">
+  <div class="eyebrow">India-wide car search</div>
+  <h2 class="hero-title">Find the car. Wherever the deal is.</h2>
+  <p class="hero-copy">Tell Carcanner what you want and where you live. We search the India-wide inventory we have collected, then show price context, seller location, source coverage and the extra considerations for buying outside your home state.</p>
+
+  <div class="search-panel">
+    <div class="search-row">
+      <div class="field search-car">
+        <label for="q">What car are you looking for?</label>
+        <input id="q" placeholder="BMW X3, Mercedes GLA, Audi Q5, Fortuner…">
+      </div>
+      <div class="field">
+        <label for="destination">Where will you buy/register?</label>
+        <input id="destination" value="Bengaluru" placeholder="Bengaluru">
+      </div>
+      <div class="field">
+        <label for="budgetMin">Budget from (₹L)</label>
+        <input id="budgetMin" type="number" min="0" step="0.1" placeholder="30">
+      </div>
+      <div class="field">
+        <label for="budgetMax">Budget up to (₹L)</label>
+        <input id="budgetMax" type="number" min="0" step="0.1" placeholder="40">
+      </div>
+      <button id="searchCars" type="button" class="search-btn">Search cars</button>
     </div>
-    <div class="watch-note">Your watch is saved under a private access key. Keep your private access link to manage watches later. WhatsApp alerts require a separate explicit opt-in. Live provider delivery requires the deployment environment to be configured.</div>
-  </form>
-</section>
-<section id="managePanel" class="watch" aria-label="My car watches">
-  <div class="watch-head">
-    <div><h2>My Car Watches</h2><p>Pause or resume a watch, archive old watches, and see the latest alert activity. Your private access key is kept in this browser.</p></div>
-    <button id="manageClose" type="button" class="close" aria-label="Close">✕</button>
+    <div class="search-meta">
+      <div class="scope"><strong>Search scope:</strong> all India · no state or radius restriction</div>
+      <button id="moreFilters" class="more-btn" type="button" aria-expanded="false">More filters <span id="filterCount" class="filter-count">0</span>⌄</button>
+    </div>
+    <div id="advanced" class="advanced">
+      <div class="field"><label for="maxAge">Maximum car age</label><select id="maxAge"><option value="">Any age</option><option value="2">Up to 2 years</option><option value="3">Up to 3 years</option><option value="4">Up to 4 years</option><option value="5">Up to 5 years</option><option value="7">Up to 7 years</option><option value="10">Up to 10 years</option></select></div>
+      <div class="field"><label for="mileage">Maximum mileage</label><select id="mileage"><option value="">Any mileage</option><option value="10000">10,000 km</option><option value="20000">20,000 km</option><option value="30000">30,000 km</option><option value="50000">50,000 km</option><option value="75000">75,000 km</option><option value="100000">1,00,000 km</option><option value="150000">1,50,000 km</option></select></div>
+      <div class="field"><label for="owners">Owners up to</label><select id="owners"><option value="">Any owners</option><option value="1">1st owner only</option><option value="2">Up to 2 owners</option><option value="3">Up to 3 owners</option><option value="4">Up to 4 owners</option></select></div>
+      <div class="field"><label for="fuel">Fuel</label><select id="fuel"><option value="">Any fuel</option></select></div>
+      <div class="field"><label for="transmission">Transmission</label><select id="transmission"><option value="">Any transmission</option></select></div>
+      <div class="field"><label for="condition">Condition</label><select id="condition"><option value="">Used + demo</option><option value="used">Used</option><option value="demo">Demo</option></select></div>
+      <div class="field"><label for="certification">Certification</label><select id="certification"><option value="">Any certification</option><option value="certified">Certified only</option><option value="not-certified">Not certified / unknown</option></select></div>
+      <div class="field"><label for="deal">Price opportunity</label><select id="deal"><option value="">Any price context</option><option value="below">Below comparable market</option><option value="strong">Strong deal signal</option></select></div>
+      <div class="filter-actions"><button id="clearFilters" type="button" class="clear-btn">Clear filters</button><span class="filter-help">These filters refine results; they never change the India-wide search scope.</span></div>
+    </div>
+    <div class="search-note">
+      <span class="note-pill"><strong>Buyer destination</strong> is used for local/interstate context</span>
+      <span class="note-pill"><strong>Search area</strong> stays India-wide</span>
+      <span class="note-pill"><strong>Distance</strong> is shown as a decision factor, not a hard boundary</span>
+    </div>
   </div>
-  <div id="manageContent" class="manage-list"></div>
-  <div class="access-row">
-    <input id="watchAccessToken" type="password" placeholder="Paste your private watch access key to use another device">
-    <button id="watchAccessLoad" type="button" class="watch-control">Load watches</button>
-    <button id="watchAccessCopy" type="button" class="watch-control">Copy private link</button>
-  </div>
-  <div id="manageStatus" class="manage-help"></div>
 </section>
-<div class="toolbar">
-<div class="filters-primary">
-  <div class="search"><input id="q" placeholder="Search make, model, city, variant, fuel or dealer…"></div>
-  <select id="brand" aria-label="Brand"><option value="">All brands</option></select>
-  <select id="model" aria-label="Model"><option value="">All models</option></select>
-  <select id="city" aria-label="City or location"><option value="">All cities / locations</option></select>
-  <button id="filterToggle" type="button" class="filter-toggle" aria-expanded="true">Filters <span id="filterCount" class="filter-count">0</span>⌄</button>
+
+<div class="results-shell">
+  <div class="results-top">
+    <div>
+      <h2 class="results-title">Cars you can consider</h2>
+      <div id="resultsMeta" class="results-meta">Loading the latest India-wide inventory…</div>
+    </div>
+    <div class="result-tools">
+      <select id="sort" class="sort">
+        <option value="match">Relevant matches</option>
+        <option value="price">Lowest price</option>
+        <option value="discount">Largest market gap</option>
+        <option value="km">Lowest mileage</option>
+        <option value="year">Newest cars</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="result-summary">
+    <div><strong id="count">—</strong> vehicles found</div>
+    <div id="summaryRight" class="summary-right">Searching all India</div>
+  </div>
+
+  <section id="cars" class="grid"></section>
 </div>
-<div id="advancedFilters" class="advanced-filters">
-  <div class="filter-field"><label for="priceMin">Price from</label><input id="priceMin" type="number" min="0" step="0.1" placeholder="₹ min (L)"></div>
-  <div class="filter-field"><label for="priceMax">Price up to</label><input id="priceMax" type="number" min="0" step="0.1" placeholder="₹ max (L)"></div>
-  <div class="filter-field"><label for="yearMin">Manufacture year from</label><select id="yearMin"><option value="">Any year</option></select></div>
-  <div class="filter-field"><label for="yearMax">Manufacture year to</label><select id="yearMax"><option value="">Any year</option></select></div>
-  <div class="filter-field"><label for="mileageMax">Mileage up to</label><select id="mileageMax"><option value="">Any mileage</option><option value="10000">10,000 km</option><option value="20000">20,000 km</option><option value="30000">30,000 km</option><option value="50000">50,000 km</option><option value="75000">75,000 km</option><option value="100000">1,00,000 km</option><option value="150000">1,50,000 km</option></select></div>
-  <div class="filter-field"><label for="ownersMax">Owners up to</label><select id="ownersMax"><option value="">Any owners</option><option value="1">1st owner only</option><option value="2">Up to 2 owners</option><option value="3">Up to 3 owners</option><option value="4">Up to 4 owners</option></select></div>
-  <div class="filter-field"><label for="fuel">Fuel</label><select id="fuel"><option value="">All fuels</option></select></div>
-  <div class="filter-field"><label for="transmission">Transmission</label><select id="transmission"><option value="">All transmissions</option></select></div>
-  <div class="filter-field"><label for="condition">Condition</label><select id="condition"><option value="">Used + demo</option><option value="used">Used</option><option value="demo">Demo</option></select></div>
-  <div class="filter-field"><label for="verification">Verification</label><select id="verification"><option value="">All verification states</option><option value="verified">Page verified</option><option value="needs-review">Needs verification</option></select></div>
-  <div class="filter-field"><label for="certification">Certification</label><select id="certification"><option value="">All certification states</option><option value="certified">Certified</option><option value="not-certified">Not certified / not established</option></select></div>
-  <div class="filter-field"><label for="cls">Signal</label><select id="cls"><option value="">All signals</option><option value="exceptional">Exceptional</option><option value="bargain">Bargain</option><option value="low-mileage-watch">Low-mileage watch</option><option value="market-watch">Market watch</option></select></div>
-  <div class="filter-field"><label for="source">Dealer / source</label><select id="source"><option value="">All sources</option></select></div>
-  <div class="filter-field"><label for="gapMin">Minimum market gap</label><select id="gapMin"><option value="">Any market gap</option><option value="0">At / below comps</option><option value="3">≥ 3% below comps</option><option value="5">≥ 5% below comps</option><option value="10">≥ 10% below comps</option><option value="15">≥ 15% below comps</option></select></div>
-  <div class="filter-field"><label for="sort">Sort results by</label><select id="sort"><option value="score">Radar priority</option><option value="price">Lowest ask</option><option value="km">Lowest mileage</option><option value="discount">Largest market gap</option><option value="year">Newest cars</option></select></div>
-  <div class="filter-actions"><button id="clearFilters" type="button" class="clear-filter">Clear all filters</button><span id="filterSummary" class="filter-summary">Showing all available cars</span></div>
+
+<div class="footer">Carcanner compares available listing evidence; it does not guarantee physical stock, vehicle condition, final tax, registration cost or transaction safety. Verify VIN, stock, history, insurance, loan/hypothecation and the final Karnataka landed cost before paying.</div>
 </div>
-<div class="chips"><span class="chip"><strong>Radar default</strong> ≤ ₹40L · ≤ 4 years</span><span class="chip"><strong>Scope</strong> all makes &amp; models · all India</span><span class="chip"><strong>Preference</strong> low km + 1st owner + certified/demo</span><span class="chip" id="resultCount">— results</span></div></div>
 
-<div class="content"><section class="panel"><div class="panel-head"><h2>Cars worth investigating</h2><span class="muted small">Inspect the evidence before opening the original listing</span></div><div id="cars" class="grid"></div></section>
-<aside class="side"><div class="side-section"><h3>How to read the radar</h3><div class="muted small" style="line-height:1.55"><b style="color:var(--ink)">Market gap</b> is asking price vs current comparable median in the evidence set.<br><br><b style="color:var(--ink)">Page verified</b> means the vehicle page was reachable and not marked sold/unavailable. It does not confirm physical dealer stock.<br><br><b style="color:var(--ink)">Need verification</b> flags missing, conflicting or time-sensitive facts.</div></div><div class="side-section"><h3>New sources discovered</h3><div id="sourceList"></div></div></aside></div>
+<div id="compareTray" class="compare-tray">
+  <div class="compare-list" id="compareList"></div>
+  <button id="compareOpen" class="compare-open" type="button">Compare</button>
+  <button id="compareClear" class="compare-clear" type="button">Clear</button>
+</div>
 
-<div class="footer">India-wide used &amp; demo car radar. Research only. Before paying, confirm VIN, physical stock, manufacturing/registration dates, accident/paint history, service records, insurance, warranty, hypothecation and the full Bangalore landed cost.</div></div>
+<div id="inspectModal" class="modal" onclick="if(event.target===this)closeInspect()">
+  <div class="modal-card">
+    <div class="modal-head"><div><h2 id="inspectTitle"></h2><div id="inspectSub" class="results-meta"></div></div><button class="close" onclick="closeInspect()">✕</button></div>
+    <div class="modal-body" id="inspectBody"></div>
+  </div>
+</div>
 
-<div id="modal" class="modal" onclick="if(event.target===this)closeModal()"><div class="modal-card"><div class="modal-head"><div><div id="mTitle" class="title"></div><div id="mSub" class="variant"></div></div><button class="close" onclick="closeModal()">✕</button></div><div class="modal-body" id="mBody"></div></div></div>
+<div id="compareModal" class="modal" onclick="if(event.target===this)closeCompare()">
+  <div class="modal-card">
+    <div class="modal-head"><div><h2>Compare selected cars</h2><div class="results-meta">See the trade-offs side by side.</div></div><button class="close" onclick="closeCompare()">✕</button></div>
+    <div class="modal-body" id="compareBody"></div>
+  </div>
+</div>
+
+<div id="saveModal" class="modal" onclick="if(event.target===this)closeSave()">
+  <div class="modal-card save-modal">
+    <div class="modal-head"><div><h2>Save this search</h2><div class="results-meta">Get alerts when a matching car appears.</div></div><button class="close" onclick="closeSave()">✕</button></div>
+    <div class="modal-body">
+      <div id="saveSummary" class="save-summary"></div>
+      <div class="save-grid">
+        <div class="field"><label for="saveName">Search name</label><input id="saveName" placeholder="My next premium car"></div>
+        <div class="field"><label for="saveEmail">Email</label><input id="saveEmail" type="email" placeholder="you@example.com"></div>
+        <div class="field"><label for="savePhone">WhatsApp number (optional)</label><input id="savePhone" placeholder="+91 98xxxxxx12"></div>
+        <div class="field"><label for="saveFrequency">Alert frequency</label><select id="saveFrequency"><option value="instant">Instant</option><option value="daily">Daily digest</option><option value="both">Instant + daily digest</option></select></div>
+      </div>
+      <label class="consent"><input id="saveEmailConsent" type="checkbox" checked> Email alerts — I agree to receive Carcanner alerts at this address.</label>
+      <label class="consent"><input id="saveWhatsappConsent" type="checkbox"> WhatsApp alerts — I explicitly opt in to WhatsApp messages for this search.</label>
+      <div class="save-actions"><button id="saveSearchBtn" class="search-btn" type="button">Save search</button></div>
+      <div id="saveStatus" class="results-meta"></div>
+    </div>
+  </div>
+</div>
+
+<div id="watchesModal" class="modal" onclick="if(event.target===this)closeWatches()">
+  <div class="modal-card">
+    <div class="modal-head"><div><h2>My Car Watches</h2><div class="results-meta">Manage the searches you have saved.</div></div><button class="close" onclick="closeWatches()">✕</button></div>
+    <div class="modal-body">
+      <div id="watches" class="watches"></div>
+      <div class="save-grid" style="margin-top:12px">
+        <div class="field" style="grid-column:1/-1"><label for="watchAccess">Private watch access key</label><input id="watchAccess" type="password" placeholder="Paste your private key on another device"></div>
+      </div>
+      <div style="display:flex;gap:7px;justify-content:flex-end;margin-top:8px"><button id="watchLoad" class="watch-control" type="button">Load watches</button><button id="watchCopy" class="watch-control" type="button">Copy private link</button></div>
+      <div id="watchesStatus" class="manage-note"></div>
+    </div>
+  </div>
+</div>
 
 <script>
-let D={vehicles:[],new_sources:[],stats:{}},galleryState={};
+let D={vehicles:[],stats:{}};
+let results=[];
+let selectedCompare=[];
+let watchAccess=localStorage.getItem('car_watch_access_token')||'';
+
+const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=x=>x==null?'—':'₹'+Number(x).toFixed(2)+'L';
 const km=x=>x==null?'—':Number(x).toLocaleString('en-IN')+' km';
-const imgList=v=>Array.isArray(v.image_urls)?v.image_urls.filter(Boolean):[];
-function label(c){return({exceptional:'Exceptional',bargain:'Bargain','low-mileage-watch':'Low-mileage watch','market-watch':'Market watch'})[c]||'Watch'}
-function vehicleCondition(v){return String(v.condition||((String(v.title||'')+' '+String(v.source||'')).toLowerCase().includes('demo')?'demo':'used')).toLowerCase()}
-function vehicleAge(v){return v.mfg_year?Math.max(0,new Date().getFullYear()-Number(v.mfg_year)):null}
-function filters(){
- const b=[...new Set(D.vehicles.map(v=>v.brand).filter(Boolean))].sort();
- const m=[...new Set(D.vehicles.map(v=>v.model).filter(Boolean))].sort();
- const cities=[...new Set(D.vehicles.map(v=>v.location).filter(Boolean))].sort();
- const f=[...new Set(D.vehicles.map(v=>v.fuel).filter(Boolean))].sort();
- const t=[...new Set(D.vehicles.map(v=>v.transmission).filter(Boolean))].sort();
- const sources=[...new Set(D.vehicles.map(v=>v.source).filter(Boolean))].sort();
- const years=[...new Set(D.vehicles.map(v=>v.mfg_year).filter(Boolean))].sort((a,b)=>b-a);
- brand.innerHTML='<option value="">All brands</option>'+b.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
- model.innerHTML='<option value="">All models</option>'+m.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
- city.innerHTML='<option value="">All cities / locations</option>'+cities.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
- fuel.innerHTML='<option value="">All fuels</option>'+f.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
- transmission.innerHTML='<option value="">All transmissions</option>'+t.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
- source.innerHTML='<option value="">All sources</option>'+sources.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
- yearMin.innerHTML='<option value="">Any year</option>'+years.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
- yearMax.innerHTML='<option value="">Any year</option>'+years.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
+
+function ageYears(v){return v.mfg_year?Math.max(0,new Date().getFullYear()-Number(v.mfg_year)):null}
+function condition(v){return String(v.condition_signal||'').toLowerCase()||(String(v.variant||'')+' '+String(v.source||'')).toLowerCase().includes('demo')?'demo':'used'}
+function context(v){
+  const p=v.purchase_context||{};
+  if(p.mode==='interstate') return {label:'Interstate purchase',note:p.note||'Transport, transfer and state-tax considerations need verification.'};
+  if(p.mode==='same_state') return {label:'Same-state purchase',note:p.note||'Seller and destination are in the same state.'};
+  if(p.mode==='local') return {label:'Local to destination',note:'Seller location matches your destination city.'};
+  return {label:'Location needs verification',note:p.note||'Seller/registration state is not fully established.'};
 }
-function refreshModels(){
- const selectedBrand=brand.value;
- const models=[...new Set(D.vehicles.filter(v=>!selectedBrand||v.brand===selectedBrand).map(v=>v.model).filter(Boolean))].sort();
- const current=model.value;
- model.innerHTML='<option value="">All models</option>'+models.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
- if(models.includes(current))model.value=current;
+function populateOptions(){
+  const unique=key=>[...new Set(D.vehicles.map(v=>v[key]).filter(Boolean))].sort();
+  $('fuel').innerHTML='<option value="">Any fuel</option>'+unique('fuel').map(x=>'<option>'+esc(x)+'</option>').join('');
+  $('transmission').innerHTML='<option value="">Any transmission</option>'+unique('transmission').map(x=>'<option>'+esc(x)+'</option>').join('');
 }
-function placeholder(v){return'<div style="height:100%;display:grid;place-items:center;text-align:center;color:#64748b;padding:18px"><div><div style="font-size:36px">🚘</div><b>'+esc(v.brand+' '+v.model)+'</b><div class="small">Listing photo not captured yet</div></div></div>'}
-function photo(v,i){const a=imgList(v);if(!a.length)return placeholder(v);const n=galleryState[i]||0;return "<img loading=\"lazy\" src=\""+esc(a[n])+"\" alt=\""+esc(v.brand+" "+v.model+" listing photo")+"\" onerror='this.onerror=null;this.src="+JSON.stringify(a[0])+ "'>"}
-function card(v,i){const a=imgList(v),gap=v.discount_pct,verified=v.live_verified&&v.data_consistent;let why=[];if(v.owners===1)why.push('1st owner');if(v.km&&v.mfg_year){const age=Math.max(1,new Date().getFullYear()-Number(v.mfg_year));if(v.km/age<10000)why.push('low annual km')}if(gap!=null&&gap>0)why.push(Number(gap).toFixed(1)+'% below comps');if(!why.length)why.push('market evidence available');
-return'<article class="card"><div class="photo">'+photo(v,i)+'<div class="shade"></div><div class="badges"><span class="badge '+(v.opportunity_class==='exceptional'||v.opportunity_class==='bargain'?'good':'watch')+'">'+esc(label(v.opportunity_class))+'</span><span class="badge '+(verified?'good':'risk')+'">'+(verified?'✓ Page verified':'⚠ Verify data')+'</span></div>'+(a.length>1?'<div class="gallery-count">📷 '+a.length+'</div><div class="gallery-nav"><button onclick="event.stopPropagation();stepGallery('+i+',-1)">‹</button><button onclick="event.stopPropagation();stepGallery('+i+',1)">›</button></div>':'')+'</div>'+
-'<div class="body"><div class="title">'+esc(v.brand+' '+v.model)+'</div><div class="variant">'+esc(v.variant||'Variant not extracted')+'</div><div class="location">📍 '+esc(v.location||'Location not found')+'</div>'+
-'<div class="price-row"><div><div class="ask">'+money(v.price_lakh)+'</div><div class="small muted">asking price</div></div><div class="market">'+(v.comp_median?'<small>Comparable median</small><b>'+money(v.comp_median)+'</b>':'<small>Market comparison</small><b>Not established</b>')+'</div></div>'+
-(gap!=null?'<div class="gap '+(gap>0?'positive':'')+'"><div class="pct">'+(gap>0?'−':'')+Math.abs(Number(gap)).toFixed(1)+'%</div><div class="txt">'+(gap>0?'below current comparable median':'above current comparable median')+'</div></div>':'<div class="gap"><div class="pct">—</div><div class="txt">Comparable evidence is insufficient</div></div>')+
-'<div class="specs"><span class="spec"><b>'+esc(v.mfg_year||'—')+'</b> mfg</span><span class="spec"><b>'+km(v.km)+'</b></span><span class="spec"><b>'+esc(v.owners||'—')+'</b> owner</span><span class="spec"><b>'+esc(v.fuel||'—')+'</b></span><span class="spec"><b>'+esc(v.transmission||'—')+'</b></span></div>'+
-'<div class="reason"><b>Why it surfaced:</b> '+esc(why.join(' · '))+'.</div><div class="actions"><button class="secondary" onclick="openModal('+i+')">Inspect evidence</button><a class="primary" href="'+esc(v.url)+'" target="_blank" rel="noopener">Open listing ↗</a></div></div></article>'}
-function stepGallery(i,d){const a=imgList(D.vehicles[i]);if(!a.length)return;galleryState[i]=((galleryState[i]||0)+d+a.length)%a.length;render()}
+
+function queryMatch(v,q){
+  const tokens=(q||'').trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const hay=[v.brand,v.model,v.variant,v.location,v.fuel,v.transmission,v.source].map(x=>String(x||'')).join(' ').toLowerCase();
+  return tokens.every(t=>hay.includes(t));
+}
+
+function applyClientFilters(rows){
+  const min=budgetMin.value===''?null:Number(budgetMin.value);
+  const max=budgetMax.value===''?null:Number(budgetMax.value);
+  const age=maxAge.value===''?null:Number(maxAge.value);
+  const maxKm=mileage.value===''?null:Number(mileage.value);
+  const maxOwners=owners.value===''?null:Number(owners.value);
+  return rows.filter(v=>{
+    const gap=Number(v.discount_pct||0);
+    const a=ageYears(v);
+    const c=condition(v);
+    const cert=String(v.certification||'').trim();
+    return queryMatch(v,$('q').value)
+      && (min===null||(v.price_lakh!=null&&Number(v.price_lakh)>=min))
+      && (max===null||(v.price_lakh!=null&&Number(v.price_lakh)<=max))
+      && (age===null||(a!==null&&a<=age))
+      && (maxKm===null||(v.km!=null&&Number(v.km)<=maxKm))
+      && (maxOwners===null||(v.owners!=null&&Number(v.owners)<=maxOwners))
+      && (!fuel.value||v.fuel===fuel.value)
+      && (!transmission.value||v.transmission===transmission.value)
+      && (!condition.value||c===condition.value)
+      && (!certification.value||(certification.value==='certified'?!!cert:!cert))
+      && (!deal.value||(deal.value==='below'?gap>0:gap>=10));
+  });
+}
+
+function sortRows(rows){
+  const mode=$('sort').value;
+  return [...rows].sort((a,b)=>{
+    if(mode==='price')return (a.price_lakh||9999)-(b.price_lakh||9999);
+    if(mode==='discount')return (b.discount_pct||-999)-(a.discount_pct||-999);
+    if(mode==='km')return (a.km||999999999)-(b.km||999999999);
+    if(mode==='year')return (b.mfg_year||0)-(a.mfg_year||0);
+    const sa=(a.discount_pct||0)*4+(a.source_count||1)*5+(a.identity_confidence||0)*10+(a.owners===1?4:0)+(a.km&&a.km<=30000?4:0);
+    const sb=(b.discount_pct||0)*4+(b.source_count||1)*5+(b.identity_confidence||0)*10+(b.owners===1?4:0)+(b.km&&b.km<=30000?4:0);
+    return sb-sa;
+  });
+}
+
+function sourceLinks(v){
+  const items=Array.isArray(v.source_listings)&&v.source_listings.length?v.source_listings:[{source:v.source,url:v.url,price_lakh:v.price_lakh}];
+  return items.slice(0,4).map(s=>'<a href="'+esc(s.url||'#')+'" target="_blank" rel="noopener">'+esc(s.source||'Source')+(s.price_lakh!=null?' · '+money(s.price_lakh):'')+'</a>').join('');
+}
+
+function card(v){
+  const gap=v.discount_pct!=null?Number(v.discount_pct):null;
+  const ctx=context(v);
+  const verified=v.live_verified&&v.data_consistent;
+  const market=(v.comp_low!=null&&v.comp_high!=null)?money(v.comp_low)+'–'+money(v.comp_high):v.comp_median!=null?money(v.comp_median):'Not established';
+  const good=gap!=null&&gap>0;
+  const selected=selectedCompare.some(x=>x===v.fingerprint||x===v.url);
+  return '<article class="card">'+
+    '<div class="card-top"><div><div class="car-title">'+esc((v.brand||'')+' '+(v.model||''))+'</div><div class="variant">'+esc(v.variant||'Variant not established')+'</div><div class="location">📍 '+esc(v.location||'Location not established')+'</div></div>'+
+    '<div class="badges"><span class="badge blue">'+esc(ctx.label)+'</span><span class="badge '+(verified?'green':'amber')+'">'+(verified?'✓ Verified page':'⚠ Review data')+'</span></div></div>'+
+    '<div class="card-body"><div class="price-line"><div><div class="ask">'+money(v.price_lakh)+'</div><div class="small-muted">seller asking price</div></div><div class="market"><small>Comparable market</small><b>'+esc(market)+'</b></div></div>'+
+    (gap!=null?'<div class="price-context '+(good?'good':'')+'"><b>'+(good?'~'+money(Math.max(0,(v.comp_median||v.price_lakh)-v.price_lakh))+' below comparable median':'Price is above current comparable median')+'</b><br>'+Math.abs(gap).toFixed(1)+'% '+(good?'below':'above')+' the comparable median'+(v.comparable_count?' · '+v.comparable_count+' comparable observations':'')+'</div>':'<div class="price-context"><b>Market price context not established yet.</b><br>Use the evidence panel and compare with other listings before deciding.</div>')+
+    '<div class="specs"><span class="spec"><b>'+esc(v.mfg_year||'—')+'</b> year</span><span class="spec"><b>'+km(v.km)+'</b></span><span class="spec"><b>'+esc(v.owners||'—')+'</b> owner</span><span class="spec"><b>'+esc(v.fuel||'—')+'</b></span><span class="spec"><b>'+esc(v.transmission||'—')+'</b></span></div>'+
+    '<div class="buy-context"><div class="context-main"><b>'+esc(ctx.label)+'</b><span>'+esc(v.seller_state||v.registration_state||'State not established')+'</span></div><div class="context-status">'+esc(ctx.note)+'</div></div>'+
+    '<div class="source-row"><div><span class="source-count">'+(v.source_count||1)+' source'+((v.source_count||1)===1?'':'s')+'</span> found</div><div class="source-links">'+sourceLinks(v)+'</div></div>'+
+    '<div class="card-actions"><button class="action secondary" data-inspect="'+esc(v.fingerprint||v.url)+'">Inspect</button><button class="action secondary" data-compare="'+esc(v.fingerprint||v.url)+'">'+(selected?'✓ Added':'Compare')+'</button><a class="action primary" href="'+esc(v.url)+'" target="_blank" rel="noopener">Original listing ↗</a></div>'+
+    '</div></article>';
+}
+
 function render(){
- const term=(q.value||'').trim().toLowerCase();
- const minPrice=priceMin.value===''?null:Number(priceMin.value);
- const maxPrice=priceMax.value===''?null:Number(priceMax.value);
- const minYear=yearMin.value===''?null:Number(yearMin.value);
- const maxYear=yearMax.value===''?null:Number(yearMax.value);
- const maxKm=mileageMax.value===''?null:Number(mileageMax.value);
- const maxOwners=ownersMax.value===''?null:Number(ownersMax.value);
- const minGap=gapMin.value===''?null:Number(gapMin.value);
- let rows=D.vehicles.filter(v=>{
-   const hay=[v.brand,v.model,v.variant,v.location,v.fuel,v.transmission,v.source,v.title].map(x=>String(x||'')).join(' ').toLowerCase();
-   const verified=v.live_verified&&v.data_consistent;
-   const cert=String(v.certification||'').trim();
-   const conditionValue=vehicleCondition(v);
-   return (!term||hay.includes(term))
-     &&(!brand.value||v.brand===brand.value)
-     &&(!model.value||v.model===model.value)
-     &&(!city.value||v.location===city.value)
-     &&(minPrice===null||(v.price_lakh!=null&&Number(v.price_lakh)>=minPrice))
-     &&(maxPrice===null||(v.price_lakh!=null&&Number(v.price_lakh)<=maxPrice))
-     &&(minYear===null||(v.mfg_year!=null&&Number(v.mfg_year)>=minYear))
-     &&(maxYear===null||(v.mfg_year!=null&&Number(v.mfg_year)<=maxYear))
-     &&(maxKm===null||(v.km!=null&&Number(v.km)<=maxKm))
-     &&(maxOwners===null||(v.owners!=null&&Number(v.owners)<=maxOwners))
-     &&(!fuel.value||v.fuel===fuel.value)
-     &&(!transmission.value||v.transmission===transmission.value)
-     &&(!condition.value||conditionValue===condition.value)
-     &&(!verification.value||(verification.value==='verified'?verified:!verified))
-     &&(!certification.value||(certification.value==='certified'?!!cert:!cert))
-     &&(!cls.value||v.opportunity_class===cls.value)
-     &&(!source.value||v.source===source.value)
-     &&(minGap===null||(v.discount_pct!=null&&Number(v.discount_pct)>=minGap));
- });
- rows.sort((a,b)=>sort.value==='price'?(a.price_lakh||999999)-(b.price_lakh||999999):sort.value==='km'?(a.km||999999999)-(b.km||999999999):sort.value==='discount'?(b.discount_pct||-999)-(a.discount_pct||-999):sort.value==='year'?(b.mfg_year||0)-(a.mfg_year||0):(b.score||0)-(a.score||0));
- const active=[q.value,brand.value,model.value,city.value,priceMin.value,priceMax.value,yearMin.value,yearMax.value,mileageMax.value,ownersMax.value,fuel.value,transmission.value,condition.value,verification.value,certification.value,cls.value,source.value,gapMin.value].filter(Boolean).length;
- filterCount.textContent=active;
- filterSummary.textContent=active?(active+' filter'+(active===1?'':'s')+' applied · '+rows.length+' matching cars'):'Showing all available cars';
- resultCount.textContent=rows.length+' result'+(rows.length===1?'':'s');
- heroCount.textContent=rows.length;
- cars.innerHTML=rows.length?rows.map(v=>card(v,D.vehicles.indexOf(v))).join(''):'<div class="empty" style="grid-column:1/-1"><b>No cars match these filters.</b>Try removing a filter or changing the search term.</div>';
-}
-function openModal(i){const v=D.vehicles[i],a=imgList(v);mTitle.textContent=v.brand+' '+v.model;mSub.textContent=(v.variant||'')+' · '+(v.location||'');const main=a[0];mBody.innerHTML='<div class="gallery"><div class="main-img">'+(main?'<img id="mMain" src="'+esc(main)+'" alt="">':placeholder(v))+'</div><div class="thumbs">'+(a.length?a.slice(0,4).map(u=>"<div class=\"thumb\" onclick='document.getElementById(\"mMain\").src="+JSON.stringify(u)+"'><img src=\""+esc(u)+"\" alt=\"\" loading=\"lazy\"></div>").join(""):placeholder(v))+'</div></div>'+
-'<div class="modal-grid">'+[['Ask price',money(v.price_lakh)],['Comparable median',money(v.comp_median)],['Market gap',v.discount_pct!=null?Number(v.discount_pct).toFixed(1)+'%':'Not established'],['Manufacture',v.manufacture_date||v.mfg_year],['Registration',v.registration_date||v.reg_year],['Mileage',km(v.km)],['Ownership',v.owners?String(v.owners)+' owner':'Not found'],['Fuel / gearbox',(v.fuel||'—')+' · '+(v.transmission||'—')],['Live page',v.live_verified?'Yes':'No'],['Data consistency',v.data_consistent?'Consistent':'Needs review'],['Certification',v.certification||'Not established'],['Last crawl',v.crawled_at||'—']].map(x=>'<div class="kv"><div class="k">'+esc(x[0])+'</div><div class="v">'+esc(x[1])+'</div></div>').join('')+'</div><div class="notes"><b>Verification notes</b><br>'+esc((v.verification_notes_list||[]).join(' · ')||'No additional notes recorded.')+'</div><div style="margin-top:13px"><a class="primary" style="display:inline-block" href="'+esc(v.url)+'" target="_blank" rel="noopener">Open original listing ↗</a></div>';modal.classList.add('show');document.body.style.overflow='hidden'}
-function closeModal(){modal.classList.remove('show');document.body.style.overflow=''}
-async function init(){try{const r=await fetch('data/latest.json?ts='+Date.now(),{cache:'no-store'});D=await r.json()}catch(e){status.innerHTML='<b>Dashboard data unavailable</b>';return}const need=D.vehicles.filter(v=>!v.live_verified||!v.data_consistent||(v.verification_notes_list||[]).length).length;seen.textContent=D.stats?.vehicles_seen??D.vehicles.length;live.textContent=D.stats?.live_under_budget??D.vehicles.length;opp.textContent=D.stats?.opportunities??0;verify.textContent=need;sources.textContent=D.stats?.new_sources??D.new_sources.length;status.innerHTML='<div><span class="dot"></span><b>Latest crawl '+esc(D.run_date||'—')+'</b></div>';status2.textContent='Generated '+(D.generated_at||'—');filters();sourceList.innerHTML=(D.new_sources||[]).map(s=>'<div class="source"><b>'+esc(s.domain)+'</b><br><a href="'+esc(s.url)+'" target="_blank" rel="noopener">Open source ↗</a></div>').join('')||'<span class="small muted">No new sources.</span>';render()}
-['q','brand','model','city','priceMin','priceMax','yearMin','yearMax','mileageMax','ownersMax','fuel','transmission','condition','verification','certification','cls','source','gapMin','sort'].forEach(id=>document.getElementById(id).addEventListener('input',render));
-brand.addEventListener('change',()=>{refreshModels();render()});
-document.getElementById('filterToggle').addEventListener('click',()=>{
- const panel=document.getElementById('advancedFilters');
- const collapsed=!panel.classList.toggle('collapsed');
- document.getElementById('filterToggle').setAttribute('aria-expanded',String(collapsed));
- document.getElementById('filterToggle').innerHTML='Filters <span id="filterCount" class="filter-count">'+document.getElementById('filterCount').textContent+'</span>'+(collapsed?'⌃':'⌄');
-});
-document.getElementById('clearFilters').addEventListener('click',()=>{
- ['q','brand','model','city','priceMin','priceMax','yearMin','yearMax','mileageMax','ownersMax','fuel','transmission','condition','verification','certification','cls','source','gapMin'].forEach(id=>{const el=document.getElementById(id);el.value=''});
- refreshModels();render();
-});
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});init();
-
-const byId=id=>document.getElementById(id);
-const manageToggle=byId('manageToggle'),managePanel=byId('managePanel'),manageClose=byId('manageClose');
-const manageContent=byId('manageContent'),manageStatus=byId('manageStatus'),watchAccessToken=byId('watchAccessToken');
-const watchAccessLoad=byId('watchAccessLoad'),watchAccessCopy=byId('watchAccessCopy');
-let watchAccess = localStorage.getItem('car_watch_access_token') || '';
-
-function setWatchAccess(token){
-  watchAccess=(token||'').trim();
-  if(watchAccess)localStorage.setItem('car_watch_access_token',watchAccess);
-  else localStorage.removeItem('car_watch_access_token');
-  watchAccessToken.value=watchAccess;
+  let rows=applyClientFilters(D.vehicles);
+  results=sortRows(rows);
+  $('count').textContent=results.length;
+  $('resultsMeta').textContent=results.length?('India-wide inventory · '+new Set(results.map(v=>v.source).filter(Boolean)).size+' source'+(new Set(results.map(v=>v.source).filter(Boolean)).size===1?'':'s')+' represented in current matches'):'No current matches';
+  $('summaryRight').textContent='Buying in '+($('destination').value.trim()||'your destination')+' · search scope remains all India';
+  $('cars').innerHTML=results.length?results.map(card).join(''):'<div class="empty"><b>No cars match these criteria.</b>Try widening the budget, age or advanced filters. The search area is already India-wide.</div>';
+  renderCompareTray();
 }
 
-function importWatchAccessFromHash(){
-  const match=location.hash.match(/^#watch=([^&]+)$/);
-  if(match){
-    try{setWatchAccess(decodeURIComponent(match[1]));history.replaceState(null,'',location.pathname+location.search)}catch(_e){}
-  } else {
-    watchAccessToken.value=watchAccess;
-  }
-}
-
-function watchRequest(url,options={}){
-  const headers=new Headers(options.headers||{});
-  if(watchAccess)headers.set('Authorization','Bearer '+watchAccess);
-  return fetch(url,{...options,headers});
-}
-
-function watchConstraintSummary(w){
-  const c=w.constraints||{}, parts=[];
-  const makeModel=[c.make,c.model].filter(Boolean).join(' ');
-  if(makeModel)parts.push(makeModel);
-  if(c.budget_min_lakh!=null||c.budget_max_lakh!=null)parts.push((c.budget_min_lakh!=null?'₹'+c.budget_min_lakh+'L':'No min')+'–'+(c.budget_max_lakh!=null?'₹'+c.budget_max_lakh+'L':'No max'));
-  if(c.min_age_years!=null||c.max_age_years!=null)parts.push((c.min_age_years!=null?c.min_age_years:'Any')+'–'+(c.max_age_years!=null?c.max_age_years:'Any')+' yr');
-  if(c.location)parts.push(c.location);
-  if(c.condition)parts.push(c.condition);
-  return parts.join(' · ')||'Any car matching your other criteria';
-}
-
-function renderWatches(data){
-  const rows=data?.watches||[];
-  if(!rows.length){
-    manageContent.innerHTML='<div class="manage-empty"><b>No saved Car Watches yet.</b><br>Create a watch above and it will appear here.</div>';
-    return;
-  }
-  manageContent.innerHTML=rows.map(w=>{
-    const status=w.status||'active';
-    const action=status==='paused'?'<button class="watch-control" data-action="active" data-id="'+esc(w.watch_id)+'">Resume</button>':status==='active'?'<button class="watch-control" data-action="paused" data-id="'+esc(w.watch_id)+'">Pause</button>':'';
-    const archive=status==='archived'?'':'<button class="watch-control danger" data-action="archived" data-id="'+esc(w.watch_id)+'">Archive</button>';
-    const alerts=w.alerts_sent||0;
-    const last=w.last_alert_at?'Last alert '+new Date(w.last_alert_at).toLocaleString():'No alerts sent yet';
-    return '<div class="watch-row"><div><h3>'+esc(w.name)+'</h3><div><span class="watch-badge '+esc(status)+'">'+esc(status)+'</span><span class="watch-meta">'+esc(w.frequency||'instant')+' · '+esc(w.alert_quality||'any')+'</span></div><div class="watch-meta" style="margin-top:6px">'+esc(watchConstraintSummary(w))+'</div><div class="watch-meta" style="margin-top:4px">'+alerts+' alert'+(alerts===1?'':'s')+' sent · '+esc(last)+'</div></div><div class="watch-controls">'+action+archive+'</div></div>';
-  }).join('');
-}
-
-async function loadWatches(){
-  if(!watchAccess){
-    manageContent.innerHTML='<div class="manage-empty"><b>Private access key required.</b><br>Create your first watch in this browser or paste your private key below.</div>';
-    manageStatus.textContent='';
-    return;
-  }
-  manageStatus.textContent='Loading your watches…';
-  try{
-    const res=await watchRequest('/api/watch',{cache:'no-store'});
-    const payload=await res.json().catch(()=>({}));
-    if(res.status===401){
-      setWatchAccess('');
-      throw new Error('Private watch access could not be verified. Paste a valid key below.');
-    }
-    if(!res.ok)throw new Error(payload.error||'Unable to load watches');
-    renderWatches(payload);
-    manageStatus.textContent=(payload.watches||[]).length+' saved watch'+((payload.watches||[]).length===1?'':'es')+' · '+payload.email;
-    managePanel.classList.add('show');
-  }catch(err){
-    manageContent.innerHTML='<div class="manage-empty">'+esc(err.message||'Unable to load watches')+'</div>';
-    manageStatus.textContent='';
-  }
-}
-
-async function mutateWatch(watchId,status){
-  try{
-    const res=await watchRequest('/api/watch',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({watch_id:watchId,status})});
-    const payload=await res.json().catch(()=>({}));
-    if(!res.ok)throw new Error(payload.error||'Unable to update watch');
-    await loadWatches();
-  }catch(err){manageStatus.textContent=err.message||'Unable to update watch'}
-}
-
-manageContent.addEventListener('click',e=>{
-  const button=e.target.closest('[data-action]');
-  if(button)mutateWatch(button.dataset.id,button.dataset.action);
-});
-
-manageToggle.addEventListener('click',()=>{managePanel.classList.toggle('show');if(managePanel.classList.contains('show')){manageToggle.textContent='Hide My Watches';loadWatches()}else manageToggle.textContent='My Car Watches'});
-manageClose.addEventListener('click',()=>{managePanel.classList.remove('show');manageToggle.textContent='My Car Watches'});
-watchAccessLoad.addEventListener('click',()=>{setWatchAccess(watchAccessToken.value);loadWatches()});
-watchAccessCopy.addEventListener('click',async ()=>{
-  if(!watchAccess){manageStatus.textContent='Load a private access key first';return}
-  const link=location.origin+location.pathname+'#watch='+encodeURIComponent(watchAccess);
-  try{await navigator.clipboard.writeText(link);manageStatus.textContent='Private access link copied'}
-  catch(_e){watchAccessToken.value=watchAccess;manageStatus.textContent='Clipboard access is unavailable; the key is shown above'}
-});
-
-importWatchAccessFromHash();
-if(watchAccess){managePanel.classList.add('show');manageToggle.textContent='Hide My Watches';loadWatches()}
-const watchForm=byId('watchForm'),watchPanel=byId('watchPanel'),watchToggle=byId('watchToggle'),watchClose=byId('watchClose');
-const watchPreview=byId('watchPreview'),watchStatus=byId('watchStatus');
-function buildWatch(){
-  const get=id=>byId(id).value.trim();
-  const min=get('wBudgetMin'), max=get('wBudgetMax'), amin=get('wAgeMin'), amax=get('wAgeMax');
-  const budgetMin=min?Number(min):null, budgetMax=max?Number(max):null, ageMin=amin?Number(amin):null, ageMax=amax?Number(amax):null;
-  const errors=[];
-  if(budgetMin!==null && budgetMax!==null && budgetMin>budgetMax)errors.push('minimum budget cannot exceed maximum budget');
-  if(ageMin!==null && ageMax!==null && ageMin>ageMax)errors.push('minimum vehicle age cannot exceed maximum age');
-  const intent={
-    category:'automotive',
-    query:[get('wMake'),get('wModel'),get('wMust')].filter(Boolean).join(' '),
-    make:get('wMake')||null,model:get('wModel')||null,
-    budget_min:budgetMin,budget_max:budgetMax,
-    location:get('wLocation')||null,radius_km:get('wRadius')?Number(get('wRadius')):null,
-    condition:get('wCondition')||null,
-    must_have:Object.fromEntries([
-      ['make',get('wMake')],['model',get('wModel')],['fuel',get('wFuel')],['transmission',get('wTransmission')],
-      ['max_mileage_km',get('wMileage')?Number(get('wMileage')):null],['max_owners',get('wOwners')?Number(get('wOwners')):null]
-    ].filter(([,v])=>v!==''&&v!==null)),
-    nice_to_have_text:get('wNice')||null,
-    avoid_text:get('wAvoid')||null,
-    must_have_text:get('wMust')||null,
-    nice_to_have:{text:get('wNice')||null},
-    excluded:{text:get('wAvoid')||null},
-    min_age_years:ageMin,max_age_years:ageMax,
-    target_discount_pct:get('wDeal')==='exceptional'?15:get('wDeal')==='good'?10:null,
-    alert_quality:get('wDeal')||'exceptional',
-    notification_frequency:get('wNotify'),
-    name:get('wName')||'My car watch'
+async function runSearch(){
+  $('resultsMeta').textContent='Searching the latest India-wide inventory…';
+  const body={
+    query:$('q').value.trim(),
+    destination:$('destination').value.trim(),
+    budget_min:$('budgetMin').value===''?null:Number($('budgetMin').value),
+    budget_max:$('budgetMax').value===''?null:Number($('budgetMax').value),
+    max_age_years:$('maxAge').value===''?null:Number($('maxAge').value)
   };
-  if(!get('wName'))errors.unshift('watch name is required');
-  return {intent,errors};
+  try{
+    const res=await fetch('/api/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'});
+    if(!res.ok)throw new Error('search api unavailable');
+    const payload=await res.json();
+    D.vehicles=payload.results||[];
+  }catch(_e){
+    D.vehicles=Array.isArray(window.__fallbackVehicles)?window.__fallbackVehicles:[];
+  }
+  render();
+  window.scrollTo({top:document.querySelector('.results-shell').offsetTop-10,behavior:'smooth'});
 }
-function updateWatchPreview(){
-  const {intent,errors}=buildWatch();
-  if(errors.length){watchPreview.textContent=errors[0];watchStatus.textContent='Fix the highlighted criteria';watchStatus.className='watch-status warn';return}
-  const parts=[];
-  if(intent.query)parts.push(intent.query);
-  if(intent.budget_min!==null||intent.budget_max!==null)parts.push((intent.budget_min!==null?'₹'+intent.budget_min+'L':'No min')+'–'+(intent.budget_max!==null?'₹'+intent.budget_max+'L':'No max'));
-  if(intent.max_age_years!==null||intent.min_age_years!==null)parts.push((intent.min_age_years!==null?intent.min_age_years:'Any')+'–'+(intent.max_age_years!==null?intent.max_age_years:'Any')+' yr');
-  if(intent.location)parts.push(intent.location);
-  watchPreview.textContent=parts.length?parts.join(' · '):'Set as few or as many criteria as you need.';
-  watchStatus.textContent='Ready';watchStatus.className='watch-status ok';
+
+function renderCompareTray(){
+  const chosen=selectedCompare.map(id=>D.vehicles.find(v=>(v.fingerprint||v.url)===id)).filter(Boolean);
+  $('compareTray').classList.toggle('show',chosen.length>0);
+  $('compareList').innerHTML=chosen.map(v=>'<span class="compare-pill">'+esc(v.brand+' '+v.model)+'</span>').join('');
+  $('compareOpen').disabled=chosen.length<2;
+  $('compareOpen').style.opacity=chosen.length<2?'0.55':'1';
 }
-watchToggle.addEventListener('click',()=>{watchPanel.classList.toggle('show');if(watchPanel.classList.contains('show')){watchToggle.textContent='Hide Car Watch';byId('wName').focus()}else watchToggle.textContent='＋ Create a Car Watch'});
-watchClose.addEventListener('click',()=>{watchPanel.classList.remove('show');watchToggle.textContent='＋ Create a Car Watch'});
-watchForm.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',updateWatchPreview));
-watchForm.addEventListener('submit',async e=>{
-  e.preventDefault();
-  const {intent,errors}=buildWatch();
-  if(errors.length){watchStatus.textContent=errors[0];watchStatus.className='watch-status warn';return}
-  const email=byId('wEmail').value.trim().toLowerCase();
-  const storedAccess=watchAccess||localStorage.getItem('car_watch_access_token')||'';
-  const channels=[];
-  if(byId('wEmailConsent').checked)channels.push('email');
-  if(byId('wWhatsappConsent').checked)channels.push('whatsapp');
-  if(!channels.length){watchStatus.textContent='Choose at least one alert channel';watchStatus.className='watch-status warn';return}
-  if(channels.includes('whatsapp') && !byId('wPhone').value.trim()){watchStatus.textContent='WhatsApp alerts require a phone number';watchStatus.className='watch-status warn';return}
-  watchStatus.textContent='Saving…';watchStatus.className='watch-status';
+
+function inspectKey(key){return D.vehicles.find(v=>(v.fingerprint||v.url)===key)}
+function openInspect(key){
+  const v=inspectKey(key);if(!v)return;
+  const ctx=context(v);const items=[
+    ['Asking price',money(v.price_lakh)],
+    ['Comparable market',v.comp_low!=null&&v.comp_high!=null?money(v.comp_low)+'–'+money(v.comp_high):money(v.comp_median)],
+    ['Market gap',v.discount_pct!=null?Number(v.discount_pct).toFixed(1)+'%':'Not established'],
+    ['Manufacture',v.mfg_year||'Not found'],
+    ['Registration',v.reg_year||'Not found'],
+    ['Mileage',km(v.km)],
+    ['Ownership',v.owners?(v.owners+' owner'):'Not found'],
+    ['Fuel / transmission',(v.fuel||'—')+' · '+(v.transmission||'—')],
+    ['Seller location',v.location||'Not established'],
+    ['Seller state',v.seller_state||'Not established'],
+    ['Registration state',v.registration_state||'Not established'],
+    ['Source coverage',(v.source_count||1)+' source'+((v.source_count||1)===1?'':'s')],
+    ['Page status',v.live_verified?'Live verified':'Needs review'],
+    ['Certification',v.certification||'Not established']
+  ];
+  $('inspectTitle').textContent=(v.brand||'')+' '+(v.model||'');
+  $('inspectSub').textContent=(v.variant||'')+' · '+(v.location||'Location not established');
+  $('inspectBody').innerHTML='<div class="inspect-grid"><div class="inspect-card"><h3>Decision context</h3><div class="inspect-price">'+money(v.price_lakh)+'</div><div class="small-muted">seller asking price</div><div class="price-context '+(v.discount_pct>0?'good':'')+'" style="margin-top:10px"><b>'+esc(ctx.label)+'</b><br>'+esc(ctx.note)+'</div><h3 style="margin-top:13px">Why it surfaced</h3><div class="small-muted" style="line-height:1.6">'+
+    esc([
+      v.owners===1?'1st owner':'',
+      v.km&&v.km<=30000?'low mileage':'',
+      v.discount_pct>0?(Number(v.discount_pct).toFixed(1)+'% below comparable median'):'',
+      (v.source_count||1)>1?('found across '+v.source_count+' sources'):'',
+      v.live_verified&&v.data_consistent?'verified listing page':'verification still needed'
+    ].filter(Boolean).join(' · ')||'Based on the available inventory evidence.')+
+    '</div></div><div class="inspect-card"><h3>Vehicle evidence</h3><div class="save-summary">'+items.map(x=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #e4e8ef"><span style="color:#687386">'+esc(x[0])+'</span><b>'+esc(x[1])+'</b></div>').join('')+'</div></div></div>'+
+    '<div class="inspect-card" style="margin-top:12px"><h3>Sources found</h3><div class="source-links">'+sourceLinks(v)+'</div><div style="margin-top:11px;font-size:9px;color:#687386">'+esc((v.verification_notes_list||[]).join(' · ')||'No additional verification notes recorded.')+'</div></div>';
+  $('inspectModal').classList.add('show');document.body.style.overflow='hidden';
+}
+function closeInspect(){$('inspectModal').classList.remove('show');document.body.style.overflow=''}
+function openCompare(){
+  const chosen=selectedCompare.map(id=>D.vehicles.find(v=>(v.fingerprint||v.url)===id)).filter(Boolean);
+  if(chosen.length<2)return;
+  const rows=[
+    ['Asking price',...chosen.map(v=>money(v.price_lakh))],
+    ['Comparable market',...chosen.map(v=>v.comp_low!=null&&v.comp_high!=null?money(v.comp_low)+'–'+money(v.comp_high):money(v.comp_median))],
+    ['Market gap',...chosen.map(v=>v.discount_pct!=null?Number(v.discount_pct).toFixed(1)+'%':'—')],
+    ['Year',...chosen.map(v=>v.mfg_year||'—')],
+    ['Mileage',...chosen.map(v=>km(v.km))],
+    ['Owners',...chosen.map(v=>v.owners?v.owners+' owner':'—')],
+    ['Fuel',...chosen.map(v=>v.fuel||'—')],
+    ['Transmission',...chosen.map(v=>v.transmission||'—')],
+    ['Seller location',...chosen.map(v=>v.location||'—')],
+    ['Source coverage',...chosen.map(v=>(v.source_count||1)+' source'+((v.source_count||1)===1?'':'s'))],
+    ['Certification',...chosen.map(v=>v.certification||'—')],
+    ['Verification',...chosen.map(v=>v.live_verified&&v.data_consistent?'Verified page':'Review data')]
+  ];
+  $('compareBody').innerHTML='<table class="compare-table"><thead><tr><th></th>'+chosen.map(v=>'<th>'+esc(v.brand+' '+v.model)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr><th>'+esc(r[0])+'</th>'+r.slice(1).map(x=>'<td>'+esc(x)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+  $('compareModal').classList.add('show');document.body.style.overflow='hidden';
+}
+function closeCompare(){$('compareModal').classList.remove('show');document.body.style.overflow=''}
+function openSave(){$('saveSummary').textContent=buildSearchSummary();$('saveModal').classList.add('show');$('saveStatus').textContent='';document.body.style.overflow=''}
+function closeSave(){$('saveModal').classList.remove('show');document.body.style.overflow=''}
+function buildSearchSummary(){
+  const parts=[];if($('q').value.trim())parts.push($('q').value.trim());
+  if($('budgetMin').value||$('budgetMax').value)parts.push(($('budgetMin').value?'₹'+$('budgetMin').value+'L':'No min')+'–'+($('budgetMax').value?'₹'+$('budgetMax').value+'L':'No max'));
+  if($('maxAge').value)parts.push('up to '+$('maxAge').value+' years');
+  parts.push('search all India');
+  if($('destination').value.trim())parts.push('buy/register in '+$('destination').value.trim());
+  return parts.join(' · ')||'Any used or demo car in India';
+}
+async function saveSearch(){
+  const email=$('saveEmail').value.trim().toLowerCase();const name=$('saveName').value.trim()||'My Car Search';const channels=[];
+  if($('saveEmailConsent').checked)channels.push('email');if($('saveWhatsappConsent').checked)channels.push('whatsapp');
+  if(!email){$('saveStatus').textContent='Enter an email address.';return}
+  if(!channels.length){$('saveStatus').textContent='Choose at least one alert channel.';return}
+  if(channels.includes('whatsapp')&&!$('savePhone').value.trim()){$('saveStatus').textContent='WhatsApp alerts require a phone number.';return}
+  const intent={
+    category:'automotive',query:$('q').value.trim(),make:null,model:null,
+    budget_min:$('budgetMin').value===''?null:Number($('budgetMin').value),
+    budget_max:$('budgetMax').value===''?null:Number($('budgetMax').value),
+    min_age_years:null,max_age_years:$('maxAge').value===''?null:Number($('maxAge').value),
+    location:$('destination').value.trim()||null,radius_km:null,condition:$('condition').value||null,
+    max_mileage_km:$('mileage').value===''?null:Number($('mileage').value),max_owners:$('owners').value===''?null:Number($('owners').value),
+    fuel:$('fuel').value||null,transmission:$('transmission').value||null,
+    target_discount_pct:$('deal').value==='strong'?10:$('deal').value==='below'?1:null,
+    alert_quality:$('deal').value==='strong'?'good':'any',
+    notification_frequency:$('saveFrequency').value,
+    must_have_text:null,nice_to_have_text:$('certification').value==='certified'?'certified':null,avoid_text:null
+  };
+  $('saveStatus').textContent='Saving…';
   try{
     const res=await fetch('/api/watch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      name:intent.name,email,phone:byId('wPhone').value.trim()||null,
-      access_token:storedAccess||null,
-      channels,email_consent:byId('wEmailConsent').checked,
-      whatsapp_consent:byId('wWhatsappConsent').checked,intent
+      name,email,phone:$('savePhone').value.trim()||null,access_token:watchAccess||null,channels,
+      email_consent:$('saveEmailConsent').checked,whatsapp_consent:$('saveWhatsappConsent').checked,intent
     })});
-    const payload=await res.json().catch(()=>({}));
-    if(!res.ok)throw new Error(payload.error||'Unable to save the Car Watch');
-    if(payload.access_token)setWatchAccess(payload.access_token);
-    const watchLabel=intent.name+' · '+(intent.query||'Any make/model');
-    watchPreview.innerHTML='<b>'+esc(watchLabel)+'</b><br>Saved. <button type="button" class="watch-control" onclick="managePanel.classList.add(\'show\');manageToggle.textContent=\'Hide My Watches\';loadWatches()">Open My Watches</button>';
-    watchStatus.textContent=payload.access_token?'Saved — private access created':'Saved';watchStatus.className='watch-status ok';
-    managePanel.classList.add('show');manageToggle.textContent='Hide My Watches';loadWatches();
-  }catch(err){
-    watchStatus.textContent=err.message||'Unable to save the Car Watch';
-    watchStatus.className='watch-status warn';
+    const payload=await res.json().catch(()=>({}));if(!res.ok)throw new Error(payload.error||'Unable to save');
+    if(payload.access_token){watchAccess=payload.access_token;localStorage.setItem('car_watch_access_token',watchAccess)}
+    $('saveStatus').textContent='Saved. Your private watch access has been created.';
+  }catch(err){$('saveStatus').textContent=err.message||'Unable to save search.'}
+}
+function openWatches(){loadWatches();$('watchesModal').classList.add('show');document.body.style.overflow='hidden'}
+function closeWatches(){$('watchesModal').classList.remove('show');document.body.style.overflow=''}
+function setWatchAccess(token){watchAccess=(token||'').trim();if(watchAccess)localStorage.setItem('car_watch_access_token',watchAccess);else localStorage.removeItem('car_watch_access_token');$('watchAccess').value=watchAccess}
+async function loadWatches(){
+  if(!watchAccess){$('watches').innerHTML='<div class="empty"><b>Private access key required.</b>Save a search in this browser first, or paste your key below.</div>';return}
+  $('watchesStatus').textContent='Loading…';
+  try{
+    const res=await fetch('/api/watch',{headers:{Authorization:'Bearer '+watchAccess},cache:'no-store'});const p=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(p.error||'Unable to load watches');
+    $('watches').innerHTML=(p.watches||[]).map(w=>'<div class="watch-row"><div><h3>'+esc(w.name)+'</h3><div class="watch-meta">'+esc(w.status||'active')+' · '+esc(w.frequency||'instant')+' · '+esc((w.constraints&&w.constraints.location)||'India-wide')+'</div></div><div class="watch-controls"><button class="watch-control" data-watch-action="paused" data-watch-id="'+esc(w.watch_id)+'">Pause</button><button class="watch-control" data-watch-action="archived" data-watch-id="'+esc(w.watch_id)+'">Archive</button></div></div>').join('')||'<div class="empty">No saved watches yet.</div>';
+    $('watchesStatus').textContent=(p.watches||[]).length+' saved search'+((p.watches||[]).length===1?'':'es');
+  }catch(err){$('watchesStatus').textContent=err.message||'Unable to load watches'}
+}
+async function mutateWatch(id,status){
+  try{const res=await fetch('/api/watch',{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+watchAccess},body:JSON.stringify({watch_id:id,status})});if(!res.ok)throw new Error('Unable to update watch');await loadWatches()}catch(err){$('watchesStatus').textContent=err.message}
+}
+
+document.addEventListener('click',e=>{
+  const inspect=e.target.closest('[data-inspect]');if(inspect){openInspect(inspect.dataset.inspect);return}
+  const comp=e.target.closest('[data-compare]');if(comp){
+    const key=comp.dataset.compare;const i=selectedCompare.indexOf(key);
+    if(i>=0)selectedCompare.splice(i,1);else if(selectedCompare.length<3)selectedCompare.push(key);
+    render();return
   }
+  const wa=e.target.closest('[data-watch-action]');if(wa){mutateWatch(wa.dataset.watchId,wa.dataset.watchAction);return}
 });
-updateWatchPreview();
-</script></body></html>
+
+$('searchCars').addEventListener('click',runSearch);
+['q','destination','budgetMin','budgetMax','maxAge','mileage','owners','fuel','transmission','condition','certification','deal'].forEach(id=>$(id).addEventListener('input',()=>{render();updateFilterCount()}));
+$('sort').addEventListener('change',render);
+$('moreFilters').addEventListener('click',()=>{
+  const open=$('advanced').classList.toggle('show');
+  $('moreFilters').setAttribute('aria-expanded',String(open));
+  $('moreFilters').innerHTML='More filters <span id="filterCount" class="filter-count">'+$('filterCount').textContent+'</span>'+(open?'⌃':'⌄');
+});
+$('clearFilters').addEventListener('click',()=>{
+  ['maxAge','mileage','owners','fuel','transmission','condition','certification','deal'].forEach(id=>$(id).value='');updateFilterCount();render()
+});
+function updateFilterCount(){const n=['maxAge','mileage','owners','fuel','transmission','condition','certification','deal'].filter(id=>$(id).value).length;$('filterCount').textContent=n}
+$('saveTop').addEventListener('click',openSave);$('watchesTop').addEventListener('click',openWatches);$('saveSearchBtn').addEventListener('click',saveSearch);
+$('watchLoad').addEventListener('click',()=>{setWatchAccess($('watchAccess').value);loadWatches()});
+$('watchCopy').addEventListener('click',async()=>{if(!watchAccess){$('watchesStatus').textContent='Enter a private access key first.';return}try{await navigator.clipboard.writeText(location.origin+location.pathname+'#watch='+encodeURIComponent(watchAccess));$('watchesStatus').textContent='Private watch link copied.'}catch(_e){$('watchesStatus').textContent='Clipboard unavailable.'}});
+$('compareOpen').addEventListener('click',openCompare);$('compareClear').addEventListener('click',()=>{selectedCompare=[];render()});
+if(location.hash.startsWith('#watch=')){try{setWatchAccess(decodeURIComponent(location.hash.slice(7)));history.replaceState(null,'',location.pathname+location.search)}catch(_e){}}
+
+async function init(){
+  try{
+    const r=await fetch('data/latest.json?ts='+Date.now(),{cache:'no-store'});const data=await r.json();window.__fallbackVehicles=data.vehicles||[];D.vehicles=data.vehicles||[];populateOptions();render()
+  }catch(_e){D.vehicles=[];populateOptions();render()}
+  await runSearch();
+}
+init();
+</script>
+</body>
+</html>
