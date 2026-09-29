@@ -58,16 +58,17 @@ def test_buyer_discovery_filter_and_evidence_flow(dashboard_url):
 
         page.locator("#filterToggle").click()
         assert page.locator("#advancedFilters.collapsed").count() == 0
-        page.locator("#filterToggle").click()
-        assert page.locator("#advancedFilters.collapsed").count() == 1
-
         assert page.locator("#model option").count() >= 4
         assert page.locator("#city option").count() >= 3
+
+        page.locator("#filterToggle").click()
+        assert page.locator("#advancedFilters.collapsed").count() == 1
 
         page.locator("#priceMax").fill("35")
         assert page.locator(".card").count() == 1
         assert "Audi Q3" in page.locator(".card").inner_text()
 
+        page.locator("#filterToggle").click()
         page.locator("#clearFilters").click()
         assert page.locator(".card").count() == 3
 
