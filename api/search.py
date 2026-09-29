@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 
 from src.acquisition import purchase_context
 from src.india_geo import infer_state
+from src.live_marketplaces import live_inventory
 
 def _read_json(handler):
     length=int(handler.headers.get("Content-Length","0"))
@@ -28,7 +29,10 @@ def _response(handler,status,payload):
     handler.wfile.write(raw)
 
 def _vehicle_condition(v):
-    return str(v.get("condition_signal") or "").lower() or ("demo" if "demo" in (str(v.get("variant",""))+" "+str(v.get("source",""))).lower() else "used")
+    explicit=str(v.get("condition_signal") or "").strip().lower()
+    if explicit in {"used","demo","demonstrator"}:
+        return "demo" if explicit=="demonstrator" else explicit
+    return "demo" if "demo" in (str(v.get("variant",""))+" "+str(v.get("source",""))).lower() else "used"
 
 def _match(v,query,budget_min,budget_max,max_age,destination):
     hay=" ".join(str(v.get(k) or "") for k in ("brand","model","variant","location","fuel","transmission","source")).lower()
@@ -62,8 +66,8 @@ class handler(BaseHTTPRequestHandler):
         if urlparse(self.path).path!="/api/search":
             return _response(self,404,{"error":"Not found"})
         try:
-            data=json.loads((ROOT/"data/latest.json").read_text(encoding="utf-8"))
-            return _response(self,200,{"ok":True,"search_scope":"india","vehicles_count":len(data.get("vehicles",[])),"run_date":data.get("run_date")})
+            vehicles,sources=live_inventory()
+            return _response(self,200,{"ok":True,"mode":"live","search_scope":"india","vehicles_count":len(vehicles),"sources":sources})
         except Exception as exc:
             return _response(self,500,{"error":f"Search inventory unavailable: {exc}"})
     def do_POST(self):
@@ -78,9 +82,9 @@ class handler(BaseHTTPRequestHandler):
             max_age=float(body["max_age_years"]) if body.get("max_age_years") not in (None,"") else None
             if budget_min is not None and budget_max is not None and budget_min>budget_max:
                 return _response(self,400,{"error":"Minimum budget cannot exceed maximum budget"})
-            data=json.loads((ROOT/"data/latest.json").read_text(encoding="utf-8"))
+            vehicles,sources=live_inventory()
             results=[]
-            for v in data.get("vehicles",[]):
+            for v in vehicles:
                 if not _match(v,query,budget_min,budget_max,max_age,destination): continue
                 enriched=dict(v)
                 enriched["purchase_context"]=purchase_context(v,destination)
@@ -93,7 +97,9 @@ class handler(BaseHTTPRequestHandler):
                 "search_scope":"india",
                 "destination":destination or None,
                 "destination_state":infer_state(destination,destination) if destination else None,
-                "run_date":data.get("run_date"),
+                "mode":"live",
+                "live_at":__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+                "sources":sources,
                 "total_results":len(results),
                 "sources_found":len({s for v in results for s in [v.get("source")] if s}),
                 "results":results
