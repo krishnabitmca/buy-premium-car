@@ -136,7 +136,7 @@ h1{margin:0;font-size:23px;letter-spacing:-.04em}.sub{margin-top:3px;color:var(-
   <section id="cars" class="grid"></section>
 </div>
 
-<div class="footer">Carcanner compares available listing evidence; it does not guarantee physical stock, vehicle condition, final tax, registration cost or transaction safety. Verify VIN, stock, history, insurance, loan/hypothecation and the final Karnataka landed cost before paying.</div>
+<div class="footer">Carcanner compares available listing evidence; it does not guarantee physical stock, vehicle condition, final tax, registration cost or transaction safety. Verify VIN, stock, history, insurance, loan/hypothecation and the final destination-state landed cost before paying.</div>
 </div>
 
 <div id="compareTray" class="compare-tray">
@@ -204,7 +204,7 @@ const money=x=>x==null?'—':'₹'+Number(x).toFixed(2)+'L';
 const km=x=>x==null?'—':Number(x).toLocaleString('en-IN')+' km';
 
 function ageYears(v){return v.mfg_year?Math.max(0,new Date().getFullYear()-Number(v.mfg_year)):null}
-function condition(v){return String(v.condition_signal||'').toLowerCase()||(String(v.variant||'')+' '+String(v.source||'')).toLowerCase().includes('demo')?'demo':'used'}
+function condition(v){const signal=String(v.condition_signal||'').toLowerCase().trim();return signal||(((String(v.variant||'')+' '+String(v.source||'')).toLowerCase().includes('demo'))?'demo':'used')}
 function context(v){
   const p=v.purchase_context||{};
   if(p.mode==='interstate') return {label:'Interstate purchase',note:p.note||'Transport, transfer and state-tax considerations need verification.'};
