@@ -45,9 +45,7 @@
       </div>
       <div class="search-field compact">
         <label for="priceMax">Budget up to</label>
-        <select id="priceMax">
-          <option value="">Any budget</option><option value="10">₹10L</option><option value="15">₹15L</option><option value="20">₹20L</option><option value="25">₹25L</option><option value="30">₹30L</option><option value="40">₹40L</option><option value="50">₹50L</option><option value="75">₹75L</option><option value="100">₹1Cr</option>
-        </select>
+        <input id="priceMax" type="number" min="0" step="0.1" inputmode="decimal" placeholder="₹ max (lakh)">
       </div>
       <div class="search-field compact">
         <label for="searchAge">Car age</label>
