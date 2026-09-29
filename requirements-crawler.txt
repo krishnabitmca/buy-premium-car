@@ -1,0 +1,8 @@
+crawl4ai==0.9.4
+playwright>=1.52,<2
+ddgs==9.16.0
+beautifulsoup4>=4.12,<5
+PyYAML>=6.0,<7
+pandas>=2.2,<4
+python-dateutil>=2.9,<3
+rapidfuzz>=3.9,<4
