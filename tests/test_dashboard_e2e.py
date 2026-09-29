@@ -48,16 +48,27 @@ def test_buyer_discovery_filter_and_evidence_flow(dashboard_url):
         assert page.locator(".card").count() == 3
         assert page.locator(".photo img").count() >= 2
         assert page.locator("#resultCount").inner_text().startswith("3 result")
+        assert page.locator(".search-hero").count() == 1
+        assert page.locator("#searchCars").count() == 1
+        assert page.locator("#locationSearch").count() == 1
+        assert page.locator("#searchAge").count() == 1
+        assert page.locator("#advancedFilters.collapsed").count() == 1
         for selector in ["#brand","#model","#city","#priceMin","#priceMax","#yearMin","#yearMax","#mileageMax","#ownersMax","#fuel","#transmission","#condition","#verification","#certification","#cls","#source","#gapMin","#sort","#clearFilters"]:
             assert page.locator(selector).count() == 1
 
+        page.locator("#filterToggle").click()
+        assert page.locator("#advancedFilters.collapsed").count() == 0
         assert page.locator("#model option").count() >= 4
         assert page.locator("#city option").count() >= 3
+
+        page.locator("#filterToggle").click()
+        assert page.locator("#advancedFilters.collapsed").count() == 1
 
         page.locator("#priceMax").fill("35")
         assert page.locator(".card").count() == 1
         assert "Audi Q3" in page.locator(".card").inner_text()
 
+        page.locator("#filterToggle").click()
         page.locator("#clearFilters").click()
         assert page.locator(".card").count() == 3
 
