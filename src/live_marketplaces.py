@@ -113,14 +113,18 @@ def live_models(brand: str) -> list[dict[str,str]]:
     return sorted(models,key=lambda x:x["name"].lower())
 
 def _json_objects(html: str) -> list[Any]:
+    # Marketplace pages are inconsistent about attribute order, quoting and
+    # whitespace around the JSON-LD script type. Keep extraction tolerant so
+    # valid structured-data blocks are not silently discarded.
     values=[]
-    for match in re.finditer(r'<script[^>]+type=["\\\']application/ld\\+json["\\\'][^>]*>(.*?)</script>',html,re.I|re.S):
-        raw=match.group(1).strip()
-        raw=re.sub(r"<!--|-->","",raw).strip()
-        try: values.append(json.loads(raw))
-        except Exception: continue
+    pattern = r'<script[^>]*?type\\s*=\\s*["\\\']application/ld\\+json(?:;[^"\\\']*)?["\\\'][^>]*>(.*?)</script>'
+    for match in re.finditer(pattern,html,re.I|re.S):
+        raw=re.sub(r"<!--|-->","",match.group(1)).strip()
+        try:
+            values.append(json.loads(raw))
+        except Exception:
+            continue
     return values
-
 def _walk(value: Any):
     if isinstance(value,dict):
         yield value
