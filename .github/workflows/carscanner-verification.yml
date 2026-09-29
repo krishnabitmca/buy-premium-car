@@ -23,8 +23,8 @@ jobs:
         run: python tests/test_live_marketplaces.py
       - name: Install Playwright
         run: |
-          npm install --no-save playwright
-          npx playwright install --with-deps chromium
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
       - name: Browser smoke test
         run: |
           python -m http.server 4173 --directory . >/tmp/carscanner-http.log 2>&1 &
