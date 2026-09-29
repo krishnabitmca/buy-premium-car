@@ -21,7 +21,13 @@ Responsibilities:
 
 The crawler should collect broadly. Customer constraints should generally be applied at search/match time.
 
-### 2. Inventory data
+### 2. Live marketplace search
+
+The customer search path must query live marketplace/source pages or live source APIs. data/latest.json is historical/reporting data and must not be used as the customer-facing search source.
+
+Live responses should expose source status and observation time. If live sources are unavailable, the UI should report that state rather than silently presenting stale inventory.
+
+### 3. Inventory data
 Current repository snapshot:
 - data/latest.json
 - historical data under data/ and reports/
@@ -32,7 +38,7 @@ Inventory records should retain enough provenance to answer:
 - what identity information was available?
 - what evidence supports the result?
 
-### 3. Search API
+### 4. Search API
 api/search.py
 
 Responsibilities:
@@ -45,7 +51,7 @@ Responsibilities:
 
 Destination should annotate local/same-state/interstate context rather than silently restricting the inventory universe.
 
-### 4. Deal intelligence
+### 5. Deal intelligence
 src/deal_engine.py
 
 The generic deal engine provides concepts including:
@@ -56,13 +62,13 @@ The generic deal engine provides concepts including:
 
 This layer should remain reusable and should not become tightly coupled to a particular UI.
 
-### 5. Presentation
+### 6. Presentation
 Current primary UI:
 - index.html
 
 The UI should remain thin: collect intent, explain results, expose evidence, and link to original sources. Business rules should not proliferate in client-side code when they belong in the API/domain layer.
 
-### 6. Persistence and future alerts
+### 7. Persistence and future alerts
 Supabase schema exists under:
 - supabase/migrations/001_deal_watch.sql
 
