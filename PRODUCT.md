@@ -10,7 +10,7 @@ CarScanner is the system name and customer-facing product name.
 
 **Find the lowest and best possible rate for a used or demonstrator car across the marketplaces where that vehicle is listed.**
 
-CarScanner should search across available automotive marketplaces and seller sources, identify comparable vehicles, and help the buyer understand which listing represents the strongest price opportunity based on available evidence.
+CarScanner should query available automotive marketplaces and seller sources live at search time, identify comparable vehicles, and help the buyer understand which listing represents the strongest price opportunity based on available evidence.
 
 "Lowest price" and "best possible rate" must be treated as evidence-based concepts, not absolute guarantees. CarScanner can only compare the inventory and evidence it has discovered.
 
