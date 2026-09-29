@@ -134,6 +134,18 @@ def _number(text: Any) -> float | None:
     m=re.search(r"(\d+(?:\.\d+)?)",s)
     return float(m.group(1)) if m else None
 
+def _infer_brand_model(name: str, brand: Any, model: Any) -> tuple[str|None,str]:
+    if isinstance(brand,dict): brand=brand.get("name")
+    b=str(brand).strip() if brand else ""
+    m=str(model).strip() if model else ""
+    if b and m: return b,m
+    clean=" ".join(str(name or "").split())
+    for candidate in sorted(CURRENT_BRANDS,key=len,reverse=True):
+        if clean.lower().startswith(candidate.lower()+" "):
+            return candidate,clean[len(candidate):].strip()
+    parts=clean.split(" ",1)
+    return (parts[0] if parts else None),(parts[1] if len(parts)>1 else clean)
+
 def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
     rows=[]
     for root in _json_objects(html):
@@ -147,9 +159,10 @@ def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
             offers=obj.get("offers") if isinstance(obj.get("offers"),dict) else {}
             price=_number(offers.get("price") or obj.get("price"))
             url=obj.get("url") or offers.get("url") or base_url
+            brand,model=_infer_brand_model(str(name),obj.get("brand"),obj.get("model"))
             rows.append({
-                "brand": obj.get("brand",{}).get("name") if isinstance(obj.get("brand"),dict) else obj.get("brand"),
-                "model": obj.get("model") or name,
+                "brand": brand,
+                "model": model,
                 "variant": obj.get("vehicleConfiguration") or obj.get("name") or "",
                 "price_lakh": price/100000 if price and price>100000 else price,
                 "url": _absolute(base_url,url),
