@@ -3,6 +3,7 @@ import json
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse
+from datetime import datetime
 import sys
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -34,8 +35,12 @@ def _vehicle_condition(v):
         return "demo" if explicit=="demonstrator" else explicit
     return "demo" if "demo" in (str(v.get("variant",""))+" "+str(v.get("source",""))).lower() else "used"
 
-def _match(v,query,budget_min,budget_max,max_age,destination):
-    hay=" ".join(str(v.get(k) or "") for k in ("brand","model","variant","location","fuel","transmission","source")).lower()
+def _match(v,query,budget_min,budget_max,max_age,destination,condition="both"):
+    wanted_condition=str(condition or "both").strip().lower()
+    actual_condition=_vehicle_condition(v)
+    if wanted_condition in {"used","demo"} and actual_condition != wanted_condition:
+        return False
+    hay=" ".join(str(v.get(k) or "") for k in ("brand","model","listing_name","variant","location","fuel","transmission","source")).lower()
     tokens=[t for t in query.lower().split() if t]
     if tokens and not all(t in hay for t in tokens): return False
     price=v.get("price_lakh")
@@ -43,7 +48,7 @@ def _match(v,query,budget_min,budget_max,max_age,destination):
     if budget_max is not None and (price is None or float(price)>budget_max): return False
     if max_age is not None:
         year=v.get("mfg_year")
-        if year is None or int(year)<2026-int(max_age): return False
+        if year is None or int(year)<datetime.now().year-int(max_age): return False
     if destination:
         # Destination is not a geographic restriction. It is used only to annotate
         # local/same-state/interstate purchase context.
@@ -82,10 +87,12 @@ class handler(BaseHTTPRequestHandler):
             max_age=float(body["max_age_years"]) if body.get("max_age_years") not in (None,"") else None
             if budget_min is not None and budget_max is not None and budget_min>budget_max:
                 return _response(self,400,{"error":"Minimum budget cannot exceed maximum budget"})
-            vehicles,sources=live_inventory()
+            vehicles,sources=live_inventory(query)
+            if not vehicles and sources and not any(s.get("status") == "live" for s in sources):
+                return _response(self,503,{"error":"Live marketplace sources are currently unavailable","mode":"live","sources":sources})
             results=[]
             for v in vehicles:
-                if not _match(v,query,budget_min,budget_max,max_age,destination): continue
+                if not _match(v,query,budget_min,budget_max,max_age,destination,body.get("condition") or "both"): continue
                 enriched=dict(v)
                 enriched["purchase_context"]=purchase_context(v,destination)
                 enriched["_search_score"]=_score(v)
@@ -94,12 +101,12 @@ class handler(BaseHTTPRequestHandler):
             from statistics import median
             groups={}
             for v in results:
-                key=(str(v.get("brand") or "").strip().lower(),str(v.get("model") or "").strip().lower())
+                key=(str(v.get("brand") or "").strip().lower(),str(v.get("model") or "").strip().lower(),_vehicle_condition(v))
                 price=v.get("price_lakh")
                 if key[0] and key[1] and price is not None:
                     groups.setdefault(key,[]).append(float(price))
             for v in results:
-                key=(str(v.get("brand") or "").strip().lower(),str(v.get("model") or "").strip().lower())
+                key=(str(v.get("brand") or "").strip().lower(),str(v.get("model") or "").strip().lower(),_vehicle_condition(v))
                 comparable=groups.get(key,[])
                 if len(comparable)>=3 and v.get("price_lakh") is not None:
                     ref=round(float(median(comparable)),2)

@@ -24,7 +24,7 @@ def purchase_context(vehicle:dict, destination_city:str|None):
         "seller_city":seller_city or None,
         "seller_state":seller_state or None,
         "mode":mode,
-        "estimated_total_lakh":vehicle.get("price_lakh") if mode in {"local","same_state"} else None,
+        "observed_listing_price_lakh":vehicle.get("price_lakh"),
         "additional_cost_status":"not separately estimated" if mode=="interstate" else "no additional interstate estimate needed",
         "note":note
     }

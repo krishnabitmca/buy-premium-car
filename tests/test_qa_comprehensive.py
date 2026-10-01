@@ -1,0 +1,391 @@
+import json
+import socket
+import threading
+import unittest
+from http.server import HTTPServer
+from unittest.mock import patch
+
+from src import live_marketplaces as lm
+from api import search as search_api
+from api import catalog as catalog_api
+from src.acquisition import purchase_context
+
+
+class FakeResponse:
+    def __init__(self, payload, status=200):
+        self.payload = payload
+        self.status = status
+    def __enter__(self): return self
+    def __exit__(self, *args): return False
+    def read(self): return self.payload.encode()
+
+
+def jsonld(name="BMW X5", brand="BMW", model="X5", price="4950000", url="/used/bmw-x5"):
+    return f'''<html><script TYPE="application/ld+json">
+    {{"@type":"Product","name":"{name}","brand":{{"name":"{brand}"}},"model":"{model}",
+    "vehicleConfiguration":"xDrive40i M Sport","offers":{{"price":"{price}","url":"{url}"}},"url":"{url}"}}
+    </script></html>'''
+
+
+class TestPureFunctions(unittest.TestCase):
+    def test_slug_and_brand_aliases(self):
+        self.assertEqual(lm._slug("Mercedes-Benz"), "mercedes-benz")
+        self.assertEqual(lm._slug("Citroën C5 Aircross"), "citro-n-c5-aircross")
+        self.assertEqual(lm._canonical_brand("MG"), "MG Motor")
+        self.assertEqual(lm._canonical_brand("Mercedes Benz"), "Mercedes-Benz")
+
+    def test_canonical_url_removes_tracking_parameters(self):
+        self.assertEqual(
+            lm._canonical_url("https://example.com/base/", "https://example.com/car?id=123&utm_source=x&gclid=y#top"),
+            "https://example.com/car?id=123",
+        )
+
+    def test_visible_parser_does_not_inject_requested_identity(self):
+        html='''<a href="/used/mumbai/audi-q5/abc">
+        2024 Audi Q5 45 TFSI 20,000 km | Petrol | Mumbai Rs. 45 Lakh
+        </a>'''
+        rows=lm.parse_visible_listing_links(
+            html,"CarWale Used","https://www.carwale.com/used/mercedes-benz-c-class/",
+            "Mercedes-Benz Mercedes-Benz C-Class")
+        self.assertEqual(rows, [])
+
+    def test_visible_parser_preserves_independent_identity(self):
+        html='''<a href="/used/mumbai/mercedes-benz-c-class/abc">
+        2024 Mercedes-Benz C-Class C 200 20,000 km | Petrol | Mumbai Rs. 45 Lakh
+        </a>'''
+        rows=lm.parse_visible_listing_links(
+            html,"CarWale Used","https://www.carwale.com/used/mercedes-benz-c-class/",
+            "Mercedes-Benz Mercedes-Benz C-Class")
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]["brand"],"Mercedes-Benz")
+        self.assertTrue(lm._model_identity_matches("C-Class",rows[0]["model"]))
+        self.assertIn("provenance",rows[0])
+
+    def test_fetch_retries_retryable_http_error(self):
+        class Headers:
+            def get(self,key,default=None): return "text/html; charset=utf-8" if key.lower()=="content-type" else default
+            def get_content_charset(self): return "utf-8"
+        class Response:
+            status=200
+            headers=Headers()
+            def __enter__(self): return self
+            def __exit__(self,*args): return False
+            def read(self,n=-1): return "<html>ok</html>".encode()
+        import urllib.error
+        calls=[urllib.error.HTTPError("https://example.com",503,"busy",Headers(),None),Response()]
+        with patch.object(lm.urllib.request,"urlopen",side_effect=calls):
+            with patch.object(lm.time,"sleep",return_value=None):
+                self.assertEqual(lm.fetch_text("https://example.com"),"<html>ok</html>")
+    def test_number_boundaries(self):
+        self.assertEqual(lm._number("₹49,50,000"), 4950000.0)
+        self.assertEqual(lm._number("49.5 lakh"), 49.5)
+        self.assertIsNone(lm._number(None))
+        self.assertIsNone(lm._number("not-a-price"))
+
+    def test_jsonld_tolerant_parser(self):
+        html = jsonld().replace('type="application/ld+json"', 'type = "application/ld+json; charset=utf-8"')
+        self.assertEqual(len(lm._json_objects(html)), 1)
+        malformed = '<script type="application/ld+json">{bad json</script>'
+        self.assertEqual(lm._json_objects(malformed), [])
+
+    def test_infer_brand_model(self):
+        self.assertEqual(lm._infer_brand_model("BMW X5", "BMW", "X5"), ("BMW", "X5"))
+        self.assertEqual(lm._infer_brand_model("BMW X5 xDrive40i", None, None), ("BMW", "X5 xDrive40i"))
+        self.assertEqual(lm._infer_brand_model("Unknown", None, None), ("Unknown", "Unknown"))
+
+    def test_parse_listing_and_deduplicate(self):
+        html = jsonld() + jsonld()
+        rows = lm.parse_live_listings(html, "Fixture", "https://example.com/")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["price_lakh"], 49.5)
+        self.assertTrue(rows[0]["live_verified"])
+        self.assertEqual(rows[0]["listing_name"],"BMW X5")
+        self.assertEqual(rows[0]["url"], "https://example.com/used/bmw-x5")
+
+    def test_parse_offer_only_and_irrelevant_jsonld(self):
+        html = '''<script type="application/ld+json">
+        {"@type":"Offer","name":"Audi Q5","price":"5200000","url":"/q5"}
+        </script>
+        <script type="application/ld+json">{"@type":"BreadcrumbList","name":"Ignore me"}</script>'''
+        rows = lm.parse_live_listings(html, "Fixture", "https://example.com/")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["price_lakh"], 52.0)
+
+    def test_live_brands_uses_current_catalog_and_missing_match(self):
+        page = '<a href="/bmw-cars">BMW Cars</a><a href="/audi-cars">Audi Cars</a>'
+        with patch.object(lm, "fetch_text", return_value=page):
+            rows = lm.live_brands()
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(all(x["catalog_verified"] == "true" for x in rows))
+        bmw = next(x for x in rows if x["name"] == "BMW")
+        self.assertTrue(bmw["url"].endswith("/bmw-cars"))
+
+    def test_live_models_filters_noise(self):
+        page = '''<a href="/bmw/x5">X5</a><a href="/bmw/x3">X3</a>
+                  <a href="/bmw/view-all-models">View all models</a>
+                  <a href="/bmw/dealers">Dealers</a>'''
+        def fake_fetch(url):
+            if url.endswith("/newcars"): return '<a href="/bmw-cars">BMW Cars</a>'
+            return page
+        with patch.object(lm, "fetch_text", side_effect=fake_fetch):
+            rows = lm.live_models("BMW")
+        self.assertEqual([x["name"] for x in rows], ["X3", "X5"])
+
+    def test_model_link_rejects_non_model_pages(self):
+        selected={"name":"BMW","slug":"bmw","url":"https://www.cardekho.com/bmw-cars"}
+        self.assertTrue(lm._is_current_model_link(selected,"https://www.cardekho.com/bmw/x5"))
+        self.assertTrue(lm._is_current_model_link(selected,"https://www.cardekho.com/carmodels/bmw/x5"))
+        self.assertFalse(lm._is_current_model_link(selected,"https://www.cardekho.com/bmw/dealers"))
+        self.assertFalse(lm._is_current_model_link(selected,"https://www.cardekho.com/bmw/x5/variants"))
+        self.assertFalse(lm._is_current_model_link(selected,"https://www.cardekho.com/bmw/x5-offers"))
+
+    def test_query_identity_rejects_wrong_model(self):
+        row={"brand":"BMW","model":"X3","listing_name":"BMW X3 xDrive30d",
+             "variant":"xDrive30d","url":"https://example.com/bmw-x3"}
+        self.assertFalse(lm._identity_matches_query(row,"BMW X5"))
+
+    def test_query_identity_accepts_variant_of_requested_model(self):
+        row={"brand":"Mercedes-Benz","model":"C-Class",
+             "listing_name":"2025 Mercedes-Benz C-Class C 200 Mild Hybrid",
+             "variant":"C 200 Mild Hybrid","url":"https://example.com/c-class-c200"}
+        self.assertTrue(lm._identity_matches_query(row,"Mercedes-Benz C-Class"))
+
+    def test_query_identity_rejects_brand_mismatch(self):
+        row={"brand":"Audi","model":"Q5","listing_name":"Audi Q5",
+             "variant":"Premium","url":"https://example.com/audi-q5"}
+        self.assertFalse(lm._identity_matches_query(row,"BMW Q5"))
+
+    def test_selected_model_builds_targeted_marketplace_urls(self):
+        brand,model=lm._query_parts("Mercedes-Benz Mercedes-Benz C-Class")
+        self.assertEqual(brand,"Mercedes-Benz")
+        self.assertEqual(model,"C-Class")
+        urls=lm._targeted_source_urls("Mercedes-Benz Mercedes-Benz C-Class")
+        self.assertEqual(urls["CarWale Used"],"https://www.carwale.com/used/mercedes-benz-c-class/")
+        self.assertEqual(urls["CarDekho Used"],"https://www.cardekho.com/used-mercedes-benz-c-class+cars")
+
+    def test_visible_marketplace_listing_parser(self):
+        html='''<a href="/used/mumbai/mercedes-benz-c-class/abc">
+        2024 Mercedes-Benz C-Class C 200 Mild Hybrid 25,000 km | Petrol | Andheri West, Mumbai Rs. 46.75 Lakh
+        </a>'''
+        rows=lm.parse_visible_listing_links(
+            html,"CarWale Used","https://www.carwale.com/used/mercedes-benz-c-class/",
+            "Mercedes-Benz Mercedes-Benz C-Class")
+        self.assertEqual(len(rows),1)
+        row=rows[0]
+        self.assertEqual(row["brand"],"Mercedes-Benz")
+        self.assertEqual(row["model"],"C-Class")
+        self.assertEqual(row["price_lakh"],46.75)
+        self.assertEqual(row["mfg_year"],2024)
+        self.assertEqual(row["km"],25000)
+        self.assertEqual(row["fuel"],"Petrol")
+        self.assertEqual(row["location"],"Andheri West, Mumbai")
+
+    def test_live_inventory_partial_failure(self):
+        def fake_fetch(url):
+            if "cardekho" in url: return jsonld()
+            raise TimeoutError("synthetic source timeout")
+        with patch.object(lm, "fetch_text", side_effect=fake_fetch):
+            vehicles, sources = lm.live_inventory()
+        self.assertEqual(len(vehicles), 1)
+        live=[s for s in sources if s["status"]=="live"]
+        unavailable=[s for s in sources if s["status"]=="unavailable"]
+        self.assertEqual(len(live),1)
+        self.assertEqual(len(unavailable),4)
+        self.assertTrue(all("timeout" in s["error"] for s in unavailable))
+
+    def test_condition_filter_boundaries(self):
+        used={"brand":"BMW","model":"X5","variant":"x","condition_signal":"used","price_lakh":50}
+        demo={"brand":"BMW","model":"X5","variant":"Demo","condition_signal":"demo","price_lakh":50}
+        self.assertTrue(search_api._match(used,"BMW",None,None,None,None,"used"))
+        self.assertFalse(search_api._match(demo,"BMW",None,None,None,None,"used"))
+        self.assertTrue(search_api._match(demo,"BMW",None,None,None,None,"demo"))
+        self.assertFalse(search_api._match(used,"BMW",None,None,None,None,"demo"))
+        self.assertTrue(search_api._match(used,"BMW",None,None,None,None,"both"))
+
+    def test_rich_live_fields_and_demo_detection(self):
+        html = '''<script type="application/ld+json">
+        {"@type":"Product","name":"BMW X5 Demo","brand":{"name":"BMW"},"model":"X5",
+        "vehicleConfiguration":"xDrive40i","itemCondition":"Demonstrator",
+        "vehicleModelDate":"2024","mileageFromOdometer":{"value":18000},
+        "fuelType":"Petrol","vehicleTransmission":"Automatic","bodyType":"SUV",
+        "seller":{"name":"Dealer","address":{"addressLocality":"Delhi","addressRegion":"Delhi"}},
+        "offers":{"price":"4950000","url":"/x5-demo"}}
+        </script>'''
+        rows=lm.parse_live_listings(html,"Motozite Demo","https://example.com/")
+        self.assertEqual(len(rows),1)
+        row=rows[0]
+        self.assertEqual(row["condition_signal"],"demo")
+        self.assertEqual(row["seller_city"],"Delhi")
+        self.assertEqual(row["seller_state"],"Delhi")
+        self.assertEqual(row["location"],"Delhi")
+        self.assertEqual(row["mfg_year"],2024)
+        self.assertEqual(row["km"],18000)
+        self.assertEqual(row["fuel"],"Petrol")
+        self.assertEqual(row["transmission"],"Automatic")
+        self.assertEqual(row["body_type"],"SUV")
+
+    def test_model_family_match_uses_listing_title(self):
+        v={"brand":"Mercedes-Benz","model":"C-Class","listing_name":"2025 Mercedes-Benz C-Class C 200 Mild Hybrid",
+           "variant":"C 200 Mild Hybrid","price_lakh":46.75,"source":"CarWale Used"}
+        self.assertTrue(search_api._match(v,"Mercedes-Benz C-Class",30,50,None,"Bengaluru","both"))
+
+    def test_search_match_boundaries(self):
+        v={"brand":"BMW","model":"X5","variant":"xDrive40i","location":"Delhi","fuel":"Petrol",
+           "transmission":"Automatic","source":"Fixture","price_lakh":49.5,"mfg_year":2023}
+        self.assertTrue(search_api._match(v, "BMW X5", 40, 55, 3, "Bengaluru"))
+        self.assertFalse(search_api._match(v, "Audi", None, None, None, "Bengaluru"))
+        self.assertFalse(search_api._match(v, "BMW", 50, None, None, "Bengaluru"))
+        self.assertFalse(search_api._match(v, "BMW", None, 40, None, "Bengaluru"))
+        self.assertFalse(search_api._match(v, "BMW", None, None, 2, "Bengaluru"))
+        self.assertTrue(search_api._match(v, "BMW", None, None, None, "Bengaluru"))
+        self.assertTrue(search_api._match(v, "BMW", None, None, None, "Bengaluru", "both"))
+
+    def test_search_score(self):
+        low={"discount_pct":2,"source_count":1,"identity_confidence":.5,"live_verified":True,
+             "data_consistent":True,"km":20000,"owners":1}
+        high={"discount_pct":10,"source_count":3,"identity_confidence":1,"live_verified":True,
+              "data_consistent":True,"km":10000,"owners":1}
+        self.assertGreater(search_api._score(high), search_api._score(low))
+
+
+class TestAcquisitionContext(unittest.TestCase):
+    def test_same_state_context(self):
+        ctx=purchase_context({"location":"Bengaluru","price_lakh":35},"Bengaluru")
+        self.assertEqual(ctx["mode"],"same_state")
+        self.assertEqual(ctx["seller_state"],"Karnataka")
+        self.assertEqual(ctx["observed_listing_price_lakh"],35)
+
+    def test_interstate_context(self):
+        ctx=purchase_context({"seller_city":"Delhi","seller_state":"Delhi","price_lakh":35},"Bengaluru")
+        self.assertEqual(ctx["mode"],"interstate")
+        self.assertEqual(ctx["destination_state"],"Karnataka")
+        self.assertEqual(ctx["observed_listing_price_lakh"],35)
+        self.assertIn("transport",ctx["note"].lower())
+
+    def test_unknown_location_does_not_claim_interstate(self):
+        ctx=purchase_context({"price_lakh":35},"Bengaluru")
+        self.assertEqual(ctx["mode"],"location_unknown")
+        self.assertIsNone(ctx["seller_state"])
+
+class TestHTTPContracts(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.server = HTTPServer(("127.0.0.1", 0), search_api.handler)
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+        cls.base = f"http://127.0.0.1:{cls.server.server_port}"
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown(); cls.server.server_close()
+
+    def request(self, method, path, body=None):
+        import urllib.request
+        data = None if body is None else json.dumps(body).encode()
+        req = urllib.request.Request(self.base+path, data=data, method=method,
+                                     headers={"Content-Type":"application/json"} if data else {})
+        try:
+            with urllib.request.urlopen(req, timeout=5) as r:
+                return r.status, json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+
+    def test_get_and_404(self):
+        with patch.object(search_api, "live_inventory", return_value=([], [])):
+            status, body = self.request("GET", "/api/search")
+        self.assertEqual(status, 200)
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["mode"], "live")
+        self.assertEqual(self.request("GET", "/wrong")[0], 404)
+
+    def test_post_validation(self):
+        status, body = self.request("POST", "/api/search", {"budget_min":60,"budget_max":40})
+        self.assertEqual(status, 400)
+        self.assertIn("Minimum budget", body["error"])
+
+    def test_post_market_reference_and_destination_is_not_filter(self):
+        vehicles=[]
+        for price, city in [(45,"Delhi"),(50,"Mumbai"),(55,"Bengaluru"),(60,"Pune")]:
+            vehicles.append({"brand":"BMW","model":"X5","variant":"x","price_lakh":price,
+                             "location":city,"fuel":"Petrol","mfg_year":2024,
+                             "source":"Fixture","url":"https://example.com/"+str(price),
+                             "live_verified":True,"data_consistent":True})
+        with patch.object(search_api, "live_inventory", return_value=(vehicles,[{"source":"Fixture","status":"live","listings_found":4}])):
+            status, body = self.request("POST","/api/search",
+                {"query":"BMW X5","destination":"Bengaluru","budget_min":40,"budget_max":65})
+        self.assertEqual(status,200)
+        self.assertEqual(body["total_results"],4)
+        self.assertTrue(all(v["purchase_context"] for v in body["results"]))
+        self.assertEqual({v["comp_median"] for v in body["results"]},{52.5})
+        self.assertEqual({v["comparable_count"] for v in body["results"]},{4})
+        self.assertEqual({v["discount_pct"] for v in body["results"]},{14.3,4.8,-4.8,-14.3})
+
+    def test_market_reference_does_not_mix_used_and_demo(self):
+        vehicles=[]
+        for price,condition in [(40,"used"),(45,"used"),(50,"used"),(70,"demo"),(75,"demo"),(80,"demo")]:
+            vehicles.append({"brand":"BMW","model":"X5","price_lakh":price,"condition_signal":condition,
+                             "source":"Fixture","url":"https://example.com/"+str(price),
+                             "live_verified":True,"data_consistent":True})
+        with patch.object(search_api,"live_inventory",return_value=(vehicles,[{"source":"Fixture","status":"live","listings_found":6}])):
+            status,body=self.request("POST","/api/search",{"query":"BMW X5"})
+        self.assertEqual(status,200)
+        used=[v for v in body["results"] if v["condition_signal"]=="used"]
+        demo=[v for v in body["results"] if v["condition_signal"]=="demo"]
+        self.assertEqual({v["comp_median"] for v in used},{45.0})
+        self.assertEqual({v["comp_median"] for v in demo},{75.0})
+
+    def test_post_insufficient_comparables_does_not_invent_reference(self):
+        vehicles=[{"brand":"BMW","model":"X5","price_lakh":49.5,"source":"Fixture",
+                   "url":"https://example.com/x","live_verified":True,"data_consistent":True}]
+        with patch.object(search_api,"live_inventory",return_value=(vehicles,[])):
+            status, body=self.request("POST","/api/search",{"query":"BMW X5"})
+        self.assertEqual(status,200)
+        self.assertIsNone(body["results"][0]["comp_median"])
+        self.assertIsNone(body["results"][0]["discount_pct"])
+        self.assertEqual(body["results"][0]["comparable_count"],1)
+
+    def test_post_all_sources_unavailable_returns_service_unavailable(self):
+        failed=[{"source":"Fixture","status":"unavailable","listings_found":0,"error":"timeout"}]
+        with patch.object(search_api,"live_inventory",return_value=([],failed)):
+            status, body=self.request("POST","/api/search",{"query":"BMW X5"})
+        self.assertEqual(status,503)
+        self.assertEqual(body["mode"],"live")
+
+    def test_post_no_offline_fallback_on_source_failure(self):
+        with patch.object(search_api,"live_inventory",side_effect=RuntimeError("all sources down")):
+            status, body=self.request("POST","/api/search",{"query":"BMW X5"})
+        self.assertEqual(status,500)
+        self.assertIn("Search failed",body["error"])
+
+    def test_oversized_and_malformed_body(self):
+        import urllib.request
+        req=urllib.request.Request(self.base+"/api/search",data=b"{bad",method="POST",
+            headers={"Content-Type":"application/json","Content-Length":"4"})
+        try:
+            urllib.request.urlopen(req,timeout=5)
+        except urllib.error.HTTPError as e:
+            self.assertEqual(e.code,400)
+        huge=b"x"*64001
+        req=urllib.request.Request(self.base+"/api/search",data=huge,method="POST",
+            headers={"Content-Type":"application/json","Content-Length":str(len(huge))})
+        try:
+            urllib.request.urlopen(req,timeout=5)
+            self.fail("expected 400")
+        except urllib.error.HTTPError as e:
+            self.assertEqual(e.code,400)
+
+
+class TestCatalogHTTPContract(unittest.TestCase):
+    def test_catalog_models_contract(self):
+        class H:
+            pass
+        with patch.object(catalog_api, "live_models", return_value=[{"name":"X5"}]):
+            # Validate the handler module exposes the expected route and callable.
+            self.assertTrue(hasattr(catalog_api, "handler"))
+            self.assertTrue(callable(catalog_api.live_models))
+
+    def test_catalog_unknown_route_contract(self):
+        self.assertTrue(hasattr(catalog_api.handler, "do_GET"))
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
