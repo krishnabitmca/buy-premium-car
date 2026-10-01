@@ -27,6 +27,10 @@ jobs:
         run: |
           python -m pip install playwright
           python -m playwright install --with-deps chromium
+      - name: Adversarial browser E2E test
+        run: |
+          python -m http.server 4173 --directory . >/tmp/carscanner-http.log 2>&1 &
+          python tests/ui_qa_e2e.py
       - name: Browser smoke test
         run: |
           python -m http.server 4173 --directory . >/tmp/carscanner-http.log 2>&1 &
