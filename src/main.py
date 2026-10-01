@@ -27,7 +27,7 @@ def main():
     queue=[(s["name"],s["url"],int(s.get("tier",2))) for s in known_sources];new_sources=[]
     if not args.no_discovery:
         found=discover(settings,known_domains(conn));cap=int(settings.market.get("max_discovered_sources_per_run",20))
-        for r in found[:cap]:record_source(conn,r.domain,r.url,r.domain,False,now,"discovered");new_sources.append({"domain":r.domain,"url":r.url,"query":r.query,"source_type":r.source_type,"condition":r.condition,"segment":r.segment,"brand_hint":r.brand_hint or "","candidate_confidence":r.candidate_confidence});queue.append((r.domain,r.url,3))
+        for r in found[:cap]:record_source(conn,r.domain,r.url,r.domain,False,now,"discovered");new_sources.append({"domain":r.domain,"url":r.url,"title":r.title,"snippet":r.snippet,"query":r.query,"source_type":r.source_type,"condition":r.condition,"segment":r.segment,"brand_hint":r.brand_hint or "","candidate_confidence":r.candidate_confidence});queue.append((r.domain,r.url,3))
     conn.commit()
     vehicles=dedupe(asyncio.run(crawl_urls(queue,settings)))
     ref_year=int(settings.market["reference_date"][:4]);min_year=ref_year-int(settings.market["default_dashboard_age_years"])+1;filtered=[]
