@@ -164,7 +164,7 @@ class TestPureFunctions(unittest.TestCase):
 
     def test_search_match_boundaries(self):
         v={"brand":"BMW","model":"X5","variant":"xDrive40i","location":"Delhi","fuel":"Petrol",
-           "transmission":"Automatic","source":"Fixture","price_lakh":49.5,"mfg_year":2024}
+           "transmission":"Automatic","source":"Fixture","price_lakh":49.5,"mfg_year":2023}
         self.assertTrue(search_api._match(v, "BMW X5", 40, 55, 3, "Bengaluru"))
         self.assertFalse(search_api._match(v, "Audi", None, None, None, "Bengaluru"))
         self.assertFalse(search_api._match(v, "BMW", 50, None, None, "Bengaluru"))
