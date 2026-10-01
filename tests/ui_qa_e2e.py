@@ -71,7 +71,7 @@ async def main():
         assert "Delhi" in await page.locator(".card").inner_text()
 
         # Price filtering must work.
-        await page.locator("#city").select_option(label="")
+        await page.locator("#city").select_option(value="")
         await page.locator("#fmax").fill("50")
         await page.locator("#fmax").press("Enter")
         assert await page.locator(".card").count() == 2
