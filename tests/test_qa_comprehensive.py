@@ -58,7 +58,7 @@ class TestPureFunctions(unittest.TestCase):
             "Mercedes-Benz Mercedes-Benz C-Class")
         self.assertEqual(len(rows),1)
         self.assertEqual(rows[0]["brand"],"Mercedes-Benz")
-        self.assertIn("c class",rows[0]["model"].lower())
+        self.assertTrue(lm._model_identity_matches("C-Class",rows[0]["model"]))
         self.assertIn("provenance",rows[0])
 
     def test_fetch_retries_retryable_http_error(self):
