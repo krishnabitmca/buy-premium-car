@@ -13,7 +13,7 @@ def test_interstate_purchase_is_context_not_search_boundary():
     assert ctx["destination_state"] == "Karnataka"
     assert ctx["seller_state"] == "Telangana"
     assert ctx["mode"] == "interstate"
-    assert ctx["observed_listing_price_lakh"] is None
+    assert ctx["observed_listing_price_lakh"] == 37.5
     assert "interstate" in ctx["note"].lower()
 
 
@@ -21,4 +21,4 @@ def test_same_state_purchase_context():
     vehicle = {"location": "Bengaluru", "price_lakh": 39.5}
     ctx = purchase_context(vehicle, "Bengaluru")
     assert ctx["mode"] in {"local", "same_state"}
-    assert ctx["estimated_total_lakh"] == 39.5
+    assert ctx["observed_listing_price_lakh"] == 39.5
