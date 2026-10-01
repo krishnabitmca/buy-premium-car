@@ -88,6 +88,8 @@ class handler(BaseHTTPRequestHandler):
             if budget_min is not None and budget_max is not None and budget_min>budget_max:
                 return _response(self,400,{"error":"Minimum budget cannot exceed maximum budget"})
             vehicles,sources=live_inventory()
+            if not vehicles and sources and not any(s.get("status") == "live" for s in sources):
+                return _response(self,503,{"error":"Live marketplace sources are currently unavailable","mode":"live","sources":sources})
             results=[]
             for v in vehicles:
                 if not _match(v,query,budget_min,budget_max,max_age,destination,body.get("condition") or "both"): continue
