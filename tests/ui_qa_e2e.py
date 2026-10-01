@@ -86,6 +86,7 @@ async def main():
         await page.locator(".fuelCheck[value=diesel]").check()
         assert await page.locator(".card").count() == 1
         assert "Diesel" in await page.locator(".card").inner_text()
+        await page.locator(".fuelCheck[value=diesel]").uncheck()
 
         # Quick body-type chip.
         await page.locator(".chip[data-filter=suv]").click()
