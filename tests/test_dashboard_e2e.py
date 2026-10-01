@@ -8,10 +8,8 @@ import pytest
 
 playwright = pytest.importorskip("playwright.sync_api", reason="Playwright is required only for E2E tests")
 sync_playwright = playwright.sync_playwright
-
 pytestmark = pytest.mark.e2e
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/6fX0VQAAAABJRU5ErkJggg==")
-
 
 @pytest.fixture(scope="module")
 def dashboard_url():
@@ -26,83 +24,47 @@ def dashboard_url():
         server.shutdown()
         thread.join(timeout=3)
 
-
-def test_carcanner_search_first_journey(dashboard_url):
+def test_current_search_first_journey(dashboard_url):
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(viewport={"width": 1440, "height": 1000})
-
-        def route_images(route):
-            if route.request.resource_type == "image":
-                route.fulfill(status=200, content_type="image/png", body=PNG)
-            else:
-                route.continue_()
-
-        page_errors = []
-        page.on("pageerror", lambda error: page_errors.append(str(error)))
-        page.route("**/*", route_images)
-        page.goto(dashboard_url, wait_until="networkidle")
-
-        assert not page_errors, "Dashboard JavaScript error: " + " | ".join(page_errors)
-        assert page.title() == "Carcanner — Search Used & Demo Cars in India"
-        assert page.locator(".search-hero").count() == 1
-        assert page.locator("#q").count() == 1
+        errors=[]
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        async_catalog = '{"ok":true,"mode":"live","brands":[{"name":"BMW"},{"name":"Audi"}]}'
+        page.route("**/api/catalog*", lambda route: route.fulfill(status=200,content_type="application/json",body=async_catalog))
+        page.goto(dashboard_url, wait_until="domcontentloaded")
+        assert page.title() == "CarScanner — Compare every marketplace"
+        assert page.locator("#brand").count() == 1
+        assert page.locator("#model").count() == 1
+        assert page.locator("#condition").count() == 1
         assert page.locator("#destination").input_value() == "Bengaluru"
-        assert page.locator("#budgetMin").count() == 1
-        assert page.locator("#budgetMax").count() == 1
-        assert page.locator("#searchCars").count() == 1
-        assert "all india" in page.locator(".scope").inner_text().lower()
-        assert page.locator(".card").count() == 3
-
-        page.locator("#q").fill("Audi Q3")
-        page.locator("#budgetMin").fill("30")
-        page.locator("#budgetMax").fill("40")
-        page.locator("#searchCars").click()
-        assert page.locator(".card").count() == 1
-        assert "Audi Q3" in page.locator(".card").inner_text()
-        assert "India" in page.locator(".summary-right").inner_text()
-
-        page.locator("#moreFilters").click()
-        assert page.locator("#advanced.show").count() == 1
-        for selector in ["#maxAge", "#mileage", "#owners", "#fuel", "#transmission", "#condition", "#certification", "#deal", "#clearFilters"]:
-            assert page.locator(selector).count() == 1
-        page.locator("#moreFilters").click()
-        assert page.locator("#advanced.show").count() == 0
-
+        assert page.locator(".hero h1").inner_text() == "Find the right car at the right price"
+        assert page.locator(".card").count() == 0
+        assert not errors
         browser.close()
 
-
-def test_compare_and_inspect(dashboard_url):
+def test_mobile_layout_and_filters_are_present(dashboard_url):
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        page = browser.new_page(viewport={"width": 1440, "height": 1000})
-        page.goto(dashboard_url, wait_until="networkidle")
-
-        compare_buttons = page.locator("[data-compare]")
-        assert compare_buttons.count() == 3
-        compare_buttons.nth(0).click()
-        compare_buttons.nth(1).click()
-        assert page.locator("#compareTray.show").count() == 1
-
-        page.locator("#compareOpen").click()
-        assert page.locator("#compareModal.show").count() == 1
-        assert page.locator(".compare-table").count() == 1
-        page.locator("#compareModal .close").click()
-
-        page.locator("[data-inspect]").first.click()
-        assert page.locator("#inspectModal.show").count() == 1
-        assert page.locator("#inspectTitle").inner_text()
-        assert page.locator("#inspectBody .inspect-card").count() >= 2
-
-        browser.close()
-
-
-def test_mobile_layout_has_no_horizontal_overflow(dashboard_url):
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        page = browser.new_page(viewport={"width": 390, "height": 844})
-        page.goto(dashboard_url, wait_until="networkidle")
-        assert page.locator(".search-hero").count() == 1
-        assert page.locator(".card").count() == 3
+        page = browser.new_page(viewport={"width":390,"height":844})
+        page.goto(dashboard_url, wait_until="domcontentloaded")
+        assert page.locator(".hero").count() == 1
+        assert page.locator("#destination").count() == 1
+        assert page.locator("#clear").count() == 1
+        assert page.locator(".chip").count() >= 6
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        browser.close()
+
+def test_current_evidence_action_is_wired(dashboard_url):
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.route("**/api/catalog*", lambda route: route.fulfill(status=200,content_type="application/json",body='{"ok":true,"mode":"live","brands":[{"name":"BMW"}]}'))
+        page.route("**/api/search*", lambda route: route.fulfill(status=200,content_type="application/json",body='{"ok":true,"mode":"live","live_at":"2026-10-01T08:00:00Z","sources":[{"source":"Test","status":"live"}],"results":[{"brand":"BMW","model":"X5","variant":"xDrive40i","price_lakh":49.5,"mfg_year":2024,"km":18000,"fuel":"Petrol","transmission":"Automatic","location":"Delhi","source":"Test","url":"https://example.com/x5","live_verified":true,"data_consistent":true,"condition_signal":"used"}]}'))
+        page.goto(dashboard_url, wait_until="domcontentloaded")
+        page.locator("#search").click()
+        page.locator(".card").first.wait_for()
+        page.locator(".card button.secondary").first.click()
+        assert page.locator("#modal.show").count() == 1
+        assert "Live marketplace observation" in page.locator("#modalBody").inner_text()
         browser.close()
