@@ -105,7 +105,7 @@ def _is_current_model_link(selected: dict[str,str], href: str) -> bool:
 def live_models(brand: str) -> list[dict[str,str]]:
     brands=live_brands()
     wanted=_canonical_brand(brand).lower()
-    selected=next((x for x in brands if x["name"].lower()==wanted),None)
+    selected=next((x for x in brands if _canonical_brand(x["name"]).lower()==wanted),None)
     if not selected or not selected["url"]:
         return []
     html=fetch_text(selected["url"])
