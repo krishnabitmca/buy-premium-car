@@ -101,7 +101,7 @@ def load_registry() -> list[dict[str, Any]]:
     with _connect() as conn, conn.cursor() as cur:
         cur.execute(
             """select s.*,
-               coalesce(jsonb_agg(sc.capability_value) filter
+               coalesce(jsonb_agg(distinct sc.capability_value) filter
                  (where sc.capability_type='brand'),'[]') as brands,
                coalesce(jsonb_agg(sc.capability_value) filter
                  (where sc.capability_type='condition'),'[]') as conditions,
