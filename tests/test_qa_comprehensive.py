@@ -34,6 +34,48 @@ class TestPureFunctions(unittest.TestCase):
         self.assertEqual(lm._canonical_brand("MG"), "MG Motor")
         self.assertEqual(lm._canonical_brand("Mercedes Benz"), "Mercedes-Benz")
 
+    def test_canonical_url_removes_tracking_parameters(self):
+        self.assertEqual(
+            lm._canonical_url("https://example.com/base/", "https://example.com/car?id=123&utm_source=x&gclid=y#top"),
+            "https://example.com/car?id=123",
+        )
+
+    def test_visible_parser_does_not_inject_requested_identity(self):
+        html='''<a href="/used/mumbai/audi-q5/abc">
+        2024 Audi Q5 45 TFSI 20,000 km | Petrol | Mumbai Rs. 45 Lakh
+        </a>'''
+        rows=lm.parse_visible_listing_links(
+            html,"CarWale Used","https://www.carwale.com/used/mercedes-benz-c-class/",
+            "Mercedes-Benz Mercedes-Benz C-Class")
+        self.assertEqual(rows, [])
+
+    def test_visible_parser_preserves_independent_identity(self):
+        html='''<a href="/used/mumbai/mercedes-benz-c-class/abc">
+        2024 Mercedes-Benz C-Class C 200 20,000 km | Petrol | Mumbai Rs. 45 Lakh
+        </a>'''
+        rows=lm.parse_visible_listing_links(
+            html,"CarWale Used","https://www.carwale.com/used/mercedes-benz-c-class/",
+            "Mercedes-Benz Mercedes-Benz C-Class")
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]["brand"],"Mercedes-Benz")
+        self.assertIn("c class",rows[0]["model"].lower())
+        self.assertIn("provenance",rows[0])
+
+    def test_fetch_retries_retryable_http_error(self):
+        class Headers:
+            def get(self,key,default=None): return "text/html; charset=utf-8" if key.lower()=="content-type" else default
+            def get_content_charset(self): return "utf-8"
+        class Response:
+            status=200
+            headers=Headers()
+            def __enter__(self): return self
+            def __exit__(self,*args): return False
+            def read(self,n=-1): return "<html>ok</html>".encode()
+        import urllib.error
+        calls=[urllib.error.HTTPError("https://example.com",503,"busy",Headers(),None),Response()]
+        with patch.object(lm.urllib.request,"urlopen",side_effect=calls):
+            with patch.object(lm.time,"sleep",return_value=None):
+                self.assertEqual(lm.fetch_text("https://example.com"),"<html>ok</html>")
     def test_number_boundaries(self):
         self.assertEqual(lm._number("₹49,50,000"), 4950000.0)
         self.assertEqual(lm._number("49.5 lakh"), 49.5)
