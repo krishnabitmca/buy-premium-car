@@ -8,6 +8,7 @@ from unittest.mock import patch
 from src import live_marketplaces as lm
 from api import search as search_api
 from api import catalog as catalog_api
+from src.acquisition import purchase_context
 
 
 class FakeResponse:
@@ -146,6 +147,25 @@ class TestPureFunctions(unittest.TestCase):
               "data_consistent":True,"km":10000,"owners":1}
         self.assertGreater(search_api._score(high), search_api._score(low))
 
+
+class TestAcquisitionContext(unittest.TestCase):
+    def test_same_state_context(self):
+        ctx=purchase_context({"location":"Bengaluru","price_lakh":35},"Bengaluru")
+        self.assertEqual(ctx["mode"],"same_state")
+        self.assertEqual(ctx["seller_state"],"Karnataka")
+        self.assertEqual(ctx["observed_listing_price_lakh"],35)
+
+    def test_interstate_context(self):
+        ctx=purchase_context({"seller_city":"Delhi","seller_state":"Delhi","price_lakh":35},"Bengaluru")
+        self.assertEqual(ctx["mode"],"interstate")
+        self.assertEqual(ctx["destination_state"],"Karnataka")
+        self.assertIsNone(ctx["observed_listing_price_lakh"])
+        self.assertIn("transport",ctx["note"].lower())
+
+    def test_unknown_location_does_not_claim_interstate(self):
+        ctx=purchase_context({"price_lakh":35},"Bengaluru")
+        self.assertEqual(ctx["mode"],"location_unknown")
+        self.assertIsNone(ctx["seller_state"])
 
 class TestHTTPContracts(unittest.TestCase):
     @classmethod
