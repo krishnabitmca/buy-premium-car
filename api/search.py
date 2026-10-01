@@ -101,7 +101,7 @@ class handler(BaseHTTPRequestHandler):
             from statistics import median
             groups={}
             for v in results:
-                key=(str(v.get("brand") or "").strip().lower(),str(v.get("model") or "").strip().lower())
+                key=(str(v.get("brand") or "").strip().lower(),str(v.get("model") or "").strip().lower(),_vehicle_condition(v))
                 price=v.get("price_lakh")
                 if key[0] and key[1] and price is not None:
                     groups.setdefault(key,[]).append(float(price))
