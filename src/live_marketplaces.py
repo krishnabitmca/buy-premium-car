@@ -285,7 +285,7 @@ def parse_visible_listing_links(html: str, source: str, base_url: str, query: st
         transmission=None
         tm=re.search(r"\\b(Automatic|Manual|Clutchless Manual)\\b",clean,re.I)
         if tm: transmission=tm.group(1)
-        variant=clean[:year_match.start()].strip() or clean
+        variant=clean[year_match.end():km_match.start()].strip(" -|•") or clean
         if brand and model:
             display_model=model
         else:
@@ -391,7 +391,7 @@ def live_inventory(query: str="") -> tuple[list[dict],list[dict]]:
             parsed=parse_live_listings(html,name,url)
             # Some marketplace pages expose cards as rendered links rather than
             # JSON-LD. Use the visible listing representation as a second parser.
-            if not parsed and name in targeted:
+            if not parsed and query:
                 parsed=parse_visible_listing_links(html,name,url,query)
             vehicles.extend(parsed)
             source_status.append({"source":name,"status":"live","listings_found":len(parsed),"query_url":url})
