@@ -111,7 +111,7 @@ async def main():
 
         # Market intelligence and evidence modal.
         assert await page.locator("#market").is_visible()
-        assert "comparable" in (await page.locator("#marketNote").inner_text()).lower()
+        assert "reference" in (await page.locator("#marketNote").inner_text()).lower()
         await page.locator("button.secondary").first.click()
         assert await page.locator("#modal").is_visible()
         assert "Live marketplace observation" in await page.locator("#modalBody").inner_text()
