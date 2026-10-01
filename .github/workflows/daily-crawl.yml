@@ -30,6 +30,11 @@ jobs:
           pip install -r requirements-crawler.txt
           python -m playwright install --with-deps chromium
           crawl4ai-setup
+      - name: Bootstrap PostgreSQL source registry
+        if: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL != '' }}
+        env:
+          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
+        run: python scripts/bootstrap_source_intelligence.py
       - name: Run tests
         run: pytest -q -m "not e2e"
       - name: Run crawler
@@ -47,6 +52,7 @@ jobs:
           WHATSAPP_TEMPLATE_LANGUAGE: ${{ secrets.WHATSAPP_TEMPLATE_LANGUAGE }}
           WHATSAPP_GRAPH_VERSION: ${{ secrets.WHATSAPP_GRAPH_VERSION }}
           APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
         run: |
           python scripts/process_alerts.py
 
