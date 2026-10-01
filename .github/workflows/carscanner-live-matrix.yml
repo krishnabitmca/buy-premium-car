@@ -2,6 +2,9 @@ name: CarScanner Live Catalog Matrix
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - "fix/**"
   schedule:
     - cron: "30 3 * * *"
 
