@@ -10,6 +10,8 @@ import socket
 from html.parser import HTMLParser
 from typing import Any
 
+from .source_intelligence import load_source_registry, plan_sources, normalize_condition
+
 USER_AGENT = "CarScanner/1.0 (+https://carscanner.in)"
 TIMEOUT = 12
 MAX_BODY_BYTES = 3000000
@@ -524,18 +526,45 @@ def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
         seen.add(key);out.append(row)
     return out
 
-LIVE_SOURCES=[
-    ("Motozite Demo","https://motozite.com/demo-cars"),
-    ("CarDekho Used","https://www.cardekho.com/used-cars"),
-    ("CarWale Used","https://www.carwale.com/used/"),
-    ("Cars24 Luxury Used","https://www.cars24.com/buy-used-luxury-cars/"),
-    ("Spinny Luxury Used","https://www.spinny.com/used-luxury-cars/s/"),
-]
+def _live_source_entries() -> list[dict]:
+    """Return only registry sources whose adapters are verified for live search."""
+    return [s for s in load_source_registry() if s.get("adapter_status") == "live"]
 
-def live_inventory(query: str="") -> tuple[list[dict],list[dict]]:
+
+def live_inventory(
+    query: str = "",
+    condition: str = "both",
+    budget_min: float | None = None,
+    budget_max: float | None = None,
+    destination: str | None = None,
+) -> tuple[list[dict],list[dict]]:
+    """Search only the sources selected by the source-intelligence layer.
+
+    The registry may contain many candidate sources, but only adapters marked
+    live are executed. This prevents a source list from being mistaken for
+    actual coverage. Customer intent influences source priority; destination
+    only adds regional relevance and never becomes an inventory restriction.
+    """
     vehicles=[];source_status=[]
+    brand,model=_query_parts(query)
+    registry=_live_source_entries()
+    plan=plan_sources(
+        brand=brand,
+        model=model,
+        condition=condition,
+        budget_min=budget_min,
+        budget_max=budget_max,
+        destination=destination,
+        registry=registry,
+        live_only=True,
+    )
     targeted=_targeted_source_urls(query)
-    for name,default_url in LIVE_SOURCES:
+    by_name={str(s.get("name")):s for s in registry}
+
+    for planned in plan:
+        name=str(planned["name"])
+        source=by_name.get(name,{})
+        default_url=str(source.get("url") or "")
         url=targeted.get(name,default_url)
         try:
             html=fetch_text(url)
@@ -547,13 +576,37 @@ def live_inventory(query: str="") -> tuple[list[dict],list[dict]]:
             if query:
                 filtered=[]
                 for row in parsed:
-                    if _identity_matches_query(row,query):
-                        row["identity_confidence"]=1.0 if row.get("brand") and row.get("model") else 0.0
-                        row["identity_evidence"]=["brand","model","listing_name","url"]
-                        filtered.append(row)
+                    if not _identity_matches_query(row,query):
+                        continue
+                    actual=normalize_condition(row.get("condition_signal"))
+                    wanted=normalize_condition(condition)
+                    if wanted in {"used","demo"} and actual != wanted:
+                        continue
+                    row["identity_confidence"]=1.0 if row.get("brand") and row.get("model") else 0.0
+                    row["identity_evidence"]=["brand","model","listing_name","url"]
+                    filtered.append(row)
                 parsed=filtered
             vehicles.extend(parsed)
-            source_status.append({"source":name,"status":"live","listings_found":len(parsed),"query_url":url})
+            source_status.append({
+                "source":name,
+                "status":"live",
+                "listings_found":len(parsed),
+                "query_url":url,
+                "source_type":planned.get("source_type"),
+                "source_score":planned.get("score"),
+                "query_strategy":planned.get("query_strategy"),
+                "selection_reasons":planned.get("reasons",[]),
+            })
         except Exception as exc:
-            source_status.append({"source":name,"status":"unavailable","listings_found":0,"error":str(exc)[:160],"query_url":url})
+            source_status.append({
+                "source":name,
+                "status":"unavailable",
+                "listings_found":0,
+                "error":str(exc)[:160],
+                "query_url":url,
+                "source_type":planned.get("source_type"),
+                "source_score":planned.get("score"),
+                "query_strategy":planned.get("query_strategy"),
+                "selection_reasons":planned.get("reasons",[]),
+            })
     return vehicles,source_status
