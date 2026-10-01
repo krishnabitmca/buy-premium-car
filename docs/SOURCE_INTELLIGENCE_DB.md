@@ -20,3 +20,6 @@ Lifecycle:
 DISCOVERED -> CLASSIFIED -> VALIDATED -> PARSER_CREATED -> INVENTORY_VERIFIED -> LIVE
 
 Only LIVE adapters enter customer search execution.
+
+## Deployment state
+The repository contains the migration and application wiring; the database itself is provisioned only after a PostgreSQL connection string is supplied to the deployment environment.
