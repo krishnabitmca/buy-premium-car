@@ -110,8 +110,8 @@ function updateMarketView(){
  market.classList.add('show');
 }
 function applyResults(){
- const city=$('city').value,y=$('year').value===''?null:Number($('year').value),fuels=selectedFuels(),fmin=$('fmin').value===''?null:Number($('fmin').value),fmax=$('fmax').value===''?null:Number($('fmax').value);
- shown=inventory.filter(v=>(!city||v.location===city)&&(fmin===null||(v.price_lakh!=null&&Number(v.price_lakh)>=fmin))&&(fmax===null||(v.price_lakh!=null&&Number(v.price_lakh)<=fmax))&&(y===null||age(v)<=y)&&(!fuels.length||fuels.includes(String(v.fuel||'').toLowerCase()))&&(quickFilter===''||String(v.fuel||'').toLowerCase()===quickFilter||String(v.body_type||'').toLowerCase()===quickFilter));
+ const city=$('city').value,y=$('year').value===''?null:Number($('year').value),fuels=selectedFuels(),fmin=$('fmin').value===''?null:Number($('fmin').value),fmax=$('fmax').value===''?null:Number($('fmax').value),selectedCondition=$('condition').value;
+ shown=inventory.filter(v=>(selectedCondition==='both'||conditionOf(v)===selectedCondition)&&(!city||v.location===city)&&(fmin===null||(v.price_lakh!=null&&Number(v.price_lakh)>=fmin))&&(fmax===null||(v.price_lakh!=null&&Number(v.price_lakh)<=fmax))&&(y===null||age(v)<=y)&&(!fuels.length||fuels.includes(String(v.fuel||'').toLowerCase()))&&(quickFilter===''||String(v.fuel||'').toLowerCase()===quickFilter||String(v.body_type||'').toLowerCase()===quickFilter));
  const mode=$('sort').value;
  shown.sort((a,b)=>mode==='price'?(a.price_lakh||999)-(b.price_lakh||999):mode==='gap'?(b.discount_pct||-999)-(a.discount_pct||-999):mode==='km'?(a.km||999999)-(b.km||999999):mode==='year'?(b.mfg_year||0)-(a.mfg_year||0):score(b)-score(a));
  $('summary').textContent=shown.length+' live result'+(shown.length===1?'':'s')+' · '+sourceStatus.filter(s=>s.status==='live').length+' source(s) responded'+(liveAt?' · checked '+new Date(liveAt).toLocaleTimeString('en-IN'):'');
@@ -140,9 +140,10 @@ function inspect(v){$('modalTitle').textContent=(v.brand||'')+' '+(v.model||'');
 function closeModal(){$('modal').classList.remove('show')}
 $('search').onclick=searchLive;$('askSearch').onclick=runAssistant;$('aiPrompt').addEventListener('keydown',e=>{if(e.key==='Enter')runAssistant()});
 ['fmin','fmax'].forEach(id=>$(id).addEventListener('input',()=>{if(inventory.length)applyResults()}));$('sort').onchange=applyResults;$('city').onchange=applyResults;$('year').onchange=applyResults;document.querySelectorAll('.fuelCheck').forEach(x=>x.onchange=applyResults);
-document.querySelectorAll('input[name="cond"]').forEach(x=>x.onchange=()=>{$('condition').value=x.value;condition=x.value});
+$('condition').onchange=()=>{condition=$('condition').value;document.querySelectorAll('input[name="cond"]').forEach(x=>x.checked=x.value===condition);if(inventory.length)applyResults()};
+document.querySelectorAll('input[name="cond"]').forEach(x=>x.onchange=()=>{$('condition').value=x.value;condition=x.value;applyResults()});
 document.querySelectorAll('.chip').forEach(x=>x.onclick=()=>{document.querySelectorAll('.chip').forEach(y=>y.classList.remove('active'));x.classList.add('active');quickFilter=x.dataset.filter;applyResults()});
-$('clear').onclick=()=>{document.querySelectorAll('.fuelCheck').forEach(x=>x.checked=false);$('city').value='';$('year').value='';$('fmin').value='';$('fmax').value='';$('destination').value='Bengaluru';quickFilter='';document.querySelectorAll('.chip').forEach((x,i)=>x.classList.toggle('active',i===0));applyResults()};
+$('clear').onclick=()=>{document.querySelectorAll('.fuelCheck').forEach(x=>x.checked=false);$('city').value='';$('year').value='';$('fmin').value='';$('fmax').value='';$('destination').value='Bengaluru';$('condition').value='both';condition='both';document.querySelectorAll('input[name="cond"]').forEach(x=>x.checked=x.value==='both');quickFilter='';document.querySelectorAll('.chip').forEach((x,i)=>x.classList.toggle('active',i===0));applyResults()};
 loadCatalog();
 </script>
 </body></html>
