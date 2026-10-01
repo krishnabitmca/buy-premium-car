@@ -13,7 +13,7 @@ def test_interstate_purchase_is_context_not_search_boundary():
     assert ctx["destination_state"] == "Karnataka"
     assert ctx["seller_state"] == "Telangana"
     assert ctx["mode"] == "interstate"
-    assert ctx["estimated_total_lakh"] is None
+    assert ctx["observed_listing_price_lakh"] is None
     assert "interstate" in ctx["note"].lower()
 
 
