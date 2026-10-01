@@ -28,7 +28,24 @@ SEGMENT_BY_MAX_LAKH = (
 )
 
 
-def load_source_registry(path: Path = REGISTRY_PATH) -> list[dict[str, Any]]:
+def load_source_registry(
+    path: Path = REGISTRY_PATH,
+    *,
+    from_database: bool = True,
+) -> list[dict[str, Any]]:
+    # PostgreSQL is the production system of record. YAML remains the bootstrap
+    # and deterministic local fallback.
+    if from_database:
+        try:
+            from .source_registry_db import enabled, load_registry
+            if enabled():
+                database_sources = load_registry()
+                if database_sources:
+                    return database_sources
+        except Exception:
+            # Source search must remain available if the control-plane database
+            # is temporarily unavailable; it must never invent inventory.
+            pass
     with path.open("r", encoding="utf-8") as fh:
         data = yaml.safe_load(fh) or {}
     return list(data.get("known_sources") or [])
