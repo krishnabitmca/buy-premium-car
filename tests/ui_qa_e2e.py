@@ -87,6 +87,11 @@ async def main():
         assert await page.locator(".card").count() == 1
         assert "Diesel" in await page.locator(".card").inner_text()
 
+        # Quick body-type chip.
+        await page.locator(".chip[data-filter=suv]").click()
+        assert await page.locator(".card").count() == 3
+        await page.locator(".chip[data-filter='']").click()
+
         # Clear all.
         await page.locator("#clear").click()
         assert await page.locator(".card").count() == 3
