@@ -133,10 +133,91 @@ def _walk(value: Any):
         for v in value: yield from _walk(v)
 
 def _number(text: Any) -> float | None:
-    if text is None:return None
-    s=str(text).replace(",","")
+    if text is None:
+        return None
+    s=str(text).replace(",", "").replace("₹", "").strip()
     m=re.search(r"(\d+(?:\.\d+)?)",s)
     return float(m.group(1)) if m else None
+
+def _first_value(obj: dict, *keys: str):
+    for key in keys:
+        value=obj.get(key)
+        if value not in (None,"",[],{}):
+            if isinstance(value,dict):
+                value=value.get("name") or value.get("value") or value.get("addressLocality")
+            return value
+    return None
+
+def _text_blob(obj: dict) -> str:
+    values=[]
+    for key in ("name","description","vehicleConfiguration","fuelType","bodyType","itemCondition",
+                "vehicleCondition","seller","address","location","category"):
+        value=obj.get(key)
+        if isinstance(value,dict):
+            value=" ".join(str(v) for v in value.values())
+        elif isinstance(value,list):
+            value=" ".join(str(v) for v in value)
+        if value:
+            values.append(str(value))
+    return " ".join(values)
+
+def _infer_condition(obj: dict, source: str) -> str:
+    explicit=_first_value(obj,"itemCondition","vehicleCondition","condition_signal","condition")
+    text=f"{explicit or ''} {_text_blob(obj)} {source}".lower()
+    if any(x in text for x in ("demonstrator","demo car","demo vehicle","demo")):
+        return "demo"
+    return "used"
+
+def _infer_location(obj: dict) -> tuple[str|None,str|None,str|None]:
+    candidates=[]
+    for key in ("seller","location","address","availableAtOrFrom"):
+        value=obj.get(key)
+        if isinstance(value,dict):
+            candidates.append(value)
+            nested=value.get("address")
+            if isinstance(nested,dict): candidates.append(nested)
+        elif value:
+            candidates.append({"value":value})
+    city=state=None
+    for item in candidates:
+        if not isinstance(item,dict): continue
+        city=city or item.get("addressLocality") or item.get("city")
+        state=state or item.get("addressRegion") or item.get("state")
+    raw=" ".join(str(x) for x in candidates)
+    if not city:
+        m=re.search(r"(?:seller|location|city)[:\s-]+([A-Za-z .-]{3,40})",raw,re.I)
+        city=m.group(1).strip(" .-") if m else None
+    return (str(city).strip() if city else None,
+            str(state).strip() if state else None,
+            raw or None)
+
+def _infer_year(obj: dict) -> int|None:
+    value=_first_value(obj,"vehicleModelDate","modelDate","productionDate","dateCreated","mfg_year","year")
+    if value:
+        m=re.search(r"\b(19\d{2}|20\d{2})\b",str(value))
+        if m:return int(m.group(1))
+    m=re.search(r"\b(19\d{2}|20\d{2})\b",_text_blob(obj))
+    return int(m.group(1)) if m else None
+
+def _infer_mileage(obj: dict) -> float|None:
+    value=_first_value(obj,"mileageFromOdometer","mileage","odometer")
+    if isinstance(value,dict):
+        value=value.get("value") or value.get("name")
+    if value is not None:
+        n=_number(value)
+        if n is not None:
+            text=str(value).lower()
+            if "km" in text or "kilomet" in text:return n
+            if "mile" in text:return round(n*1.60934)
+            return n
+    text=_text_blob(obj)
+    m=re.search(r"([\d,]+(?:\.\d+)?)\s*(?:km|kms|kilometers|kilometres)\b",text,re.I)
+    return _number(m.group(1)) if m else None
+
+def _infer_text_attribute(obj: dict, *keys: str) -> str|None:
+    value=_first_value(obj,*keys)
+    if value is None:return None
+    return str(value).strip() or None
 
 def _infer_brand_model(name: str, brand: Any, model: Any) -> tuple[str|None,str]:
     if isinstance(brand,dict): brand=brand.get("name")
@@ -156,29 +237,49 @@ def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
         for obj in _walk(root):
             if not isinstance(obj,dict): continue
             typ=obj.get("@type")
-            if typ not in {"Product","Vehicle","Car","Offer"} and not any(k in obj for k in ("vehicleIdentificationNumber","vehicleConfiguration")):
+            if isinstance(typ,list):
+                is_vehicle=any(str(t).lower() in {"product","vehicle","car","offer"} for t in typ)
+            else:
+                is_vehicle=str(typ).lower() in {"product","vehicle","car","offer"}
+            if not is_vehicle and not any(k in obj for k in ("vehicleIdentificationNumber","vehicleConfiguration")):
                 continue
             name=obj.get("name") or obj.get("model")
             if not name: continue
             offers=obj.get("offers") if isinstance(obj.get("offers"),dict) else {}
-            price=_number(offers.get("price") or obj.get("price"))
+            price_raw=offers.get("price") or obj.get("price")
+            price=_number(price_raw)
+            price_text=str(price_raw or "")
+            price_lakh=(price/100000 if price and price>100000 else price)
             url=obj.get("url") or offers.get("url") or base_url
             brand,model=_infer_brand_model(str(name),obj.get("brand"),obj.get("model"))
-            rows.append({
-                "brand": brand,
-                "model": model,
-                "variant": obj.get("vehicleConfiguration") or obj.get("name") or "",
-                "price_lakh": price/100000 if price and price>100000 else price,
-                "url": _absolute(base_url,url),
+            seller_city,seller_state,location_raw=_infer_location(obj)
+            location=seller_city or seller_state
+            row={
+                "brand":brand,
+                "model":model,
+                "variant":obj.get("vehicleConfiguration") or obj.get("vehicleVariant") or obj.get("name") or "",
+                "price_lakh":price_lakh,
+                "url":_absolute(base_url,str(url)),
                 "source":source,
                 "live_verified":True,
-                "data_consistent":True,
-                "condition_signal":"used",
-            })
-    # De-duplicate structured-data repetitions.
+                "data_consistent":bool(name and price is not None and url),
+                "condition_signal":_infer_condition(obj,source),
+                "seller_city":seller_city,
+                "seller_state":seller_state,
+                "location":location,
+                "location_raw":location_raw,
+                "mfg_year":_infer_year(obj),
+                "km":_infer_mileage(obj),
+                "fuel":_infer_text_attribute(obj,"fuelType","fuel","fuel_type"),
+                "transmission":_infer_text_attribute(obj,"vehicleTransmission","transmission","gearbox"),
+                "body_type":_infer_text_attribute(obj,"bodyType","body_type"),
+            }
+            if price_text and price_lakh is None:
+                continue
+            rows.append(row)
     seen=set();out=[]
     for row in rows:
-        key=(row.get("url"),row.get("price_lakh"),row.get("model"))
+        key=(row.get("url"),row.get("price_lakh"),row.get("model"),row.get("condition_signal"))
         if key in seen: continue
         seen.add(key);out.append(row)
     return out
