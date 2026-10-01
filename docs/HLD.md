@@ -408,3 +408,57 @@ This keeps the architecture simple enough to operate today while preserving clea
 CarScanner's architectural advantage should come from normalization, identity accuracy, evidence quality, and cross-marketplace comparison — not infrastructure complexity.
 
 The system should make adding the next marketplace possible without changing the customer search experience.
+
+
+## Source Intelligence and Deep Discovery
+
+CarScanner maintains a canonical source registry in `config/sources.yaml`. Each source is classified by:
+- source type: marketplace, used retailer, OEM certified, luxury specialist, dealer group, classifieds, etc.
+- condition capability: used, demo, or both
+- product segment: mass-market, premium, luxury, super-luxury
+- brand coverage
+- geography: India-wide or regional
+- adapter status: live, candidate, or discovery-only
+- query strategy and priority
+
+Source discovery is a separate acquisition concern from customer search. The discovery layer searches multiple source archetypes for every configured brand and also runs generic India-wide, OEM, dealer, demo, luxury, classifieds, and city-based queries. Discovery results are classified and persisted with confidence rather than immediately being treated as live inventory.
+
+The customer search path then uses `src/source_intelligence.py` to build an intent-specific source plan from:
+- brand
+- model
+- used/demo condition
+- budget range
+- destination
+
+Destination can increase the relevance of a regional source, but it never removes India-wide sources.
+
+Only sources with `adapter_status: live` are executed by the live customer search path. A candidate source can therefore be highly relevant and visible in the source strategy without creating false inventory coverage until its adapter has passed live verification.
+
+This creates two explicit layers:
+
+```
+Deep Source Discovery
+        |
+        v
+Categorized Source Registry
+        |
+        v
+Customer Intent
+Brand + Model + Used/Demo + Budget + Destination
+        |
+        v
+Source Planner
+        |
+        +-- OEM / certified
+        +-- marketplace
+        +-- used retailer
+        +-- dealer group
+        +-- luxury specialist
+        +-- classifieds
+        |
+        v
+Only verified live adapters
+        |
+        v
+Live inventory + evidence
+```
