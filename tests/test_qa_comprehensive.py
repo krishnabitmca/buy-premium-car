@@ -73,7 +73,8 @@ class TestPureFunctions(unittest.TestCase):
         page = '<a href="/bmw-cars">BMW Cars</a><a href="/audi-cars">Audi Cars</a>'
         with patch.object(lm, "fetch_text", return_value=page):
             rows = lm.live_brands()
-        self.assertEqual(len(rows), len(lm.CURRENT_BRANDS))
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(all(x["catalog_verified"] == "true" for x in rows))
         bmw = next(x for x in rows if x["name"] == "BMW")
         self.assertTrue(bmw["url"].endswith("/bmw-cars"))
 
@@ -87,6 +88,30 @@ class TestPureFunctions(unittest.TestCase):
         with patch.object(lm, "fetch_text", side_effect=fake_fetch):
             rows = lm.live_models("BMW")
         self.assertEqual([x["name"] for x in rows], ["X3", "X5"])
+
+    def test_model_link_rejects_non_model_pages(self):
+        selected={"name":"BMW","slug":"bmw","url":"https://www.cardekho.com/bmw-cars"}
+        self.assertTrue(lm._is_current_model_link(selected,"https://www.cardekho.com/bmw/x5"))
+        self.assertTrue(lm._is_current_model_link(selected,"https://www.cardekho.com/carmodels/bmw/x5"))
+        self.assertFalse(lm._is_current_model_link(selected,"https://www.cardekho.com/bmw/dealers"))
+        self.assertFalse(lm._is_current_model_link(selected,"https://www.cardekho.com/bmw/x5/variants"))
+        self.assertFalse(lm._is_current_model_link(selected,"https://www.cardekho.com/bmw/x5-offers"))
+
+    def test_query_identity_rejects_wrong_model(self):
+        row={"brand":"BMW","model":"X3","listing_name":"BMW X3 xDrive30d",
+             "variant":"xDrive30d","url":"https://example.com/bmw-x3"}
+        self.assertFalse(lm._identity_matches_query(row,"BMW X5"))
+
+    def test_query_identity_accepts_variant_of_requested_model(self):
+        row={"brand":"Mercedes-Benz","model":"C-Class",
+             "listing_name":"2025 Mercedes-Benz C-Class C 200 Mild Hybrid",
+             "variant":"C 200 Mild Hybrid","url":"https://example.com/c-class-c200"}
+        self.assertTrue(lm._identity_matches_query(row,"Mercedes-Benz C-Class"))
+
+    def test_query_identity_rejects_brand_mismatch(self):
+        row={"brand":"Audi","model":"Q5","listing_name":"Audi Q5",
+             "variant":"Premium","url":"https://example.com/audi-q5"}
+        self.assertFalse(lm._identity_matches_query(row,"BMW Q5"))
 
     def test_selected_model_builds_targeted_marketplace_urls(self):
         brand,model=lm._query_parts("Mercedes-Benz Mercedes-Benz C-Class")
