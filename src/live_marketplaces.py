@@ -4,11 +4,17 @@ import json
 import re
 import urllib.parse
 import urllib.request
+import urllib.error
+import time
+import socket
 from html.parser import HTMLParser
 from typing import Any
 
 USER_AGENT = "CarScanner/1.0 (+https://carscanner.in)"
 TIMEOUT = 12
+MAX_BODY_BYTES = 3000000
+FETCH_RETRIES = 3
+RETRYABLE_STATUS = {408,425,429,500,502,503,504}
 
 CURRENT_BRANDS = [
     "Maruti Suzuki","Tata","Kia","Toyota","Hyundai","Mahindra","Honda","MG Motor",
@@ -54,9 +60,37 @@ class _LinkParser(HTMLParser):
             self._text=[]
 
 def fetch_text(url: str) -> str:
-    req=urllib.request.Request(url,headers={"User-Agent":USER_AGENT,"Accept-Language":"en-IN,en;q=0.9"})
-    with urllib.request.urlopen(req,timeout=TIMEOUT) as response:
-        return response.read().decode("utf-8","ignore")
+    """Fetch a marketplace page defensively; never parse an error page as inventory."""
+    last_error = None
+    for attempt in range(FETCH_RETRIES):
+        req=urllib.request.Request(url,headers={
+            "User-Agent":USER_AGENT,
+            "Accept-Language":"en-IN,en;q=0.9",
+            "Accept":"text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.1",
+        })
+        try:
+            with urllib.request.urlopen(req,timeout=TIMEOUT) as response:
+                status=getattr(response,"status",200)
+                if status >= 400:
+                    raise urllib.error.HTTPError(url,status,"HTTP error",response.headers,None)
+                content_type=(response.headers.get("Content-Type") or "").lower()
+                if content_type and not any(x in content_type for x in ("text/html","application/xhtml","application/json","text/plain")):
+                    raise ValueError(f"unsupported content type: {content_type[:80]}")
+                raw=response.read(MAX_BODY_BYTES+1)
+                if len(raw)>MAX_BODY_BYTES:
+                    raise ValueError(f"response body exceeds {MAX_BODY_BYTES} bytes")
+                text=raw.decode(response.headers.get_content_charset() or "utf-8","ignore")
+                if not text.strip():
+                    raise ValueError("empty response body")
+                return text
+        except urllib.error.HTTPError as exc:
+            last_error=exc
+            if exc.code not in RETRYABLE_STATUS: break
+        except (urllib.error.URLError, TimeoutError, socket.timeout, ValueError) as exc:
+            last_error=exc
+        if attempt < FETCH_RETRIES-1:
+            time.sleep(0.25 * (2 ** attempt))
+    raise RuntimeError(f"fetch failed for {url}: {last_error}")
 
 def _absolute(base: str, href: str) -> str:
     return urllib.parse.urljoin(base, href)
@@ -309,10 +343,41 @@ def _targeted_source_urls(query: str) -> dict[str,str]:
         "CarWale Used": f"https://www.carwale.com/used/{brand_slug}-{model_slug}/",
     }
 
+def _canonical_url(base_url: str, href: Any) -> str:
+    absolute=_absolute(base_url,str(href or "")).split("#",1)[0]
+    p=urllib.parse.urlsplit(absolute)
+    if not p.scheme or not p.netloc:
+        return absolute
+    tracking_prefixes=("utm_","gclid","fbclid","ref","referrer","source")
+    query=[]
+    for key,value in urllib.parse.parse_qsl(p.query,keep_blank_values=True):
+        if key.lower().startswith(tracking_prefixes):
+            continue
+        query.append((key,value))
+    return urllib.parse.urlunsplit((p.scheme.lower(),p.netloc.lower(),p.path.rstrip("/") or "/",urllib.parse.urlencode(query),""))
+
+def _listing_identity_from_text(text: str, href: str) -> tuple[str|None,str|None]:
+    blob=f"{text} {urllib.parse.urlsplit(href).path.replace('-',' ')}"
+    brand=None
+    for candidate in sorted(CURRENT_BRANDS,key=len,reverse=True):
+        if re.search(r"\b"+re.escape(candidate)+r"\b",blob,re.I):
+            brand=_canonical_brand(candidate); break
+    if not brand:
+        return None,None
+    tokens=_identity_tokens(blob)
+    brand_tokens=_identity_tokens(brand)
+    remainder=[]
+    i=0
+    while i < len(tokens):
+        if tokens[i:i+len(brand_tokens)]==brand_tokens:
+            i+=len(brand_tokens); continue
+        remainder.append(tokens[i]); i+=1
+    return brand, " ".join(remainder[:5]) if remainder else None
+
 def parse_visible_listing_links(html: str, source: str, base_url: str, query: str="") -> list[dict]:
     parser=_LinkParser()
     parser.feed(html)
-    brand,model=_query_parts(query)
+    requested_brand,requested_model=_query_parts(query)
     rows=[]
     for text,href in parser.links:
         clean=" ".join(text.split())
@@ -334,16 +399,17 @@ def parse_visible_listing_links(html: str, source: str, base_url: str, query: st
         tm=re.search(r"\b(Automatic|Manual|Clutchless Manual)\b",clean,re.I)
         if tm: transmission=tm.group(1)
         variant=clean[year_match.end():km_match.start()].strip(" -|•") or clean
-        display_model=model
-        if not display_model:
-            _,display_model=_infer_brand_model(variant,None,None)
+        listing_brand,listing_model=_listing_identity_from_text(clean,_absolute(base_url,href))
+        if not listing_brand:
+            continue
+        display_model=listing_model or _infer_brand_model(variant,listing_brand,None)[1]
         rows.append({
-            "brand":brand,
+            "brand":listing_brand,
             "model":display_model,
             "listing_name":clean,
             "variant":variant,
             "price_lakh":price_lakh,
-            "url":_absolute(base_url,href),
+            "url":_canonical_url(base_url,href),
             "source":source,
             "live_verified":True,
             "data_consistent":bool(href and price_lakh and variant),
@@ -357,10 +423,11 @@ def parse_visible_listing_links(html: str, source: str, base_url: str, query: st
             "fuel":fuel,
             "transmission":transmission,
             "body_type":None,
+            "provenance":{"source":source,"source_url":base_url,"original_url":_canonical_url(base_url,href),"extraction":"visible_link","raw_listing":clean},
         })
     seen=set();out=[]
     for row in rows:
-        key=(row["url"],row["price_lakh"],row["model"],row["condition_signal"])
+        key=(_canonical_url(base_url,row["url"]),row["price_lakh"],row["model"],row["condition_signal"])
         if key in seen: continue
         seen.add(key);out.append(row)
     return out
@@ -393,7 +460,7 @@ def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
                 "listing_name":str(name),
                 "variant":obj.get("vehicleConfiguration") or obj.get("vehicleVariant") or obj.get("name") or "",
                 "price_lakh":price_lakh,
-                "url":_absolute(base_url,str(url)),
+                "url":_canonical_url(base_url,url),
                 "source":source,
                 "live_verified":True,
                 "data_consistent":bool(name and price is not None and url),
@@ -407,13 +474,14 @@ def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
                 "fuel":_infer_text_attribute(obj,"fuelType","fuel","fuel_type"),
                 "transmission":_infer_text_attribute(obj,"vehicleTransmission","transmission","gearbox"),
                 "body_type":_infer_text_attribute(obj,"bodyType","body_type"),
+                "provenance":{"source":source,"source_url":base_url,"original_url":_canonical_url(base_url,url),"extraction":"json_ld","raw_listing":str(name)},
             }
             if price_text and price_lakh is None:
                 continue
             rows.append(row)
     seen=set();out=[]
     for row in rows:
-        key=(row.get("url"),row.get("price_lakh"),row.get("model"),row.get("condition_signal"))
+        key=(_canonical_url(base_url,row.get("url")),row.get("price_lakh"),row.get("model"),row.get("condition_signal"))
         if key in seen: continue
         seen.add(key);out.append(row)
     return out
@@ -439,7 +507,13 @@ def live_inventory(query: str="") -> tuple[list[dict],list[dict]]:
             if not parsed and query:
                 parsed=parse_visible_listing_links(html,name,url,query)
             if query:
-                parsed=[row for row in parsed if _identity_matches_query(row,query)]
+                filtered=[]
+                for row in parsed:
+                    if _identity_matches_query(row,query):
+                        row["identity_confidence"]=1.0 if row.get("brand") and row.get("model") else 0.0
+                        row["identity_evidence"]=["brand","model","listing_name","url"]
+                        filtered.append(row)
+                parsed=filtered
             vehicles.extend(parsed)
             source_status.append({"source":name,"status":"live","listings_found":len(parsed),"query_url":url})
         except Exception as exc:
