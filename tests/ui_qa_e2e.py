@@ -128,7 +128,7 @@ async def main():
         await page.locator("#fmin").fill("100")
         await page.locator("#search").click()
         # The mocked response ignores request budget, so use seller-city impossible value instead.
-        await page.locator("#city").select_option(label="")
+        await page.locator("#city").select_option(value="")
         await page.locator("#fmin").fill("100")
         await page.locator("#fmax").fill("120")
         await page.locator("#sort").select_option("price")
