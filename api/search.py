@@ -11,7 +11,7 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 
 from src.acquisition import purchase_context
 from src.india_geo import infer_state
-from src.live_marketplaces import live_inventory
+from src.live_marketplaces import live_inventory, _query_parts
 from src.source_intelligence import load_source_registry, plan_sources, summarize_plan
 
 def _read_json(handler):
@@ -90,8 +90,8 @@ class handler(BaseHTTPRequestHandler):
                 return _response(self,400,{"error":"Minimum budget cannot exceed maximum budget"})
             condition=str(body.get("condition") or "both")
             source_plan=plan_sources(
-                brand=__import__("src.live_marketplaces",fromlist=["_query_parts"])._query_parts(query)[0],
-                model=__import__("src.live_marketplaces",fromlist=["_query_parts"])._query_parts(query)[1],
+                brand=_query_parts(query)[0],
+                model=_query_parts(query)[1],
                 condition=condition,
                 budget_min=budget_min,
                 budget_max=budget_max,
