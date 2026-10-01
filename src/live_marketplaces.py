@@ -166,15 +166,15 @@ def _clean_model_catalog_name(text: str) -> str | None:
     clean=" ".join(str(text or "").split()).strip()
     if not clean:
         return None
-    if re.search(r"\\bdiscontinued\\b",clean,re.I):
+    if re.search(r"\bdiscontinued\b",clean,re.I):
         return None
-    if re.search(r"\\b(?:expected launch|upcoming)\\b",clean,re.I):
+    if re.search(r"\b(?:expected launch|upcoming|estimated)\b",clean,re.I):
         return None
     # Remove trailing source metadata such as prices and asterisks. Keep the
     # actual model name, including meaningful terms such as Long Wheelbase.
-    clean=re.sub(r"\\s+(?:₹|Rs\\.?)[^|]*$", "", clean, flags=re.I).strip()
-    clean=re.sub(r"\\s+\\*+$", "", clean).strip()
-    clean=re.sub(r"\\s+(?:estimated|expected)$", "", clean, flags=re.I).strip()
+    clean=re.sub(r"\s+(?:₹|Rs\.?)[^|]*$", "", clean, flags=re.I).strip()
+    clean=re.sub(r"\s+\*+$", "", clean).strip()
+    clean=re.sub(r"\s+(?:estimated|expected)$", "", clean, flags=re.I).strip()
     return clean or None
 
 def live_models(brand: str) -> list[dict[str,str]]:
