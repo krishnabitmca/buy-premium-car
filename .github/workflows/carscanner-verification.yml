@@ -21,10 +21,16 @@ jobs:
         run: python -m py_compile api/search.py api/catalog.py src/live_marketplaces.py
       - name: Parser smoke tests
         run: python tests/test_live_marketplaces.py
+      - name: Comprehensive functional and API contract tests
+        run: python -m unittest -v tests.test_qa_comprehensive
       - name: Install Playwright
         run: |
           python -m pip install playwright
           python -m playwright install --with-deps chromium
+      - name: Adversarial browser E2E test
+        run: |
+          python -m http.server 4173 --directory . >/tmp/carscanner-http.log 2>&1 &
+          python tests/ui_qa_e2e.py
       - name: Browser smoke test
         run: |
           python -m http.server 4173 --directory . >/tmp/carscanner-http.log 2>&1 &
