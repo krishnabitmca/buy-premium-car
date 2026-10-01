@@ -87,6 +87,31 @@ class TestPureFunctions(unittest.TestCase):
             rows = lm.live_models("BMW")
         self.assertEqual([x["name"] for x in rows], ["X3", "X5"])
 
+    def test_selected_model_builds_targeted_marketplace_urls(self):
+        brand,model=lm._query_parts("Mercedes-Benz Mercedes-Benz C-Class")
+        self.assertEqual(brand,"Mercedes-Benz")
+        self.assertEqual(model,"C-Class")
+        urls=lm._targeted_source_urls("Mercedes-Benz Mercedes-Benz C-Class")
+        self.assertEqual(urls["CarWale Used"],"https://www.carwale.com/used/mercedes-benz-c-class/")
+        self.assertEqual(urls["CarDekho Used"],"https://www.cardekho.com/used-mercedes-benz-c-class+cars")
+
+    def test_visible_marketplace_listing_parser(self):
+        html='''<a href="/used/mumbai/mercedes-benz-c-class/abc">
+        2024 Mercedes-Benz C-Class C 200 Mild Hybrid 25,000 km | Petrol | Andheri West, Mumbai Rs. 46.75 Lakh
+        </a>'''
+        rows=lm.parse_visible_listing_links(
+            html,"CarWale Used","https://www.carwale.com/used/mercedes-benz-c-class/",
+            "Mercedes-Benz Mercedes-Benz C-Class")
+        self.assertEqual(len(rows),1)
+        row=rows[0]
+        self.assertEqual(row["brand"],"Mercedes-Benz")
+        self.assertEqual(row["model"],"C-Class")
+        self.assertEqual(row["price_lakh"],46.75)
+        self.assertEqual(row["mfg_year"],2024)
+        self.assertEqual(row["km"],25000)
+        self.assertEqual(row["fuel"],"Petrol")
+        self.assertEqual(row["location"],"Andheri West, Mumbai")
+
     def test_live_inventory_partial_failure(self):
         def fake_fetch(url):
             if "cardekho" in url: return jsonld()
