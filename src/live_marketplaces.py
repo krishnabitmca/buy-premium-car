@@ -87,6 +87,21 @@ def live_brands() -> list[dict[str,str]]:
         result.append({"name":brand,"slug":_slug(brand),"url":_absolute("https://www.cardekho.com",match) if match else ""})
     return result
 
+def _is_current_model_link(selected: dict[str,str], href: str) -> bool:
+    """Accept only canonical CarDekho model landing pages, never variants/dealers/offers."""
+    parsed=urllib.parse.urlparse(href)
+    host=parsed.netloc.lower()
+    path=parsed.path.rstrip("/").lower()
+    if host and "cardekho.com" not in host:
+        return False
+    parts=[p for p in path.split("/") if p]
+    brand_slug=_slug(selected["name"])
+    if len(parts)==2 and parts[0]==brand_slug:
+        return True
+    if len(parts)==3 and parts[0]=="carmodels" and parts[1]==brand_slug:
+        return True
+    return False
+
 def live_models(brand: str) -> list[dict[str,str]]:
     brands=live_brands()
     wanted=_canonical_brand(brand).lower()
@@ -96,21 +111,40 @@ def live_models(brand: str) -> list[dict[str,str]]:
     html=fetch_text(selected["url"])
     parser=_LinkParser();parser.feed(html)
     models=[]
-    seen=set()
+    seen_urls=set()
     for text,href in parser.links:
         clean=" ".join(text.split())
         absolute=_absolute(selected["url"],href)
-        path=urllib.parse.urlparse(absolute).path.lower()
-        if not clean or clean.lower() in {"view all models","compare cars"}:
+        if not clean or not _is_current_model_link(selected,absolute):
             continue
-        if "/"+selected["slug"].lower().replace("-","") not in path.replace("-","") and path.count("/")<2:
+        canonical=absolute.split("#",1)[0].rstrip("/")
+        if canonical in seen_urls:
             continue
-        if clean in seen:
-            continue
-        # Model links on CarDekho commonly point to /brand/model or /carmodels/Brand/Model.
-        if ("/"+_slug(brand)+"/" in path or "/carmodels/" in path) and not any(x in clean.lower() for x in ("cars","price","offers","dealers")):
-            seen.add(clean);models.append({"name":clean,"slug":_slug(clean),"url":absolute})
+        seen_urls.add(canonical)
+        models.append({"name":clean,"slug":_slug(clean),"url":canonical})
     return sorted(models,key=lambda x:x["name"].lower())
+
+def _identity_tokens(value: Any) -> list[str]:
+    return re.findall(r"[a-z0-9]+",str(value or "").lower())
+
+def _model_identity_matches(requested: str, *candidates: Any) -> bool:
+    wanted=_identity_tokens(requested)
+    if not wanted:
+        return False
+    for candidate in candidates:
+        tokens=_identity_tokens(candidate)
+        for i in range(0,len(tokens)-len(wanted)+1):
+            if tokens[i:i+len(wanted)]==wanted:
+                return True
+    return False
+
+def _identity_matches_query(row: dict, query: str) -> bool:
+    brand,model=_query_parts(query)
+    if brand and not _model_identity_matches(brand,row.get("brand"),row.get("listing_name"),row.get("url")):
+        return False
+    if model and not _model_identity_matches(model,row.get("model"),row.get("listing_name"),row.get("variant"),row.get("url")):
+        return False
+    return True
 
 def _json_objects(html: str) -> list[Any]:
     # Marketplace pages are inconsistent about attribute order, quoting and
@@ -387,6 +421,8 @@ def live_inventory(query: str="") -> tuple[list[dict],list[dict]]:
             # JSON-LD. Use the visible listing representation as a second parser.
             if not parsed and query:
                 parsed=parse_visible_listing_links(html,name,url,query)
+            if query:
+                parsed=[row for row in parsed if _identity_matches_query(row,query)]
             vehicles.extend(parsed)
             source_status.append({"source":name,"status":"live","listings_found":len(parsed),"query_url":url})
         except Exception as exc:
