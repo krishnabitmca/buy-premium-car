@@ -23,7 +23,7 @@ def main():
     queue=[(s["name"],s["url"],int(s.get("tier",2))) for s in known_sources];new_sources=[]
     if not args.no_discovery:
         found=discover(settings,known_domains(conn));cap=int(settings.market.get("max_discovered_sources_per_run",20))
-        for r in found[:cap]:record_source(conn,r.domain,r.url,r.domain,False,now,"discovered");new_sources.append({"domain":r.domain,"url":r.url,"query":r.query});queue.append((r.domain,r.url,3))
+        for r in found[:cap]:record_source(conn,r.domain,r.url,r.domain,False,now,"discovered");new_sources.append({"domain":r.domain,"url":r.url,"query":r.query,"source_type":r.source_type,"condition":r.condition,"segment":r.segment,"brand_hint":r.brand_hint or "","candidate_confidence":r.candidate_confidence});queue.append((r.domain,r.url,3))
     conn.commit()
     vehicles=dedupe(asyncio.run(crawl_urls(queue,settings)))
     ref_year=int(settings.market["reference_date"][:4]);min_year=ref_year-int(settings.market["default_dashboard_age_years"])+1;filtered=[]
@@ -44,7 +44,7 @@ def main():
     conn.commit()
     discovered_path=Path(settings.output["discovered_sources_path"]);discovered_path.parent.mkdir(parents=True,exist_ok=True);write_header=not discovered_path.exists()
     with discovered_path.open("a",newline="",encoding="utf-8") as f:
-        w=csv.DictWriter(f,fieldnames=["run_date","domain","url","query"])
+        w=csv.DictWriter(f,fieldnames=["run_date","domain","url","query","source_type","condition","segment","brand_hint","candidate_confidence"])
         if write_header:w.writeheader()
         for s in new_sources:w.writerow({"run_date":settings.market["reference_date"],**s})
     report_path=settings.output["latest_report_path"];dated_path=str(Path(settings.output["run_report_dir"])/f"run-{settings.market['reference_date']}.md")
