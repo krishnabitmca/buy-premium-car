@@ -94,9 +94,11 @@ class TestPureFunctions(unittest.TestCase):
         with patch.object(lm, "fetch_text", side_effect=fake_fetch):
             vehicles, sources = lm.live_inventory()
         self.assertEqual(len(vehicles), 1)
-        self.assertEqual(sources[0]["status"], "live")
-        self.assertEqual(sources[1]["status"], "unavailable")
-        self.assertIn("timeout", sources[1]["error"])
+        live=[s for s in sources if s["status"]=="live"]
+        unavailable=[s for s in sources if s["status"]=="unavailable"]
+        self.assertEqual(len(live),1)
+        self.assertEqual(len(unavailable),4)
+        self.assertTrue(all("timeout" in s["error"] for s in unavailable))
 
     def test_condition_filter_boundaries(self):
         used={"brand":"BMW","model":"X5","variant":"x","condition_signal":"used","price_lakh":50}
@@ -228,6 +230,13 @@ class TestHTTPContracts(unittest.TestCase):
         self.assertIsNone(body["results"][0]["comp_median"])
         self.assertIsNone(body["results"][0]["discount_pct"])
         self.assertEqual(body["results"][0]["comparable_count"],1)
+
+    def test_post_all_sources_unavailable_returns_service_unavailable(self):
+        failed=[{"source":"Fixture","status":"unavailable","listings_found":0,"error":"timeout"}]
+        with patch.object(search_api,"live_inventory",return_value=([],failed)):
+            status, body=self.request("POST","/api/search",{"query":"BMW X5"})
+        self.assertEqual(status,503)
+        self.assertEqual(body["mode"],"live")
 
     def test_post_no_offline_fallback_on_source_failure(self):
         with patch.object(search_api,"live_inventory",side_effect=RuntimeError("all sources down")):
