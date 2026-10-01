@@ -147,7 +147,7 @@ def _is_current_model_link(selected: dict[str,str], href: str) -> bool:
         return False
     parts=[p for p in path.split("/") if p]
     brand_tokens=_brand_path_tokens(selected)
-    if len(parts) >= 2 and parts[-1] in {"dealers","offers","view-all-models","new-cars","used-cars"}:
+    if len(parts) >= 2 and (parts[-1] in {"dealers","offers","view-all-models","new-cars","used-cars"} or parts[-1].endswith(("-offers","-dealer","-dealers"))):
         return False
     if len(parts)==2 and parts[0] in brand_tokens:
         return True
@@ -396,7 +396,9 @@ def parse_visible_listing_links(html: str, source: str, base_url: str, query: st
         price_lakh=price*100 if price_match.group(2).lower()=="crore" else price
         parts=[p.strip() for p in clean.split("|")]
         fuel=parts[1] if len(parts)>1 and parts[1] else None
-        location=parts[2] if len(parts)>2 else None
+        location=parts[2].strip() if len(parts)>2 else None
+        if location:
+            location=re.sub(r"\s*(?:₹|Rs\.?)[ ]*[\d,.]+[ ]*(?:Lakh|Crore)\s*$","",location,flags=re.I).strip()
         transmission=None
         tm=re.search(r"\b(Automatic|Manual|Clutchless Manual)\b",clean,re.I)
         if tm: transmission=tm.group(1)
