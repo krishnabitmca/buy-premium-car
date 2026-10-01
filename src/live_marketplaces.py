@@ -265,32 +265,27 @@ def parse_visible_listing_links(html: str, source: str, base_url: str, query: st
     rows=[]
     for text,href in parser.links:
         clean=" ".join(text.split())
-        if not re.search(r"\\b(?:19\\d{2}|20\\d{2})\\b",clean):
+        if not re.search(r"\b(?:19\d{2}|20\d{2})\b",clean):
             continue
-        price_match=re.search(r"(?:₹|Rs\\.?)[ ]*([\\d,.]+)[ ]*(Lakh|Crore)",clean,re.I)
-        km_match=re.search(r"([\\d,]+(?:\\.\\d+)?)\\s*km\\b",clean,re.I)
+        price_match=re.search(r"(?:₹|Rs\.?)[ ]*([\d,.]+)[ ]*(Lakh|Crore)",clean,re.I)
+        km_match=re.search(r"([\d,]+(?:\.\d+)?)\s*km\b",clean,re.I)
         if not price_match or not km_match:
             continue
-        year_match=re.search(r"\\b(19\\d{2}|20\\d{2})\\b",clean)
+        year_match=re.search(r"\b(19\d{2}|20\d{2})\b",clean)
         if not year_match:
             continue
         price=float(price_match.group(1).replace(",",""))
-        if price_match.group(2).lower()=="crore":
-            price_lakh=price*100
-        else:
-            price_lakh=price
+        price_lakh=price*100 if price_match.group(2).lower()=="crore" else price
         parts=[p.strip() for p in clean.split("|")]
         fuel=parts[1] if len(parts)>1 and parts[1] else None
         location=parts[2] if len(parts)>2 else None
         transmission=None
-        tm=re.search(r"\\b(Automatic|Manual|Clutchless Manual)\\b",clean,re.I)
+        tm=re.search(r"\b(Automatic|Manual|Clutchless Manual)\b",clean,re.I)
         if tm: transmission=tm.group(1)
         variant=clean[year_match.end():km_match.start()].strip(" -|•") or clean
-        if brand and model:
-            display_model=model
-        else:
-            display_brand,display_model=_infer_brand_model(variant,None,None)
-            brand=display_brand or brand
+        display_model=model
+        if not display_model:
+            _,display_model=_infer_brand_model(variant,None,None)
         rows.append({
             "brand":brand,
             "model":display_model,
@@ -318,7 +313,6 @@ def parse_visible_listing_links(html: str, source: str, base_url: str, query: st
         if key in seen: continue
         seen.add(key);out.append(row)
     return out
-
 def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
     rows=[]
     for root in _json_objects(html):
