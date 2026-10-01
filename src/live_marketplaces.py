@@ -231,6 +231,93 @@ def _infer_brand_model(name: str, brand: Any, model: Any) -> tuple[str|None,str]
     parts=clean.split(" ",1)
     return (parts[0] if parts else None),(parts[1] if len(parts)>1 else clean)
 
+def _query_parts(query: str) -> tuple[str|None,str|None]:
+    q=" ".join(str(query or "").split()).strip()
+    low=q.lower()
+    for brand in sorted(CURRENT_BRANDS,key=len,reverse=True):
+        if brand.lower() in low:
+            model=q[:low.find(brand.lower())]+q[low.find(brand.lower())+len(brand):]
+            model=re.sub(r"\\s+"," ",model).strip()
+            # The UI may send brand twice when the selected model includes the brand.
+            model=re.sub(re.escape(brand), "", model, count=1, flags=re.I).strip()
+            return brand, model or None
+    return None, q or None
+
+def _targeted_source_urls(query: str) -> dict[str,str]:
+    brand,model=_query_parts(query)
+    if not brand or not model:
+        return {}
+    brand_slug=_slug(_canonical_brand(brand))
+    model_slug=_slug(model)
+    if not model_slug:
+        return {}
+    # These routes are verified marketplace model pages and keep the live query
+    # India-wide rather than constraining it to the user's destination.
+    return {
+        "CarDekho Used": f"https://www.cardekho.com/used-{brand_slug}-{model_slug}+cars",
+        "CarWale Used": f"https://www.carwale.com/used/{brand_slug}-{model_slug}/",
+    }
+
+def parse_visible_listing_links(html: str, source: str, base_url: str, query: str="") -> list[dict]:
+    parser=_LinkParser()
+    parser.feed(html)
+    brand,model=_query_parts(query)
+    rows=[]
+    for text,href in parser.links:
+        clean=" ".join(text.split())
+        if not re.search(r"\\b(?:19\\d{2}|20\\d{2})\\b",clean):
+            continue
+        price_match=re.search(r"(?:₹|Rs\\.?)[ ]*([\\d,.]+)[ ]*(Lakh|Crore)",clean,re.I)
+        km_match=re.search(r"([\\d,]+(?:\\.\\d+)?)\\s*km\\b",clean,re.I)
+        if not price_match or not km_match:
+            continue
+        year_match=re.search(r"\\b(19\\d{2}|20\\d{2})\\b",clean)
+        if not year_match:
+            continue
+        price=float(price_match.group(1).replace(",",""))
+        if price_match.group(2).lower()=="crore":
+            price_lakh=price*100
+        else:
+            price_lakh=price
+        parts=[p.strip() for p in clean.split("|")]
+        fuel=parts[1] if len(parts)>1 and parts[1] else None
+        location=parts[2] if len(parts)>2 else None
+        transmission=None
+        tm=re.search(r"\\b(Automatic|Manual|Clutchless Manual)\\b",clean,re.I)
+        if tm: transmission=tm.group(1)
+        variant=clean[:year_match.start()].strip() or clean
+        if brand and model:
+            display_model=model
+        else:
+            display_brand,display_model=_infer_brand_model(variant,None,None)
+            brand=display_brand or brand
+        rows.append({
+            "brand":brand,
+            "model":display_model,
+            "variant":variant,
+            "price_lakh":price_lakh,
+            "url":_absolute(base_url,href),
+            "source":source,
+            "live_verified":True,
+            "data_consistent":bool(href and price_lakh and variant),
+            "condition_signal":"used" if "used" in source.lower() else _infer_condition({},source),
+            "seller_city":location,
+            "seller_state":None,
+            "location":location,
+            "location_raw":location,
+            "mfg_year":int(year_match.group(1)),
+            "km":float(km_match.group(1).replace(",","")),
+            "fuel":fuel,
+            "transmission":transmission,
+            "body_type":None,
+        })
+    seen=set();out=[]
+    for row in rows:
+        key=(row["url"],row["price_lakh"],row["model"],row["condition_signal"])
+        if key in seen: continue
+        seen.add(key);out.append(row)
+    return out
+
 def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
     rows=[]
     for root in _json_objects(html):
@@ -292,14 +379,20 @@ LIVE_SOURCES=[
     ("Spinny Luxury Used","https://www.spinny.com/used-luxury-cars/s/"),
 ]
 
-def live_inventory() -> tuple[list[dict],list[dict]]:
+def live_inventory(query: str="") -> tuple[list[dict],list[dict]]:
     vehicles=[];source_status=[]
-    for name,url in LIVE_SOURCES:
+    targeted=_targeted_source_urls(query)
+    for name,default_url in LIVE_SOURCES:
+        url=targeted.get(name,default_url)
         try:
             html=fetch_text(url)
             parsed=parse_live_listings(html,name,url)
+            # Some marketplace pages expose cards as rendered links rather than
+            # JSON-LD. Use the visible listing representation as a second parser.
+            if not parsed and name in targeted:
+                parsed=parse_visible_listing_links(html,name,url,query)
             vehicles.extend(parsed)
-            source_status.append({"source":name,"status":"live","listings_found":len(parsed)})
+            source_status.append({"source":name,"status":"live","listings_found":len(parsed),"query_url":url})
         except Exception as exc:
-            source_status.append({"source":name,"status":"unavailable","listings_found":0,"error":str(exc)[:160]})
+            source_status.append({"source":name,"status":"unavailable","listings_found":0,"error":str(exc)[:160],"query_url":url})
     return vehicles,source_status
