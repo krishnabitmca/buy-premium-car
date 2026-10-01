@@ -124,16 +124,27 @@ def build_query_bank(search):
     city_hints = list(search.get("city_hints", []))
     queries_per_brand = max(1, int(search.get("queries_per_brand", 2)))
     city_hints_per_run = max(0, int(search.get("city_hints_per_run", 12)))
-    source_types = list(search.get("source_types") or SOURCE_QUERY_TEMPLATES.keys())
+    configured_source_types = search.get("source_types")
+    source_types = list(configured_source_types or [])
     query_bank = []
 
-    # Deep discovery is deliberately multi-dimensional. We do not search only
-    # "{brand} used car"; we search the source archetypes separately so an OEM
-    # certified site, dealer group, demo page, classifieds site, and luxury
-    # specialist can all be discovered for the same brand.
+    # Preserve the original lightweight contract when callers do not opt into
+    # the deep source-discovery profile. Production settings explicitly provide
+    # source_types, which activates the broader archetype search.
     for brand in brands:
         if not all_india:
             continue
+        if not source_types:
+            query_bank.extend([
+                f'"{brand}" "used car" India',
+                f'"{brand}" "demo car" India',
+            ][:queries_per_brand])
+            continue
+
+        # Deep discovery is deliberately multi-dimensional. We do not search
+        # only "{brand} used car"; we search source archetypes separately so an
+        # OEM certified site, dealer group, demo page, classifieds site, and
+        # luxury specialist can all be discovered for the same brand.
         for source_type in source_types:
             templates = SOURCE_QUERY_TEMPLATES.get(source_type, [])
             for template in templates[:queries_per_brand]:
