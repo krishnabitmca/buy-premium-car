@@ -285,6 +285,7 @@ def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
     return out
 
 LIVE_SOURCES=[
+    ("Motozite Demo","https://motozite.com/demo-cars"),
     ("CarDekho Used","https://www.cardekho.com/used-cars"),
     ("CarWale Used","https://www.carwale.com/used/"),
     ("Cars24 Luxury Used","https://www.cars24.com/buy-used-luxury-cars/"),
