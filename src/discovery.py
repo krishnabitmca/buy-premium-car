@@ -156,19 +156,28 @@ def build_query_bank(search):
             f'"{brand}" demo car dealer India',
         ])
 
-    # Generic source discovery finds multi-brand platforms that brand queries
-    # can miss entirely.
     if all_india:
-        query_bank.extend(GENERIC_SOURCE_QUERIES)
+        if source_types:
+            # Generic source discovery finds multi-brand platforms that brand
+            # queries can miss entirely.
+            query_bank.extend(GENERIC_SOURCE_QUERIES)
 
-        # Local dealer discovery is intentionally sampled across many cities.
-        for city in city_hints[:city_hints_per_run]:
-            query_bank.extend([
-                f'"used car" "{city}" dealer',
-                f'"pre-owned car" "{city}" dealer',
-                f'"demo car" "{city}" dealer',
-                f'"luxury used car" "{city}" dealer',
-            ])
+            # Deep local discovery samples several source archetypes per city.
+            for city in city_hints[:city_hints_per_run]:
+                query_bank.extend([
+                    f'"used car" "{city}" dealer',
+                    f'"pre-owned car" "{city}" dealer',
+                    f'"demo car" "{city}" dealer',
+                    f'"luxury used car" "{city}" dealer',
+                ])
+        else:
+            # Preserve the legacy lightweight discovery contract for callers
+            # that do not opt into the deep profile.
+            for city in city_hints[:city_hints_per_run]:
+                query_bank.extend([
+                    f'"used car" "{city}"',
+                    f'"demo car" "{city}"',
+                ])
 
     return list(dict.fromkeys(query_bank))
 
