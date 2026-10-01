@@ -294,6 +294,7 @@ def parse_visible_listing_links(html: str, source: str, base_url: str, query: st
         rows.append({
             "brand":brand,
             "model":display_model,
+            "listing_name":clean,
             "variant":variant,
             "price_lakh":price_lakh,
             "url":_absolute(base_url,href),
@@ -344,6 +345,7 @@ def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
             row={
                 "brand":brand,
                 "model":model,
+                "listing_name":str(name),
                 "variant":obj.get("vehicleConfiguration") or obj.get("vehicleVariant") or obj.get("name") or "",
                 "price_lakh":price_lakh,
                 "url":_absolute(base_url,str(url)),
