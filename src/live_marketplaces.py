@@ -147,6 +147,8 @@ def _is_current_model_link(selected: dict[str,str], href: str) -> bool:
         return False
     parts=[p for p in path.split("/") if p]
     brand_tokens=_brand_path_tokens(selected)
+    if len(parts) >= 2 and parts[-1] in {"dealers","offers","view-all-models","new-cars","used-cars"}:
+        return False
     if len(parts)==2 and parts[0] in brand_tokens:
         return True
     if len(parts)==3 and parts[0]=="carmodels" and parts[1] in brand_tokens:
@@ -402,7 +404,10 @@ def parse_visible_listing_links(html: str, source: str, base_url: str, query: st
         listing_brand,listing_model=_listing_identity_from_text(clean,_absolute(base_url,href))
         if not listing_brand:
             continue
-        display_model=listing_model or _infer_brand_model(variant,listing_brand,None)[1]
+        if requested_model and _model_identity_matches(requested_model, clean):
+            display_model=requested_model
+        else:
+            display_model=listing_model or _infer_brand_model(variant,listing_brand,None)[1]
         rows.append({
             "brand":listing_brand,
             "model":display_model,
@@ -427,6 +432,8 @@ def parse_visible_listing_links(html: str, source: str, base_url: str, query: st
         })
     seen=set();out=[]
     for row in rows:
+        if query and not _identity_matches_query(row,query):
+            continue
         key=(_canonical_url(base_url,row["url"]),row["price_lakh"],row["model"],row["condition_signal"])
         if key in seen: continue
         seen.add(key);out.append(row)
