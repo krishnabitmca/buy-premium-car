@@ -9,9 +9,9 @@ RESULT = {
         {"source":"Cars24 Luxury Used","status":"unavailable","listings_found":0}
     ],
     "results": [
-        {"brand":"BMW","model":"X5","variant":"xDrive40i","price_lakh":49.5,"mfg_year":2024,"km":18000,"fuel":"Petrol","transmission":"Automatic","location":"Delhi","source":"CarDekho Used","url":"https://example.com/bmw-x5","live_verified":True,"data_consistent":True,"discount_pct":5.2,"comp_median":52.2,"source_count":2},
-        {"brand":"BMW","model":"X5","variant":"xDrive30d","price_lakh":55.0,"mfg_year":2023,"km":42000,"fuel":"Diesel","transmission":"Automatic","location":"Bengaluru","source":"CarWale Used","url":"https://example.com/bmw-x5-2","live_verified":True,"data_consistent":True,"discount_pct":-5.3,"comp_median":52.2,"source_count":1},
-        {"brand":"Audi","model":"Q5","variant":"Technology","price_lakh":44.0,"mfg_year":2025,"km":8000,"fuel":"Petrol","transmission":"Automatic","location":"Mumbai","source":"CarDekho Used","url":"https://example.com/audi-q5","live_verified":True,"data_consistent":True,"discount_pct":None,"comp_median":None,"source_count":1}
+        {"brand":"BMW","model":"X5","variant":"xDrive40i","price_lakh":49.5,"mfg_year":2024,"km":18000,"fuel":"Petrol","transmission":"Automatic","location":"Delhi","source":"CarDekho Used","url":"https://example.com/bmw-x5","live_verified":True,"data_consistent":True,"discount_pct":5.2,"comp_median":52.2,"source_count":2,"condition_signal":"used","body_type":"SUV"},
+        {"brand":"BMW","model":"X5","variant":"xDrive30d","price_lakh":55.0,"mfg_year":2023,"km":42000,"fuel":"Diesel","transmission":"Automatic","location":"Bengaluru","source":"CarWale Used","url":"https://example.com/bmw-x5-2","live_verified":True,"data_consistent":True,"discount_pct":-5.3,"comp_median":52.2,"source_count":1,"condition_signal":"used","body_type":"SUV"},
+        {"brand":"Audi","model":"Q5","variant":"Technology","price_lakh":44.0,"mfg_year":2025,"km":8000,"fuel":"Petrol","transmission":"Automatic","location":"Mumbai","source":"CarDekho Used","url":"https://example.com/audi-q5","live_verified":True,"data_consistent":True,"discount_pct":None,"comp_median":None,"source_count":1,"condition_signal":"demo","body_type":"SUV"}
     ]
 }
 
@@ -56,6 +56,15 @@ async def main():
         assert "LIVE" in await page.locator(".livebar").inner_text()
         assert "Bengaluru" in await page.locator("#destination").input_value()
 
+        # Condition filtering must distinguish Used and Demonstrator.
+        await page.locator("#condition").select_option("used")
+        assert await page.locator(".card").count() == 2
+        assert all("USED" in x for x in await page.locator(".card .photo span").all_inner_texts())
+        await page.locator("#condition").select_option("demo")
+        assert await page.locator(".card").count() == 1
+        assert await page.locator(".card .photo span").first.inner_text() == "DEMONSTRATOR"
+        await page.locator("#condition").select_option("both")
+
         # Seller-city filtering must work after live search.
         await page.locator("#city").select_option(label="Delhi")
         assert await page.locator(".card").count() == 1
@@ -66,6 +75,11 @@ async def main():
         await page.locator("#fmax").fill("50")
         await page.locator("#fmax").press("Enter")
         assert await page.locator(".card").count() == 2
+
+        # Age filter.
+        await page.locator("#year").select_option("2")
+        assert await page.locator(".card").count() == 2
+        await page.locator("#year").select_option("")
 
         # Fuel filter.
         await page.locator("#fmax").fill("")
