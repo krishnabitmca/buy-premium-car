@@ -90,6 +90,26 @@ class handler(BaseHTTPRequestHandler):
                 enriched["purchase_context"]=purchase_context(v,destination)
                 enriched["_search_score"]=_score(v)
                 results.append(enriched)
+            # Calculate market reference only from comparable live observations.
+            from statistics import median
+            groups={}
+            for v in results:
+                key=(str(v.get("brand") or "").strip().lower(),str(v.get("model") or "").strip().lower())
+                price=v.get("price_lakh")
+                if key[0] and key[1] and price is not None:
+                    groups.setdefault(key,[]).append(float(price))
+            for v in results:
+                key=(str(v.get("brand") or "").strip().lower(),str(v.get("model") or "").strip().lower())
+                comparable=groups.get(key,[])
+                if len(comparable)>=3 and v.get("price_lakh") is not None:
+                    ref=round(float(median(comparable)),2)
+                    v["comp_median"]=ref
+                    v["comparable_count"]=len(comparable)
+                    v["discount_pct"]=round((ref-float(v["price_lakh"]))/ref*100,1) if ref else None
+                else:
+                    v["comp_median"]=None
+                    v["comparable_count"]=len(comparable)
+                    v["discount_pct"]=None
             results.sort(key=lambda x:(-x["_search_score"],x.get("price_lakh") or 9999))
             for v in results: v.pop("_search_score",None)
             return _response(self,200,{
