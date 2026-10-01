@@ -40,7 +40,7 @@ def _match(v,query,budget_min,budget_max,max_age,destination,condition="both"):
     actual_condition=_vehicle_condition(v)
     if wanted_condition in {"used","demo"} and actual_condition != wanted_condition:
         return False
-    hay=" ".join(str(v.get(k) or "") for k in ("brand","model","variant","location","fuel","transmission","source")).lower()
+    hay=" ".join(str(v.get(k) or "") for k in ("brand","model","listing_name","variant","location","fuel","transmission","source")).lower()
     tokens=[t for t in query.lower().split() if t]
     if tokens and not all(t in hay for t in tokens): return False
     price=v.get("price_lakh")
