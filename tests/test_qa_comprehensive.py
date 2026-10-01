@@ -186,7 +186,7 @@ class TestAcquisitionContext(unittest.TestCase):
         ctx=purchase_context({"seller_city":"Delhi","seller_state":"Delhi","price_lakh":35},"Bengaluru")
         self.assertEqual(ctx["mode"],"interstate")
         self.assertEqual(ctx["destination_state"],"Karnataka")
-        self.assertIsNone(ctx["observed_listing_price_lakh"])
+        self.assertEqual(ctx["observed_listing_price_lakh"],35)
         self.assertIn("transport",ctx["note"].lower())
 
     def test_unknown_location_does_not_claim_interstate(self):
