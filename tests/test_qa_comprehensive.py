@@ -157,6 +157,11 @@ class TestPureFunctions(unittest.TestCase):
         self.assertEqual(row["transmission"],"Automatic")
         self.assertEqual(row["body_type"],"SUV")
 
+    def test_model_family_match_uses_listing_title(self):
+        v={"brand":"Mercedes-Benz","model":"C-Class","listing_name":"2025 Mercedes-Benz C-Class C 200 Mild Hybrid",
+           "variant":"C 200 Mild Hybrid","price_lakh":46.75,"source":"CarWale Used"}
+        self.assertTrue(search_api._match(v,"Mercedes-Benz C-Class",30,50,None,"Bengaluru","both"))
+
     def test_search_match_boundaries(self):
         v={"brand":"BMW","model":"X5","variant":"xDrive40i","location":"Delhi","fuel":"Petrol",
            "transmission":"Automatic","source":"Fixture","price_lakh":49.5,"mfg_year":2024}
