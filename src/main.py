@@ -29,6 +29,8 @@ def main():
         found=discover(settings,known_domains(conn));cap=int(settings.market.get("max_discovered_sources_per_run",20))
         for r in found[:cap]:record_source(conn,r.domain,r.url,r.domain,False,now,"discovered");new_sources.append({"domain":r.domain,"url":r.url,"title":r.title,"snippet":r.snippet,"query":r.query,"source_type":r.source_type,"condition":r.condition,"segment":r.segment,"brand_hint":r.brand_hint or "","candidate_confidence":r.candidate_confidence});queue.append((r.domain,r.url,3))
     conn.commit()
+    if source_db_enabled() and new_sources:
+        record_discoveries(new_sources)
     vehicles=dedupe(asyncio.run(crawl_urls(queue,settings)))
     ref_year=int(settings.market["reference_date"][:4]);min_year=ref_year-int(settings.market["default_dashboard_age_years"])+1;filtered=[]
     for v in vehicles:
@@ -37,6 +39,21 @@ def main():
         if not v.live_verified or v.sold_signal:continue
         if v.price_lakh is None:continue
         filtered.append(v)
+    if source_db_enabled():
+        source_counts={}
+        for v in filtered:
+            source_name=str(v.source or "unknown")
+            source_counts[source_name]=source_counts.get(source_name,0)+1
+        for source_name in [s[0] for s in queue]:
+            count=source_counts.get(source_name,0)
+            record_health(
+                source_name,
+                status="healthy" if count else "unknown",
+                listings_found=count,
+                parser_ok=bool(count),
+                inventory_verified=bool(count),
+            )
+
     changed=[]
     for v in filtered:
         prev=get_latest_for_fingerprint(conn,v.fingerprint)
