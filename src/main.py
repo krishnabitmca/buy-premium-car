@@ -10,13 +10,17 @@ from .dedupe import dedupe
 from .discovery import discover
 from .reporting import render_report,write_csv,write_dashboard_json
 from .scoring import enrich_and_score,negotiation_band
+from .source_registry_db import enabled as source_db_enabled, sync_registry, record_discoveries, record_health
 
 def load_known_sources(path):return load_yaml(path).get("known_sources",[])
 def domain(url):return urlparse(url).netloc.lower().removeprefix("www.")
 
 def main():
     ap=argparse.ArgumentParser();ap.add_argument("--config",default="config/settings.yaml");ap.add_argument("--sources",default="config/sources.yaml");ap.add_argument("--no-discovery",action="store_true");args=ap.parse_args()
-    settings=load_settings(args.config);known_sources=load_known_sources(args.sources);conn=connect(settings.output["database_path"]);now=datetime.now(timezone.utc).isoformat();run_id=now
+    settings=load_settings(args.config);known_sources=load_known_sources(args.sources)
+    if source_db_enabled():
+        sync_registry(known_sources)
+    conn=connect(settings.output["database_path"]);now=datetime.now(timezone.utc).isoformat();run_id=now
     conn.execute("INSERT INTO run_history(run_id,started_at) VALUES(?,?)",(run_id,now))
     for s in known_sources:record_source(conn,domain(s["url"]),s["url"],s["name"],True,now,"known")
     conn.commit()
