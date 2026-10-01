@@ -87,7 +87,7 @@ class handler(BaseHTTPRequestHandler):
             max_age=float(body["max_age_years"]) if body.get("max_age_years") not in (None,"") else None
             if budget_min is not None and budget_max is not None and budget_min>budget_max:
                 return _response(self,400,{"error":"Minimum budget cannot exceed maximum budget"})
-            vehicles,sources=live_inventory()
+            vehicles,sources=live_inventory(query)
             if not vehicles and sources and not any(s.get("status") == "live" for s in sources):
                 return _response(self,503,{"error":"Live marketplace sources are currently unavailable","mode":"live","sources":sources})
             results=[]
@@ -106,7 +106,7 @@ class handler(BaseHTTPRequestHandler):
                 if key[0] and key[1] and price is not None:
                     groups.setdefault(key,[]).append(float(price))
             for v in results:
-                key=(str(v.get("brand") or "").strip().lower(),str(v.get("model") or "").strip().lower())
+                key=(str(v.get("brand") or "").strip().lower(),str(v.get("model") or "").strip().lower(),_vehicle_condition(v))
                 comparable=groups.get(key,[])
                 if len(comparable)>=3 and v.get("price_lakh") is not None:
                     ref=round(float(median(comparable)),2)
