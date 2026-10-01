@@ -57,6 +57,7 @@ class TestPureFunctions(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["price_lakh"], 49.5)
         self.assertTrue(rows[0]["live_verified"])
+        self.assertEqual(rows[0]["listing_name"],"BMW X5")
         self.assertEqual(rows[0]["url"], "https://example.com/used/bmw-x5")
 
     def test_parse_offer_only_and_irrelevant_jsonld(self):
