@@ -221,6 +221,20 @@ class TestHTTPContracts(unittest.TestCase):
         self.assertEqual({v["comparable_count"] for v in body["results"]},{4})
         self.assertEqual({v["discount_pct"] for v in body["results"]},{14.3,4.8,-4.8,-14.3})
 
+    def test_market_reference_does_not_mix_used_and_demo(self):
+        vehicles=[]
+        for price,condition in [(40,"used"),(45,"used"),(50,"used"),(70,"demo"),(75,"demo"),(80,"demo")]:
+            vehicles.append({"brand":"BMW","model":"X5","price_lakh":price,"condition_signal":condition,
+                             "source":"Fixture","url":"https://example.com/"+str(price),
+                             "live_verified":True,"data_consistent":True})
+        with patch.object(search_api,"live_inventory",return_value=(vehicles,[{"source":"Fixture","status":"live","listings_found":6}])):
+            status,body=self.request("POST","/api/search",{"query":"BMW X5"})
+        self.assertEqual(status,200)
+        used=[v for v in body["results"] if v["condition_signal"]=="used"]
+        demo=[v for v in body["results"] if v["condition_signal"]=="demo"]
+        self.assertEqual({v["comp_median"] for v in used},{45.0})
+        self.assertEqual({v["comp_median"] for v in demo},{75.0})
+
     def test_post_insufficient_comparables_does_not_invent_reference(self):
         vehicles=[{"brand":"BMW","model":"X5","price_lakh":49.5,"source":"Fixture",
                    "url":"https://example.com/x","live_verified":True,"data_consistent":True}]
