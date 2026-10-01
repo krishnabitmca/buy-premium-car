@@ -71,21 +71,38 @@ def _canonical_brand(name: str) -> str:
     return BRAND_ALIASES.get(n,n)
 
 def live_brands() -> list[dict[str,str]]:
-    # CarDekho currently reports roughly 290 current models across 42 brands.
-    # We use the current brand universe as the UI taxonomy, while model discovery
-    # is performed live from the selected brand page.
+    """Return only brands actually present in the current source catalogue.
+
+    A hard-coded taxonomy is useful as a discovery hint, but it must never
+    become customer-visible inventory truth. Missing source links are therefore
+    excluded rather than exposed as selectable brands that cannot be resolved.
+    """
     html=fetch_text("https://www.cardekho.com/newcars")
-    parser=_LinkParser();parser.feed(html)
+    parser=_LinkParser(); parser.feed(html)
     links=parser.links
     result=[]
+    seen=set()
     for brand in CURRENT_BRANDS:
-        match=None
         candidates={brand,brand+" Cars",_canonical_brand(brand)+" Cars"}
         for text,href in links:
-            if text in candidates and "cardekho.com" in _absolute("https://www.cardekho.com",href):
-                match=href;break
-        result.append({"name":brand,"slug":_slug(brand),"url":_absolute("https://www.cardekho.com",match) if match else ""})
-    return result
+            absolute=_absolute("https://www.cardekho.com",href)
+            if text in candidates and "cardekho.com" in urllib.parse.urlparse(absolute).netloc.lower():
+                canonical=_canonical_brand(brand)
+                key=canonical.lower()
+                if key not in seen:
+                    result.append({"name":canonical,"slug":_slug(canonical),"url":absolute,"catalog_verified":"true"})
+                    seen.add(key)
+                break
+    return sorted(result,key=lambda x:x["name"].lower())
+
+def _brand_path_tokens(selected: dict[str,str]) -> set[str]:
+    parsed=urllib.parse.urlparse(selected["url"])
+    path=parsed.path.strip("/").lower()
+    if path.endswith("-cars"):
+        path=path[:-5]
+    tokens={_slug(selected["name"]),path}
+    tokens.update(_identity_tokens(_canonical_brand(selected["name"])))
+    return {t for t in tokens if t}
 
 def _is_current_model_link(selected: dict[str,str], href: str) -> bool:
     """Accept only canonical CarDekho model landing pages, never variants/dealers/offers."""
@@ -95,10 +112,10 @@ def _is_current_model_link(selected: dict[str,str], href: str) -> bool:
     if host and "cardekho.com" not in host:
         return False
     parts=[p for p in path.split("/") if p]
-    brand_slug=_slug(selected["name"])
-    if len(parts)==2 and parts[0]==brand_slug:
+    brand_tokens=_brand_path_tokens(selected)
+    if len(parts)==2 and parts[0] in brand_tokens:
         return True
-    if len(parts)==3 and parts[0]=="carmodels" and parts[1]==brand_slug:
+    if len(parts)==3 and parts[0]=="carmodels" and parts[1] in brand_tokens:
         return True
     return False
 
