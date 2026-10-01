@@ -120,8 +120,15 @@ class TestPureFunctions(unittest.TestCase):
         bmw = next(x for x in rows if x["name"] == "BMW")
         self.assertTrue(bmw["url"].endswith("/bmw-cars"))
 
-    def test_live_models_filters_noise(self):
-        page = '''<a href="/bmw/x5">X5</a><a href="/bmw/x3">X3</a>
+    def test_live_models_filters_noise_and_discontinued_duplicates(self):
+        page = '''<a href="/bmw/x5">BMW X5</a>
+                  <a href="/bmw/x3">BMW X3</a>
+                  <a href="/bmw/3-series">BMW 3 Series ₹77.10 Lakh*</a>
+                  <a href="/bmw/3-series">BMW 3 Series ₹77.10 Lakh*</a>
+                  <a href="/bmw/2-series-2020-2025">BMW 2 Series 2020-2025 ₹32 - 46.90 Lakh * Discontinued 2025</a>
+                  <a href="/bmw/7-series-old">BMW 7 Series 2023-2026 ₹1.70 - 1.83 Cr * Discontinued 2026</a>
+                  <a href="/bmw/7-series">BMW 7 Series ₹1.95 Cr*</a>
+                  <a href="/bmw/x1-lwb">BMW X1 LWB ₹51 Lakh Estimated</a>
                   <a href="/bmw/view-all-models">View all models</a>
                   <a href="/bmw/dealers">Dealers</a>'''
         def fake_fetch(url):
@@ -129,7 +136,10 @@ class TestPureFunctions(unittest.TestCase):
             return page
         with patch.object(lm, "fetch_text", side_effect=fake_fetch):
             rows = lm.live_models("BMW")
-        self.assertEqual([x["name"] for x in rows], ["X3", "X5"])
+        self.assertEqual([x["name"] for x in rows], ["BMW 3 Series", "BMW 7 Series", "BMW X3", "BMW X5"])
+        self.assertEqual(len([x for x in rows if x["slug"] == "bmw-3-series"]), 1)
+        self.assertNotIn("discontinued", " ".join(x["name"] for x in rows).lower())
+        self.assertNotIn("₹", " ".join(x["name"] for x in rows))
 
     def test_model_link_rejects_non_model_pages(self):
         selected={"name":"BMW","slug":"bmw","url":"https://www.cardekho.com/bmw-cars"}

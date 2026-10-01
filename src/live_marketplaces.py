@@ -155,6 +155,28 @@ def _is_current_model_link(selected: dict[str,str], href: str) -> bool:
         return True
     return False
 
+def _clean_model_catalog_name(text: str) -> str | None:
+    """Normalize source link labels before exposing them as customer model names.
+
+    CarDekho reuses model landing URLs in historical/discontinued sections and
+    sometimes appends price, year-range, or status text to the same anchor.
+    Those labels are not separate current models and must not leak into the
+    customer-facing catalog.
+    """
+    clean=" ".join(str(text or "").split()).strip()
+    if not clean:
+        return None
+    if re.search(r"\\bdiscontinued\\b",clean,re.I):
+        return None
+    if re.search(r"\\b(?:expected launch|upcoming)\\b",clean,re.I):
+        return None
+    # Remove trailing source metadata such as prices and asterisks. Keep the
+    # actual model name, including meaningful terms such as Long Wheelbase.
+    clean=re.sub(r"\\s+(?:₹|Rs\\.?)[^|]*$", "", clean, flags=re.I).strip()
+    clean=re.sub(r"\\s+\\*+$", "", clean).strip()
+    clean=re.sub(r"\\s+(?:estimated|expected)$", "", clean, flags=re.I).strip()
+    return clean or None
+
 def live_models(brand: str) -> list[dict[str,str]]:
     brands=live_brands()
     wanted=_canonical_brand(brand).lower()
@@ -165,16 +187,23 @@ def live_models(brand: str) -> list[dict[str,str]]:
     parser=_LinkParser();parser.feed(html)
     models=[]
     seen_urls=set()
+    seen_model_keys=set()
     for text,href in parser.links:
-        clean=" ".join(text.split())
+        clean=_clean_model_catalog_name(text)
         absolute=_absolute(selected["url"],href)
         if not clean or not _is_current_model_link(selected,absolute):
             continue
         canonical=absolute.split("#",1)[0].rstrip("/")
         if canonical in seen_urls:
             continue
+        # Multiple source sections can point at the same model using different
+        # URLs/labels. The customer catalog should expose one current model.
+        model_key=_slug(clean)
+        if model_key in seen_model_keys:
+            continue
         seen_urls.add(canonical)
-        models.append({"name":clean,"slug":_slug(clean),"url":canonical})
+        seen_model_keys.add(model_key)
+        models.append({"name":clean,"slug":model_key,"url":canonical})
     return sorted(models,key=lambda x:x["name"].lower())
 
 def _identity_tokens(value: Any) -> list[str]:
