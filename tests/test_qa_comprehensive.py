@@ -476,3 +476,15 @@ class TestCatalogHTTPContract(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+    def test_model_catalog_rejects_navigation_links(self):
+        from src import live_marketplaces as lm
+        selected={"name":"BMW","url":"https://www.cardekho.com/bmw"}
+        for slug in ["gallery","images","photos","videos","reviews","offers","dealers","service","compare","accessories"]:
+            self.assertFalse(lm._is_current_model_link(selected, f"https://www.cardekho.com/bmw/{slug}"))
+
+    def test_model_catalog_rejects_discontinued_labels(self):
+        from src import live_marketplaces as lm
+        self.assertIsNone(lm._clean_model_catalog_name("5 Series Discontinued"))
+        self.assertIsNone(lm._clean_model_catalog_name("X5 Expected Launch"))
