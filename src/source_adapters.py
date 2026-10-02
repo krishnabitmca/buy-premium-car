@@ -162,16 +162,19 @@ def execute_adapters(
 
     results: list[AdapterResult] = []
     with ThreadPoolExecutor(max_workers=min(max_workers, len(adapters))) as pool:
-        futures = [pool.submit(run, adapter) for adapter in adapters]
-        for future in as_completed(futures):
+        future_to_adapter = {
+            pool.submit(run, adapter): adapter for adapter in adapters
+        }
+        for future in as_completed(future_to_adapter):
+            adapter = future_to_adapter[future]
             try:
                 results.append(future.result())
             except Exception as exc:
                 # Defensive isolation even if an adapter implementation itself
-                # violates the fetch contract.
+                # violates the fetch contract. Preserve the source identity.
                 results.append(
                     AdapterResult(
-                        source_name="unknown",
+                        source_name=adapter.source_name,
                         status="unavailable",
                         error=str(exc)[:300],
                     )
