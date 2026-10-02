@@ -38,3 +38,8 @@ jobs:
         run: |
           python -m http.server 4173 --directory . >/tmp/carscanner-http.log 2>&1 &
           python tests/ui_smoke.py
+
+      - name: Exhaustive sidebar filter matrix
+        run: |
+          python -m http.server 4173 --directory . >/tmp/carscanner-http.log 2>&1 &
+          python tests/ui_filter_matrix_e2e.py
