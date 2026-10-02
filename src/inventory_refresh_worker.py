@@ -11,7 +11,7 @@ import argparse
 from typing import Any
 
 from .inventory_ingestion import ingest_vehicles
-from .live_marketplaces import live_inventory
+from .source_adapters import AdapterRequest, BuiltinMarketplaceAdapter
 from .source_registry_db import _connect, enabled
 
 
@@ -62,19 +62,28 @@ def complete_job(refresh_id: int, *, success: bool, error: str | None = None) ->
 def process_job(job: dict[str, Any]) -> dict[str, int]:
     query = " ".join(x for x in (job.get("brand"), job.get("model")) if x)
     try:
-        vehicles, _ = live_inventory(
-            query,
-            job.get("condition") or "both",
-            None,
-            None,
-            job.get("destination_state") or "",
-        )
         source_name = str(job.get("source_name") or "")
-        if source_name:
-            vehicles = [v for v in vehicles if str(v.get("source") or "") == source_name]
-        # live_inventory returns dictionaries; only the ingestion boundary needs
-        # Vehicle instances. Keep this bridge explicit rather than silently
-        # inventing a second normalization implementation.
+        if not source_name:
+            raise ValueError("refresh job has no source_name")
+
+        # Refresh workers execute exactly one verified adapter. They never call
+        # the aggregate customer-search path, preventing cross-source crawling.
+        source = {
+            "name": source_name,
+            "adapter_status": "live",
+            "url": str(job.get("metadata", {}).get("source_url") or ""),
+        }
+        adapter = BuiltinMarketplaceAdapter(source)
+        result = adapter.fetch(
+            AdapterRequest(
+                query=query,
+                condition=job.get("condition") or "both",
+                destination=job.get("destination_state") or "",
+            )
+        )
+        if result.status != "live":
+            raise RuntimeError(result.error or f"adapter status: {result.status}")
+
         from .models import Vehicle
         normalized = [Vehicle(
             source_name=str(v.get("source") or source_name),
@@ -90,10 +99,11 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
             final_url=v.get("final_url"), live_verified=bool(v.get("live_verified")),
             sold_signal=bool(v.get("sold_signal")), data_consistent=bool(v.get("data_consistent", True)),
             identity_confidence=float(v.get("identity_confidence") or 0.0),
-        ) for v in vehicles]
-        result = ingest_vehicles(normalized)
+        ) for v in result.listings]
+
+        ingested = ingest_vehicles(normalized)
         complete_job(int(job["refresh_id"]), success=True)
-        return result
+        return ingested
     except Exception as exc:
         complete_job(int(job["refresh_id"]), success=False, error=str(exc)[:1000])
         raise
