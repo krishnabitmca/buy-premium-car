@@ -67,6 +67,13 @@ class BuiltinMarketplaceAdapter:
     def fetch(self, request: AdapterRequest) -> AdapterResult:
         started = time.monotonic()
         url = self._url(request)
+        if not adapter_execution_allowed(self.source_name):
+            return AdapterResult(
+                source_name=self.source_name,
+                status="circuit_open",
+                error="adapter circuit is open",
+            )
+
         if not url:
             return AdapterResult(
                 source_name=self.source_name,
@@ -108,19 +115,33 @@ class BuiltinMarketplaceAdapter:
                 ]
                 filtered.append(row)
 
-            return AdapterResult(
+            result = AdapterResult(
                 source_name=self.source_name,
                 listings=filtered,
                 status="live",
                 latency_ms=int((time.monotonic() - started) * 1000),
                 query_url=url,
             )
+            record_adapter_execution(
+                self.source_name,
+                success=True,
+                latency_ms=result.latency_ms,
+            )
+            return result
         except Exception as exc:
+            latency_ms = int((time.monotonic() - started) * 1000)
+            error = str(exc)[:300]
+            record_adapter_execution(
+                self.source_name,
+                success=False,
+                latency_ms=latency_ms,
+                error=error,
+            )
             return AdapterResult(
                 source_name=self.source_name,
                 status="unavailable",
-                latency_ms=int((time.monotonic() - started) * 1000),
-                error=str(exc)[:300],
+                latency_ms=latency_ms,
+                error=error,
                 query_url=url,
             )
 
