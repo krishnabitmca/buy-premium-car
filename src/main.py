@@ -46,10 +46,10 @@ def main():
             source_name=str(v.source or "unknown")
             source_counts[source_name]=source_counts.get(source_name,0)+1
 
-        # A discovery becomes customer-searchable only after the crawler proves
+        # A discovery becomes eligible for adapter work only after the crawler proves
         # that the discovered page contains multiple extractable live listings.
-        # This prevents search-engine noise or one-off vehicle pages from
-        # becoming live marketplace sources.
+        # Promotion deliberately stages the source as a candidate; customer search
+        # cannot execute it until a verified adapter exists.
         for item in new_sources:
             source_name=str(item.get("domain") or "")
             count=source_counts.get(source_name,0)
@@ -57,7 +57,7 @@ def main():
                 promoted_name=promote_discovery(item, listings_found=count)
                 if promoted_name:
                     promoted_sources[source_name]=promoted_name
-                    print(f"source promoted: {source_name} -> {promoted_name} ({count} listings)")
+                    print(f"source staged for adapter verification: {source_name} -> {promoted_name} ({count} listings)")
 
         for source_name in [s[0] for s in queue]:
             count=source_counts.get(source_name,0)
