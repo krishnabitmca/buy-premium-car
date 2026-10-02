@@ -45,15 +45,15 @@ async def main():
             const conditions = ["both","used","demo"];
             const prices = [[null,null],[null,50],[45,50],[50,60],[0,44]];
             const fuels = [[],["petrol"],["diesel"],["electric"],["hybrid"],["petrol","diesel"]];
-            const cities = ["","Delhi","Bengaluru","Mumbai"];
+            const cities = ["","Delhi","Bengaluru","Mumbai"];\n            const destinations = ["Bengaluru","Delhi","Mumbai","Pune"];
             const ages = [null,2,3,5,7];
             const quick = ["","petrol","diesel","electric","hybrid","suv","sedan"];
             const year = new Date().getFullYear();
             let tested=0, failures=[];
             for (const condition of conditions) for (const price of prices)
             for (const fs of fuels) for (const city of cities)
-            for (const maxAge of ages) for (const q of quick) {
-                document.querySelector("#condition").value=condition;
+            for (const maxAge of ages) for (const q of quick) for (const destination of destinations) {
+                document.querySelector("#condition").value=condition;\n                document.querySelector("#destination").value=destination;
                 document.querySelector("#city").value=city;
                 document.querySelector("#year").value=maxAge===null?"":String(maxAge);
                 document.querySelector("#fmin").value=price[0]===null?"":String(price[0]);
@@ -78,7 +78,7 @@ async def main():
             }
             return {tested,failures};
         }""", RESULT["results"])
-        assert matrix["tested"] == 12600, matrix
+        assert matrix["tested"] == 50400, matrix
         assert matrix["failures"] == [], matrix
 
         await page.locator("#clear").click()
@@ -113,7 +113,7 @@ async def main():
 
         if errors:
             raise AssertionError("Browser console/page errors: "+repr(errors))
-        print("PASS: 12,600 sidebar filter permutations + interaction/reset checks")
+        print("PASS: 50,400 sidebar filter/context permutations + interaction/reset checks")
         await browser.close()
 
 asyncio.run(main())
