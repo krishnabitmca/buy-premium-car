@@ -91,3 +91,49 @@ def test_builtin_adapter_uses_source_specific_target_url(monkeypatch):
     adapter.fetch(AdapterRequest(query="BMW X5", condition="used"))
 
     assert seen["url"] == "https://www.cardekho.com/used-bmw-x5+cars"
+
+
+
+def test_open_circuit_is_not_executed(monkeypatch):
+    source = {
+        "name": "Broken",
+        "adapter_status": "live",
+        "url": "https://broken.example",
+    }
+    adapter = BuiltinMarketplaceAdapter(source)
+
+    monkeypatch.setattr(
+        "src.source_adapters.adapter_execution_allowed",
+        lambda name: False,
+    )
+    result = adapter.fetch(AdapterRequest(query="BMW X5", condition="used"))
+
+    assert result.status == "circuit_open"
+    assert result.listings == []
+
+
+def test_success_resets_adapter_health(monkeypatch):
+    calls = {}
+
+    class Cursor:
+        def execute(self, sql, params=None):
+            calls["sql"] = sql
+            calls["params"] = params
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+
+    class Conn:
+        def cursor(self): return Cursor()
+        def commit(self): calls["committed"] = True
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+
+    monkeypatch.setattr("src.source_adapters.registry_db_enabled", lambda: True)
+    monkeypatch.setattr("src.source_adapters.registry_connect", lambda: Conn())
+
+    record_adapter_execution(
+        "Good", success=True, latency_ms=120
+    )
+
+    assert "circuit_state='closed'" in calls["sql"]
+    assert calls["committed"] is True
