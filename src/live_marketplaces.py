@@ -608,13 +608,17 @@ def live_inventory(
         brand=brand,model=model,condition=condition,budget_min=budget_min,
         budget_max=budget_max,destination=destination,registry=registry,live_only=True,
     )
-    targeted=_targeted_source_urls(query)
+    # Execute only the sources selected by the intent planner. The planner
+    # is the source-of-truth for applicability; executing every live adapter
+    # would turn future source expansion into unnecessary customer-path
+    # crawling and could query sources that do not support the requested
+    # brand/condition/segment.
     by_name={str(s.get("name")):s for s in registry}
-    jobs=[]
-    for planned in plan:
-        name=str(planned["name"])
-        source=by_name.get(name,{})
-        jobs.append((planned,source,targeted.get(name,str(source.get("url") or ""))))
+    selected_registry=[
+        by_name[str(planned["name"])]
+        for planned in plan
+        if str(planned.get("name") or "") in by_name
+    ]
 
     # Source-isolated adapter execution. Each verified source owns its
     # acquisition/parser boundary; one source failure is converted to a status
@@ -629,6 +633,6 @@ def live_inventory(
             budget_max=budget_max,
             destination=destination,
         ),
-        registry,
+        selected_registry,
         max_workers=MAX_PARALLEL_SOURCES,
     )
