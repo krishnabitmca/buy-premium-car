@@ -5,6 +5,8 @@ from src.inventory_freshness import refresh_priority
 def test_reliability_weights_known_health_states():
     assert _reliability("healthy") > _reliability("degraded")
     assert _reliability("degraded") > _reliability("unavailable")
+    assert _reliability("unavailable") == _reliability("unhealthy")
+    assert _reliability("blocked") < _reliability("unhealthy")
 
 
 def test_demand_gap_and_staleness_increase_priority():
