@@ -7,15 +7,17 @@ import urllib.request
 import urllib.error
 import time
 import socket
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
 from typing import Any
 
 from .source_intelligence import load_source_registry, plan_sources, normalize_condition
 
 USER_AGENT = "CarScanner/1.0 (+https://carscanner.in)"
-TIMEOUT = 12
+TIMEOUT = 5
 MAX_BODY_BYTES = 3000000
-FETCH_RETRIES = 3
+FETCH_RETRIES = 2
+MAX_PARALLEL_SOURCES = 5
 RETRYABLE_STATUS = {408,425,429,500,502,503,504}
 
 CURRENT_BRANDS = [
@@ -531,6 +533,41 @@ def _live_source_entries() -> list[dict]:
     return [s for s in load_source_registry() if s.get("adapter_status") == "live"]
 
 
+def _execute_source(planned: dict, source: dict, url: str, query: str, condition: str) -> tuple[list[dict],dict]:
+    name=str(planned["name"])
+    try:
+        html=fetch_text(url)
+        parsed=parse_live_listings(html,name,url)
+        # Some marketplace pages expose cards as rendered links rather than
+        # JSON-LD. Use the visible listing representation as a second parser.
+        if not parsed and query:
+            parsed=parse_visible_listing_links(html,name,url,query)
+        if query:
+            filtered=[]
+            for row in parsed:
+                if not _identity_matches_query(row,query):
+                    continue
+                actual=normalize_condition(row.get("condition_signal"))
+                wanted=normalize_condition(condition)
+                if wanted in {"used","demo"} and actual != wanted:
+                    continue
+                row["identity_confidence"]=1.0 if row.get("brand") and row.get("model") else 0.0
+                row["identity_evidence"]=["brand","model","listing_name","url"]
+                filtered.append(row)
+            parsed=filtered
+        return parsed,{
+            "source":name,"status":"live","listings_found":len(parsed),"query_url":url,
+            "source_type":planned.get("source_type"),"source_score":planned.get("score"),
+            "query_strategy":planned.get("query_strategy"),"selection_reasons":planned.get("reasons",[]),
+        }
+    except Exception as exc:
+        return [],{
+            "source":name,"status":"unavailable","listings_found":0,"error":str(exc)[:160],
+            "query_url":url,"source_type":planned.get("source_type"),
+            "source_score":planned.get("score"),"query_strategy":planned.get("query_strategy"),
+            "selection_reasons":planned.get("reasons",[]),
+        }
+
 def live_inventory(
     query: str = "",
     condition: str = "both",
@@ -538,75 +575,29 @@ def live_inventory(
     budget_max: float | None = None,
     destination: str | None = None,
 ) -> tuple[list[dict],list[dict]]:
-    """Search only the sources selected by the source-intelligence layer.
-
-    The registry may contain many candidate sources, but only adapters marked
-    live are executed. This prevents a source list from being mistaken for
-    actual coverage. Customer intent influences source priority; destination
-    only adds regional relevance and never becomes an inventory restriction.
-    """
-    vehicles=[];source_status=[]
+    """Search selected live sources concurrently; destination never restricts inventory."""
     brand,model=_query_parts(query)
     registry=_live_source_entries()
     plan=plan_sources(
-        brand=brand,
-        model=model,
-        condition=condition,
-        budget_min=budget_min,
-        budget_max=budget_max,
-        destination=destination,
-        registry=registry,
-        live_only=True,
+        brand=brand,model=model,condition=condition,budget_min=budget_min,
+        budget_max=budget_max,destination=destination,registry=registry,live_only=True,
     )
     targeted=_targeted_source_urls(query)
     by_name={str(s.get("name")):s for s in registry}
-
+    jobs=[]
     for planned in plan:
         name=str(planned["name"])
         source=by_name.get(name,{})
-        default_url=str(source.get("url") or "")
-        url=targeted.get(name,default_url)
-        try:
-            html=fetch_text(url)
-            parsed=parse_live_listings(html,name,url)
-            # Some marketplace pages expose cards as rendered links rather than
-            # JSON-LD. Use the visible listing representation as a second parser.
-            if not parsed and query:
-                parsed=parse_visible_listing_links(html,name,url,query)
-            if query:
-                filtered=[]
-                for row in parsed:
-                    if not _identity_matches_query(row,query):
-                        continue
-                    actual=normalize_condition(row.get("condition_signal"))
-                    wanted=normalize_condition(condition)
-                    if wanted in {"used","demo"} and actual != wanted:
-                        continue
-                    row["identity_confidence"]=1.0 if row.get("brand") and row.get("model") else 0.0
-                    row["identity_evidence"]=["brand","model","listing_name","url"]
-                    filtered.append(row)
-                parsed=filtered
+        jobs.append((planned,source,targeted.get(name,str(source.get("url") or ""))))
+
+    vehicles=[];source_status=[]
+    with ThreadPoolExecutor(max_workers=min(MAX_PARALLEL_SOURCES,max(1,len(jobs)))) as pool:
+        futures=[pool.submit(_execute_source,p,s,u,query,condition) for p,s,u in jobs]
+        for future in as_completed(futures):
+            parsed,status=future.result()
             vehicles.extend(parsed)
-            source_status.append({
-                "source":name,
-                "status":"live",
-                "listings_found":len(parsed),
-                "query_url":url,
-                "source_type":planned.get("source_type"),
-                "source_score":planned.get("score"),
-                "query_strategy":planned.get("query_strategy"),
-                "selection_reasons":planned.get("reasons",[]),
-            })
-        except Exception as exc:
-            source_status.append({
-                "source":name,
-                "status":"unavailable",
-                "listings_found":0,
-                "error":str(exc)[:160],
-                "query_url":url,
-                "source_type":planned.get("source_type"),
-                "source_score":planned.get("score"),
-                "query_strategy":planned.get("query_strategy"),
-                "selection_reasons":planned.get("reasons",[]),
-            })
+            source_status.append(status)
+
+    # Stable ordering for deterministic API output and tests.
+    source_status.sort(key=lambda x:x.get("source",""))
     return vehicles,source_status
