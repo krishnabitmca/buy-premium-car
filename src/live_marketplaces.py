@@ -373,9 +373,19 @@ def _targeted_source_urls(query: str) -> dict[str,str]:
         return {}
     # These routes are verified marketplace model pages and keep the live query
     # India-wide rather than constraining it to the user's destination.
+    if model_slug:
+        return {
+            "CarDekho Used": f"https://www.cardekho.com/used-{brand_slug}-{model_slug}+cars",
+            "CarWale Used": f"https://www.carwale.com/used/{brand_slug}-{model_slug}/",
+        }
+
+    # A brand-only search must still target the brand inventory pages. The
+    # generic marketplace landing pages do not reliably expose listing cards,
+    # which can incorrectly turn a valid "Used + Brand + All models" search
+    # into an empty result set.
     return {
-        "CarDekho Used": f"https://www.cardekho.com/used-{brand_slug}-{model_slug}+cars",
-        "CarWale Used": f"https://www.carwale.com/used/{brand_slug}-{model_slug}/",
+        "CarDekho Used": f"https://www.cardekho.com/used-{brand_slug}+cars",
+        "CarWale Used": f"https://www.carwale.com/used/{brand_slug}/",
     }
 
 def _canonical_url(base_url: str, href: Any) -> str:
