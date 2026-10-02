@@ -5,6 +5,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from datetime import datetime
 import sys
+import os
 from concurrent.futures import ThreadPoolExecutor
 
 _DEMAND_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="search-demand")
@@ -125,16 +126,36 @@ class handler(BaseHTTPRequestHandler):
                     budget_max=budget_max,
                     max_age_years=max_age,
                 )
-                if vehicles:
+                expected_live_sources = {
+                    str(p.get("name"))
+                    for p in source_plan
+                    if p.get("adapter_status") == "live"
+                }
+                inventory_sources = {
+                    str(s.get("name") or s.get("source"))
+                    for s in sources
+                    if s.get("name") or s.get("source")
+                }
+                coverage_complete = bool(expected_live_sources) and expected_live_sources.issubset(inventory_sources)
+
+                if vehicles and coverage_complete:
                     search_mode = "inventory"
                 else:
-                    # Transitional fallback while the background ingestion fleet is
-                    # warming up. Once inventory coverage is healthy this path should
-                    # be disabled to prevent cache-miss fanout to marketplaces.
-                    vehicles, sources = live_inventory(
-                        query, condition, budget_min, budget_max, destination
-                    )
-                    search_mode = "live_fallback"
+                    # During inventory warm-up, do not silently present a partial
+                    # snapshot as the whole market. If one or more applicable live
+                    # sources are missing from inventory, query the live source set.
+                    # Once background refresh establishes complete source coverage,
+                    # customer traffic becomes inventory-only again.
+                    allow_coverage_fallback = os.getenv(
+                        "CARSCANNER_ALLOW_LIVE_COVERAGE_FALLBACK", "true"
+                    ).lower() not in {"0", "false", "no"}
+                    if vehicles and not allow_coverage_fallback:
+                        search_mode = "inventory_partial"
+                    else:
+                        vehicles, sources = live_inventory(
+                            query, condition, budget_min, budget_max, destination
+                        )
+                        search_mode = "live_coverage_fallback" if vehicles else "live_fallback"
             else:
                 vehicles, sources = live_inventory(
                     query, condition, budget_min, budget_max, destination
