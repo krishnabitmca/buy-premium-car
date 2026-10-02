@@ -1,25 +1,48 @@
 # PostgreSQL Source Intelligence
 
-CarScanner now supports PostgreSQL as the persistent system of record for source intelligence. config/sources.yaml remains the versioned bootstrap seed so local development and recovery remain deterministic.
+CarScanner uses PostgreSQL/Supabase as the persistent source-intelligence control plane. It is not the customer-facing vehicle inventory cache.
+
+## Tables
+- sources — canonical source registry and lifecycle/adapter state
+- source_capabilities — brand, condition, and segment capabilities
+- source_endpoints — source URLs/endpoints
+- source_health — health and inventory-verification observations
+- source_discoveries — deep-discovery candidates and evidence
+
+## Ownership model
+
+config/sources.yaml is the version-controlled bootstrap/recovery seed.
+
+When SOURCE_INTELLIGENCE_DATABASE_URL or DATABASE_URL is configured:
+1. the application attempts to load the registry from PostgreSQL;
+2. the database registry is authoritative for source planning;
+3. YAML remains a deterministic fallback if the control-plane database is temporarily unavailable.
+
+This fallback applies only to source metadata. It must never cause data/latest.json or another historical inventory snapshot to be returned as current customer inventory.
 
 ## Production setup
 
-The repository already has a Supabase/PostgreSQL integration for Deal Watches, so the same PostgreSQL project can host this schema.
+1. Apply 002_source_intelligence.sql.
+2. Apply 003_source_intelligence_rls.sql.
+3. Apply 004_source_discoveries_source_id_index.sql.
+4. Configure SOURCE_INTELLIGENCE_DATABASE_URL or DATABASE_URL in backend/crawler environments.
+5. Run scripts/bootstrap_source_intelligence.py.
+6. Verify sources, capabilities, and endpoints.
+7. Verify RLS and absence of customer-facing policies.
+8. Verify source health/discovery writes when database connectivity is enabled.
 
-1. Apply supabase/migrations/002_source_intelligence.sql.
-2. Configure SOURCE_INTELLIGENCE_DATABASE_URL (or DATABASE_URL) in the crawler/API environment.
-3. Run python scripts/bootstrap_source_intelligence.py.
-4. Verify public.sources contains the configured registry.
-5. The crawler records deep-discovery candidates and source health when the database is configured.
+## Lifecycle
 
-## Safety
-
-A candidate source is never executed by customer live search. Discovery does not silently promote a source. PostgreSQL is the source-intelligence control plane, not the inventory cache. Credentials must never be committed to Git.
-
-Lifecycle:
 DISCOVERED -> CLASSIFIED -> VALIDATED -> PARSER_CREATED -> INVENTORY_VERIFIED -> LIVE
 
-Only LIVE adapters enter customer search execution.
+Only a source with a verified live adapter is executable by customer search.
 
-## Deployment state
-The repository contains the migration and application wiring; the database itself is provisioned only after a PostgreSQL connection string is supplied to the deployment environment.
+## Runtime behavior
+
+Customer search loads source intelligence, plans sources from customer intent, executes only live adapters, fetches current external source data, validates listings, and returns source health/evidence.
+
+The database is therefore a control plane for where/how to search, not a replacement for live marketplace responses.
+
+## Security
+
+Source-intelligence tables have RLS enabled. No public/authenticated customer policy grants direct access by default. Database credentials are deployment secrets.
