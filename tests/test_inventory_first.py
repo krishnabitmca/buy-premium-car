@@ -11,6 +11,8 @@ class TestInventoryFirstSearch(unittest.TestCase):
             def execute(self, sql, params):
                 self.sql = sql
                 self.params = params
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
             def fetchall(self):
                 return [{
                     "brand": "BMW",
