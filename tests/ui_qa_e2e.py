@@ -61,7 +61,9 @@ async def main():
         await page.locator("#clear").click()
         await page.locator("#condition").select_option("used")
         await page.locator("#brand").select_option(label="Audi")
+        await page.wait_for_function("document.querySelector('#model').value === ''")
         await page.locator("#brand").select_option(label="BMW")
+        await page.wait_for_function("document.querySelector('#model').value === ''")
         assert await page.locator("#model").input_value() == ""
         await page.locator("#min").fill("")
         await page.locator("#max").fill("")
