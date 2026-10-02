@@ -377,6 +377,7 @@ def _targeted_source_urls(query: str) -> dict[str,str]:
             "CarWale Used": f"https://www.carwale.com/used/{brand_slug}-{model_slug}/",
         }
 
+    # Brand-only search is a valid "all models" request, so target brand inventory pages.
     # A brand-only search must still target the brand inventory pages. The
     # generic marketplace landing pages do not reliably expose listing cards,
     # which can incorrectly turn a valid "Used + Brand + All models" search
