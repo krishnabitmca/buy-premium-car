@@ -65,3 +65,12 @@ $$;
 
 comment on table public.search_demand is
   'Privacy-preserving aggregate search demand used to prioritize source discovery. No user IDs are stored.';
+
+-- Demand writes are backend-only; prevent public/anonymous clients from
+-- forging discovery-priority signals.
+revoke all on function public.record_search_demand(
+  timestamptz, text, text, text, text, text, integer, integer
+) from public, anon, authenticated;
+grant execute on function public.record_search_demand(
+  timestamptz, text, text, text, text, text, integer, integer
+) to service_role;
