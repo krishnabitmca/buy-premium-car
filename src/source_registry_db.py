@@ -209,6 +209,23 @@ def promote_discovery(discovery: dict[str, Any], *, listings_found: int) -> str 
                 (existing["source_id"],),
             )
             cur.execute(
+                """insert into public.source_adapters
+                   (source_id,adapter_key,adapter_type,status,query_strategy,
+                    supports_brand,supports_model,supports_condition,supports_location,
+                    metadata)
+                   values (%s,%s,'discovered_catalogue','draft','discovered_catalogue',
+                           %s,%s,true,false,%s)
+                   on conflict (adapter_key) do nothing""",
+                (
+                    existing["source_id"],
+                    key + "_discovered",
+                    bool(brand),
+                    True,
+                    json.dumps({"validation_listings_found": listings_found,
+                                "requires_adapter_verification": True}),
+                ),
+            )
+            cur.execute(
                 """update public.source_discoveries
                    set source_id=%s,status='validated'
                    where domain=%s and url=%s""",
