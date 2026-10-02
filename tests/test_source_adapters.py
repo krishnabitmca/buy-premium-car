@@ -42,7 +42,7 @@ def test_adapter_failure_isolated_from_other_sources(monkeypatch):
 
     assert len(vehicles) == 1
     assert vehicles[0]["source"] == "Good"
-    assert {s["source"] for s in statuses} == {"Good", "unknown"}
+    assert {s["source"] for s in statuses} == {"Good", "Bad"}
     assert any(s["status"] == "unavailable" for s in statuses)
 
 
