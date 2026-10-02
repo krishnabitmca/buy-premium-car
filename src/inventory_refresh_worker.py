@@ -21,17 +21,24 @@ def claim_jobs(limit: int = 10) -> list[dict[str, Any]]:
     with _connect() as conn, conn.cursor() as cur:
         cur.execute(
             """with picked as (
-                 select refresh_id
-                 from public.inventory_refresh_queue
-                 where status='queued'
-                 order by priority desc, requested_at asc
-                 for update skip locked
+                 select q.refresh_id
+                 from public.inventory_refresh_queue q
+                 join public.sources s on s.source_id=q.source_id
+                 where q.status='queued'
+                   and s.enabled=true
+                   and s.adapter_status='live'
+                   and exists (
+                     select 1 from public.source_adapters sa
+                     where sa.source_id=s.source_id and sa.status='verified'
+                   )
+                 order by q.priority desc, q.requested_at asc
+                 for update of q skip locked
                  limit %s
                )
                update public.inventory_refresh_queue q
                set status='running',started_at=now(),attempt_count=attempt_count+1
                from picked where q.refresh_id=picked.refresh_id
-               returning q.*""",
+               returning q.*, (select s.name from public.sources s where s.source_id=q.source_id) as source_name""",
             (max(1, min(int(limit), 100)),),
         )
         rows = [dict(r) for r in cur.fetchall()]
