@@ -54,6 +54,82 @@ class TestSourceIntelligence(unittest.TestCase):
         self.assertGreater(summary["candidate_sources"], 0)
         self.assertGreater(summary["live_sources"], 0)
 
+
+    def test_model_capability_matrix_excludes_unverified_model(self):
+        registry = [
+            {
+                "name": "BMW Specialist",
+                "url": "https://example.in",
+                "source_type": "marketplace",
+                "adapter_status": "live",
+                "geography": "india",
+                "conditions": ["used"],
+                "segments": ["luxury"],
+                "brands": ["BMW"],
+                "priority": 90,
+                "query_strategy": "brand_model",
+                "model_capabilities": [
+                    {"brand": "BMW", "model": "3 Series", "condition": "used", "supported": True}
+                ],
+            }
+        ]
+        plan = plan_sources(
+            brand="BMW", model="X5", condition="used",
+            registry=registry, live_only=True
+        )
+        self.assertEqual(plan, [])
+
+    def test_model_capability_matrix_accepts_verified_model_and_condition(self):
+        registry = [
+            {
+                "name": "BMW Specialist",
+                "url": "https://example.in",
+                "source_type": "marketplace",
+                "adapter_status": "live",
+                "geography": "india",
+                "conditions": ["used", "demo"],
+                "segments": ["luxury"],
+                "brands": ["BMW"],
+                "priority": 90,
+                "query_strategy": "brand_model",
+                "model_capabilities": [
+                    {"brand": "BMW", "model": "X5", "condition": "used", "supported": True}
+                ],
+            }
+        ]
+        used = plan_sources(
+            brand="BMW", model="X5", condition="used",
+            registry=registry, live_only=True
+        )
+        demo = plan_sources(
+            brand="BMW", model="X5", condition="demo",
+            registry=registry, live_only=True
+        )
+        self.assertEqual(len(used), 1)
+        self.assertEqual(demo, [])
+
+    def test_brand_only_search_does_not_require_model_capability(self):
+        registry = [
+            {
+                "name": "BMW Specialist",
+                "url": "https://example.in",
+                "source_type": "marketplace",
+                "adapter_status": "live",
+                "geography": "india",
+                "conditions": ["used"],
+                "segments": ["luxury"],
+                "brands": ["BMW"],
+                "priority": 90,
+                "query_strategy": "brand_model",
+                "model_capabilities": [],
+            }
+        ]
+        plan = plan_sources(
+            brand="BMW", model=None, condition="used",
+            registry=registry, live_only=True
+        )
+        self.assertEqual(len(plan), 1)
+
     def test_database_registry_is_preferred_when_available(self):
         database_registry = [{"name": "Database Source", "source_type": "marketplace",
                               "adapter_status": "live", "conditions": ["used"],
