@@ -5,6 +5,9 @@ from pathlib import Path
 from urllib.parse import urlparse
 from datetime import datetime
 import sys
+from concurrent.futures import ThreadPoolExecutor
+
+_DEMAND_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="search-demand")
 
 ROOT=Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
@@ -13,6 +16,7 @@ from src.acquisition import purchase_context
 from src.india_geo import infer_state
 from src.live_marketplaces import live_inventory, _query_parts
 from src.source_intelligence import load_source_registry, plan_sources, summarize_plan
+from src.source_registry_db import enabled as source_db_enabled, record_search_demand
 
 def _read_json(handler):
     length=int(handler.headers.get("Content-Length","0"))
@@ -29,6 +33,19 @@ def _response(handler,status,payload):
     handler.send_header("Access-Control-Allow-Methods","GET, POST, OPTIONS")
     handler.end_headers()
     handler.wfile.write(raw)
+
+
+def _budget_band(budget_min, budget_max):
+    ceiling = budget_max if budget_max is not None else budget_min
+    if ceiling is None:
+        return "unspecified"
+    if ceiling <= 15:
+        return "0-15"
+    if ceiling <= 40:
+        return "15-40"
+    if ceiling <= 100:
+        return "40-100"
+    return "100+"
 
 def _vehicle_condition(v):
     explicit=str(v.get("condition_signal") or "").strip().lower()
@@ -99,6 +116,19 @@ class handler(BaseHTTPRequestHandler):
                 registry=load_source_registry(),
             )
             vehicles,sources=live_inventory(query,condition,budget_min,budget_max,destination)
+            if source_db_enabled():
+                parts = _query_parts(query)
+                state = infer_state(destination, destination) if destination else ""
+                _DEMAND_EXECUTOR.submit(
+                    record_search_demand,
+                    brand=parts[0],
+                    model=parts[1],
+                    condition=condition,
+                    budget_band=_budget_band(budget_min, budget_max),
+                    destination_state=state,
+                    inventory_hit_count=len(vehicles),
+                    source_count=len(sources),
+                )
             if not vehicles and sources and not any(s.get("status") == "live" for s in sources):
                 return _response(self,503,{"error":"Live marketplace sources are currently unavailable","mode":"live","sources":sources})
             results=[]
