@@ -1,11 +1,6 @@
 from __future__ import annotations
 
-"""Source-isolated marketplace adapter execution.
-
-The adapter layer is deliberately the only execution boundary between the
-source registry and marketplace HTTP/parsing. A failure in one adapter must
-never fail the customer search or refresh work for another source.
-"""
+"""Source-isolated marketplace adapter execution."""
 
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -16,9 +11,21 @@ from .source_intelligence import normalize_condition
 from .source_registry_db import enabled as registry_db_enabled, _connect as registry_connect
 
 
+# Compatibility seams: keep HTTP/parsing dynamically delegated so existing
+# tests/integrations can patch this adapter boundary without patching the
+# underlying marketplace module.
 def fetch_text(url: str) -> str:
-    """Compatibility seam for tests and integrations; delegate dynamically."""
     return live_marketplaces.fetch_text(url)
+
+
+def parse_live_listings(html: str, source_name: str, url: str) -> list[dict[str, Any]]:
+    return live_marketplaces.parse_live_listings(html, source_name, url)
+
+
+def parse_visible_listing_links(
+    html: str, source_name: str, url: str, query: str
+) -> list[dict[str, Any]]:
+    return live_marketplaces.parse_visible_listing_links(html, source_name, url, query)
 
 
 @dataclass(frozen=True)
@@ -77,9 +84,9 @@ class BuiltinMarketplaceAdapter:
 
         try:
             html = fetch_text(url)
-            parsed = live_marketplaces.parse_live_listings(html, self.source_name, url)
+            parsed = parse_live_listings(html, self.source_name, url)
             if not parsed and request.query:
-                parsed = live_marketplaces.parse_visible_listing_links(
+                parsed = parse_visible_listing_links(
                     html, self.source_name, url, request.query
                 )
 
@@ -158,14 +165,13 @@ def _health_snapshot(source_name: str) -> dict[str, Any] | None:
 
 
 def adapter_execution_allowed(source_name: str) -> bool:
-    """Skip verified adapters whose circuit is open and still cooling down."""
     health = _health_snapshot(source_name)
     if not health:
         return True
     if health.get("status") != "verified":
         return False
     state = str(health.get("circuit_state") or "closed")
-    if state == "closed" or state == "half_open":
+    if state in {"closed", "half_open"}:
         return True
     retry_at = health.get("next_retry_at")
     if state == "open" and retry_at:
@@ -183,7 +189,6 @@ def record_adapter_execution(
     failure_threshold: int = 3,
     cooldown_minutes: int = 15,
 ) -> None:
-    """Update per-adapter health and open the circuit after repeated failures."""
     if not registry_db_enabled():
         return
     with registry_connect() as conn, conn.cursor() as cur:
@@ -227,7 +232,6 @@ def record_adapter_execution(
 def build_verified_adapters(
     registry: list[dict[str, Any]],
 ) -> list[BuiltinMarketplaceAdapter]:
-    """Build adapters only for sources explicitly marked live."""
     return [
         BuiltinMarketplaceAdapter(source)
         for source in registry
@@ -241,7 +245,6 @@ def execute_adapters(
     *,
     max_workers: int = 5,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Execute verified adapters independently and aggregate their results."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     adapters = build_verified_adapters(registry)
