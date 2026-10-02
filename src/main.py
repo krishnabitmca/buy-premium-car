@@ -10,7 +10,7 @@ from .dedupe import dedupe
 from .discovery import discover
 from .reporting import render_report,write_csv,write_dashboard_json
 from .scoring import enrich_and_score,negotiation_band
-from .source_registry_db import enabled as source_db_enabled, sync_registry, record_discoveries, record_health
+from .source_registry_db import enabled as source_db_enabled, sync_registry, record_discoveries, record_health, promote_discovery
 
 def load_known_sources(path):return load_yaml(path).get("known_sources",[])
 def domain(url):return urlparse(url).netloc.lower().removeprefix("www.")
@@ -39,15 +39,31 @@ def main():
         if not v.live_verified or v.sold_signal:continue
         if v.price_lakh is None:continue
         filtered.append(v)
+    promoted_sources={}
     if source_db_enabled():
         source_counts={}
         for v in filtered:
             source_name=str(v.source or "unknown")
             source_counts[source_name]=source_counts.get(source_name,0)+1
+
+        # A discovery becomes customer-searchable only after the crawler proves
+        # that the discovered page contains multiple extractable live listings.
+        # This prevents search-engine noise or one-off vehicle pages from
+        # becoming live marketplace sources.
+        for item in new_sources:
+            source_name=str(item.get("domain") or "")
+            count=source_counts.get(source_name,0)
+            if count >= 2:
+                promoted_name=promote_discovery(item, listings_found=count)
+                if promoted_name:
+                    promoted_sources[source_name]=promoted_name
+                    print(f"source promoted: {source_name} -> {promoted_name} ({count} listings)")
+
         for source_name in [s[0] for s in queue]:
             count=source_counts.get(source_name,0)
+            health_name=promoted_sources.get(source_name,source_name)
             record_health(
-                source_name,
+                health_name,
                 status="healthy" if count else "unknown",
                 listings_found=count,
                 parser_ok=bool(count),
