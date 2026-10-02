@@ -151,7 +151,16 @@ def _is_current_model_link(selected: dict[str,str], href: str) -> bool:
         return False
     parts=[p for p in path.split("/") if p]
     brand_tokens=_brand_path_tokens(selected)
-    if len(parts) >= 2 and (parts[-1] in {"dealers","offers","view-all-models","new-cars","used-cars"} or parts[-1].endswith(("-offers","-dealer","-dealers"))):
+    # CarDekho places gallery/navigation links alongside model links. They
+    # share the same /<brand>/<slug> URL shape, so explicitly reject known
+    # non-model endpoints before accepting the generic two-segment shape.
+    navigation_slugs = {
+        "gallery","images","photos","photo","videos","video","reviews",
+        "review","news","offers","offer","dealers","dealer","service",
+        "new-cars","used-cars","view-all-models","compare","accessories",
+    }
+    if parts and (parts[-1] in navigation_slugs or
+                  parts[-1].endswith(("-offers","-offer","-dealer","-dealers"))):
         return False
     if len(parts)==2 and parts[0] in brand_tokens:
         return True
@@ -196,6 +205,10 @@ def live_models(brand: str) -> list[dict[str,str]]:
         clean=_clean_model_catalog_name(text)
         absolute=_absolute(selected["url"],href)
         if not clean or not _is_current_model_link(selected,absolute):
+            continue
+        # A brand-name anchor can point at a real model URL when the source
+        # page markup is malformed; it is not a customer-selectable model.
+        if _canonical_brand(clean).lower() == _canonical_brand(selected["name"]).lower():
             continue
         canonical=absolute.split("#",1)[0].rstrip("/")
         if canonical in seen_urls:
