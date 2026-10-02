@@ -368,7 +368,7 @@ def _targeted_source_urls(query: str) -> dict[str,str]:
     if not brand:
         return {}
     brand_slug=_slug(_canonical_brand(brand))
-    model_slug=_slug(model)
+    model_slug=_slug(model) if model else ""
     # These routes are verified marketplace model pages and keep the live query
     # India-wide rather than constraining it to the user's destination.
     if model_slug:
