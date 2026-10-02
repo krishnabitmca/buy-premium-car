@@ -210,7 +210,7 @@ def promote_discovery(discovery: dict[str, Any], *, listings_found: int) -> str 
             )
             cur.execute(
                 """update public.source_discoveries
-                   set source_id=%s,status='promoted'
+                   set source_id=%s,status='validated'
                    where domain=%s and url=%s""",
                 (existing["source_id"], domain, url),
             )
