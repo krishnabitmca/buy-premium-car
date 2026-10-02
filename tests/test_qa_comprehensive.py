@@ -177,6 +177,21 @@ class TestPureFunctions(unittest.TestCase):
         urls=lm._targeted_source_urls("BMW")
         self.assertEqual(urls["CarWale Used"],"https://www.carwale.com/used/bmw/")
         self.assertEqual(urls["CarDekho Used"],"https://www.cardekho.com/used-bmw+cars")
+        self.assertEqual(urls["Cars24 Luxury Used"],"https://www.cars24.com/buy-used-bmw-cars/")
+        self.assertEqual(urls["Spinny Luxury Used"],"https://www.spinny.com/used-bmw-cars/s/")
+
+    def test_brand_only_targets_all_live_source_routes(self):
+        urls=lm._targeted_source_urls("Audi")
+        self.assertEqual(urls["CarDekho Used"],"https://www.cardekho.com/used-audi+cars")
+        self.assertEqual(urls["CarWale Used"],"https://www.carwale.com/used/audi/")
+        self.assertEqual(urls["Cars24 Luxury Used"],"https://www.cars24.com/buy-used-audi-cars/")
+        self.assertEqual(urls["Spinny Luxury Used"],"https://www.spinny.com/used-audi-cars/s/")
+        self.assertEqual(urls["Motozite Demo"],"https://motozite.com/demo-cars")
+
+    def test_selected_model_targets_cars24_and_spinny(self):
+        urls=lm._targeted_source_urls("Audi Q5")
+        self.assertEqual(urls["Cars24 Luxury Used"],"https://www.cars24.com/buy-used-audi-q5-cars/")
+        self.assertEqual(urls["Spinny Luxury Used"],"https://www.spinny.com/used-q5-cars/s/")
 
     def test_brand_only_live_search_keeps_all_models(self):
         calls=[]
