@@ -1,4 +1,4 @@
-from src.source_adapters import AdapterRequest, BuiltinMarketplaceAdapter, build_verified_adapters, execute_adapters
+from src.source_adapters import AdapterRequest, AdapterResult, BuiltinMarketplaceAdapter, build_verified_adapters, execute_adapters, record_adapter_execution
 
 
 def test_only_verified_live_sources_build_adapters():
@@ -22,14 +22,19 @@ def test_adapter_failure_isolated_from_other_sources(monkeypatch):
     def fake_fetch(self, request):
         if self.source_name == "Bad":
             raise RuntimeError("source down")
-        return {
-            "brand": "BMW",
-            "model": "X5",
-            "price_lakh": 50,
-            "url": "https://good.example/car/1",
-            "source": "Good",
-            "live_verified": True,
-        }
+        if self.source_name == "Good":
+            return AdapterResult(
+                source_name="Good",
+                status="live",
+                listings=[{
+                    "brand": "BMW",
+                    "model": "X5",
+                    "price_lakh": 50,
+                    "url": "https://good.example/car/1",
+                    "source": "Good",
+                    "live_verified": True,
+                }],
+            )
 
     # Exercise the executor's defensive isolation path by replacing the
     # adapter fetch implementation. The good source must still return data.
@@ -61,7 +66,7 @@ def test_adapter_failure_returns_source_specific_status(monkeypatch):
     )
 
     assert vehicles == []
-    assert statuses[0]["source"] == "unknown"
+    assert statuses[0]["source"] == "CarDekho Used"
     assert statuses[0]["status"] == "unavailable"
 
 
