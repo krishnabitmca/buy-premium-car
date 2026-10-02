@@ -67,5 +67,35 @@ class TestSourceIntelligence(unittest.TestCase):
         self.assertTrue(any(x["name"] == "CarDekho Used" for x in registry))
 
 
+    def test_promoted_discovered_source_is_selected_for_matching_brand_and_condition(self):
+        registry = [
+            {
+                "name": "Discovered - bmw-example.in",
+                "url": "https://bmw-example.in/used-cars",
+                "source_type": "marketplace",
+                "adapter_status": "live",
+                "geography": "india",
+                "conditions": ["used"],
+                "segments": ["luxury"],
+                "brands": ["BMW"],
+                "priority": 80,
+                "query_strategy": "discovered_catalogue",
+            },
+        ]
+        plan = plan_sources(
+            brand="BMW",
+            model="X5",
+            condition="used",
+            budget_min=30,
+            budget_max=40,
+            destination="Bengaluru",
+            registry=registry,
+            live_only=True,
+        )
+        self.assertEqual(len(plan), 1)
+        self.assertEqual(plan[0]["name"], "Discovered - bmw-example.in")
+        self.assertEqual(plan[0]["query"], "BMW X5 used")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
