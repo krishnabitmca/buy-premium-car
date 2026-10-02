@@ -118,7 +118,7 @@ def _classify(title: str, snippet: str, query: str, brand_hint: str | None) -> t
     return source_type, condition, min(1.0, confidence)
 
 
-def build_query_bank(search):
+def build_query_bank(search, demand=None):
     brands = list(search.get("brands", []))
     all_india = bool(search.get("all_india", True))
     city_hints = list(search.get("city_hints", []))
@@ -127,6 +127,36 @@ def build_query_bank(search):
     configured_source_types = search.get("source_types")
     source_types = list(configured_source_types or [])
     query_bank = []
+
+    # Demand-driven queries are prioritized over generic discovery because they
+    # represent actual customer coverage gaps. Only aggregate intent dimensions
+    # are used; no user identifiers enter discovery.
+    for item in (demand or [])[:100]:
+        brand = str(item.get("brand") or "").strip()
+        model = str(item.get("model") or "").strip()
+        condition = str(item.get("condition") or "both").strip().lower()
+        state = str(item.get("destination_state") or "").strip()
+        if not brand and not model:
+            continue
+        subject = " ".join(x for x in (brand, model) if x)
+        if condition == "demo":
+            query_bank.extend([
+                f'"{subject}" demo cars India',
+                f'"{subject}" demonstrator dealer India',
+                f'"{subject}" demo vehicle "{state}"' if state else f'"{subject}" demo vehicle India',
+            ])
+        elif condition == "used":
+            query_bank.extend([
+                f'"{subject}" used cars India',
+                f'"{subject}" certified used cars India',
+                f'"{subject}" pre-owned dealer India',
+                f'"{subject}" used cars "{state}"' if state else f'"{subject}" used cars India',
+            ])
+        else:
+            query_bank.extend([
+                f'"{subject}" used cars India',
+                f'"{subject}" demo cars India',
+            ])
 
     # Preserve the original lightweight contract when callers do not opt into
     # the deep source-discovery profile. Production settings explicitly provide
@@ -204,12 +234,12 @@ def _looks_like_source_landing(url: str, title: str, snippet: str) -> bool:
     )
 
 
-def discover(settings, known_domains):
+def discover(settings, known_domains, demand=None):
     results = []
     search = settings.search
     max_n = int(search.get("max_discovery_results_per_query", 8))
     engines = search.get("engines", ["bing", "duckduckgo", "google"])
-    query_bank = build_query_bank(search)
+    query_bank = build_query_bank(search, demand=demand)
     brands = list(search.get("brands", []))
     seen_domains = set(known_domains)
     seen_urls = set()
