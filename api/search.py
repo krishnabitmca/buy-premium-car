@@ -91,7 +91,7 @@ class handler(BaseHTTPRequestHandler):
             return _response(self,404,{"error":"Not found"})
         try:
             vehicles,sources=live_inventory()
-            return _response(self,200,{"ok":True,"mode":search_mode,"search_scope":"india","vehicles_count":len(vehicles),"sources":sources})
+            return _response(self,200,{"ok":True,"mode":"live","search_scope":"india","vehicles_count":len(vehicles),"sources":sources})
         except Exception as exc:
             return _response(self,500,{"error":f"Search inventory unavailable: {exc}"})
     def do_POST(self):
@@ -188,7 +188,7 @@ class handler(BaseHTTPRequestHandler):
                 "search_scope":"india",
                 "destination":destination or None,
                 "destination_state":infer_state(destination,destination) if destination else None,
-                "mode":"live",
+                "mode":search_mode,
                 "live_at":__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
                 "sources":sources,
                 "source_strategy":summarize_plan(source_plan),
