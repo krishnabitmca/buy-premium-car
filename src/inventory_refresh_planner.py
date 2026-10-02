@@ -13,7 +13,7 @@ from .source_registry_db import _connect, enabled, load_search_demand
 
 def _reliability(status: Any) -> float:
     value = str(status or "").lower()
-    return {"healthy": 1.2, "degraded": 0.8, "unavailable": 0.4}.get(value, 1.0)
+    return {"healthy": 1.2, "degraded": 0.8, "unavailable": 0.4, "unhealthy": 0.4, "blocked": 0.2, "unknown": 1.0}.get(value, 1.0)
 
 
 def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
