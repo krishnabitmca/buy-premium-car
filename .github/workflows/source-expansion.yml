@@ -1,0 +1,45 @@
+name: CarScanner Source Expansion
+
+on:
+  schedule:
+    # Twice daily discovery keeps source coverage growing without tying
+    # discovery work to customer search latency.
+    - cron: '17 2,14 * * *'
+      timezone: 'Asia/Kolkata'
+  workflow_dispatch:
+
+concurrency:
+  group: carscanner-source-expansion
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install crawler dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . --no-deps
+          pip install -r requirements-crawler.txt
+
+      - name: Discover and promote validated sources
+        env:
+          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
+        run: |
+          test -n "$SOURCE_INTELLIGENCE_DATABASE_URL"
+          python scripts/discover_and_promote_sources.py             --config config/settings.yaml             --max-candidates 20             --min-confidence 0.70
