@@ -32,17 +32,21 @@ class TestInventoryIngestion(unittest.TestCase):
     def test_claim_uses_skip_locked(self, connect):
         class Cursor:
             def execute(self, sql, params): self.sql = sql
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
             def fetchall(self): return []
         class Conn:
             def __enter__(self): return self
             def __exit__(self,*args): pass
-            def cursor(self): return Cursor()
+            def cursor(self):
+                self._cursor = Cursor()
+                return self._cursor
             def commit(self): pass
         connect.return_value=Conn()
         with patch.dict("os.environ", {"SOURCE_INTELLIGENCE_DATABASE_URL":"postgres://test"}):
             self.assertEqual(claim_jobs(5), [])
         # A queue worker must use row locking to prevent duplicate processing.
-        self.assertIn("skip locked", connect.return_value.cursor().sql.lower())
+        self.assertIn("skip locked", connect.return_value._cursor.sql.lower())
 
 
 if __name__ == "__main__":
