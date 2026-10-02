@@ -19,6 +19,7 @@ from src.source_registry_db import (
     enabled as source_db_enabled,
     promote_discovery,
     record_discoveries,
+    load_search_demand,
 )
 
 
@@ -86,7 +87,9 @@ def main() -> None:
         if source.get("url")
     }
 
-    found = discover(settings, known_domains)
+    demand = load_search_demand(limit=100, lookback_hours=168)
+    found = discover(settings, known_domains, demand=demand)
+    print(f"demand_intents={len(demand)}")
     candidates = [
         item for item in found
         if float(item.candidate_confidence) >= args.min_confidence
