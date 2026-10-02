@@ -161,6 +161,33 @@ def record_discoveries(discoveries: Iterable[dict[str, Any]]) -> int:
     return len(rows)
 
 
+def record_search_demand(
+    *,
+    brand: str | None,
+    model: str | None,
+    condition: str,
+    budget_band: str,
+    destination_state: str | None,
+    inventory_hit_count: int,
+    source_count: int,
+) -> None:
+    """Record one privacy-preserving aggregate demand event."""
+    if not enabled():
+        return
+    from datetime import datetime, timezone
+
+    hour_bucket = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "select public.record_search_demand(%s,%s,%s,%s,%s,%s,%s,%s)",
+            (hour_bucket, brand or "", model or "", condition or "both",
+             budget_band or "unspecified", destination_state or "",
+             max(0, int(inventory_hit_count)), max(0, int(source_count))),
+        )
+        conn.commit()
+
+
+
 def load_search_demand(*, limit: int = 100, lookback_hours: int = 168) -> list[dict[str, Any]]:
     """Return aggregated high-demand intents for background source discovery."""
     if not enabled():
