@@ -599,14 +599,19 @@ def live_inventory(
         source=by_name.get(name,{})
         jobs.append((planned,source,targeted.get(name,str(source.get("url") or ""))))
 
-    vehicles=[];source_status=[]
-    with ThreadPoolExecutor(max_workers=min(MAX_PARALLEL_SOURCES,max(1,len(jobs)))) as pool:
-        futures=[pool.submit(_execute_source,p,s,u,query,condition) for p,s,u in jobs]
-        for future in as_completed(futures):
-            parsed,status=future.result()
-            vehicles.extend(parsed)
-            source_status.append(status)
+    # Source-isolated adapter execution. Each verified source owns its
+    # acquisition/parser boundary; one source failure is converted to a status
+    # record and cannot fail the aggregate search.
+    from .source_adapters import AdapterRequest, execute_adapters
 
-    # Stable ordering for deterministic API output and tests.
-    source_status.sort(key=lambda x:x.get("source",""))
-    return vehicles,source_status
+    return execute_adapters(
+        AdapterRequest(
+            query=query,
+            condition=condition,
+            budget_min=budget_min,
+            budget_max=budget_max,
+            destination=destination,
+        ),
+        registry,
+        max_workers=MAX_PARALLEL_SOURCES,
+    )
