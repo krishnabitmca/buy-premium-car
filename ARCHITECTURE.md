@@ -1,126 +1,76 @@
 # CarScanner Architecture
 
 ## Architectural principle
-Keep the product layered so inventory acquisition, search, deal intelligence, presentation, and future buyer services can evolve independently.
+Keep source discovery, source governance, live inventory acquisition, search, deal intelligence, presentation, and future buyer services independently testable.
 
-## Current layers
+## 1. Source discovery and intelligence
 
-### 1. Source acquisition
-Located primarily under:
-- src/
-- config/
-- .github/workflows/
+Implemented in src/discovery.py, src/source_intelligence.py, src/source_registry_db.py, config/sources.yaml, PostgreSQL/Supabase migrations, and crawler workflows.
 
 Responsibilities:
-- discover listings
-- normalize source data
-- retain source identity
-- capture listing URLs
-- capture timestamps/freshness
-- produce inventory snapshots
+- discover source candidates
+- classify source type, condition, segment, geography, and brand coverage
+- persist discovery evidence
+- maintain source lifecycle state
+- maintain capabilities and endpoints
+- record source health
+- produce an intent-specific source plan
 
-The crawler should collect broadly. Customer constraints should generally be applied at search/match time.
+PostgreSQL/Supabase is the production source-intelligence system of record when configured. config/sources.yaml is the versioned bootstrap/recovery seed.
 
-### 2. Live marketplace search
+## 2. Live marketplace search
 
-The customer search path must query live marketplace/source pages or live source APIs. data/latest.json is historical/reporting data and must not be used as the customer-facing search source.
+Customer search queries live marketplace pages/APIs through adapters whose adapter_status is live. data/latest.json is historical/reporting data and must never be used as a customer-facing inventory fallback.
 
-Live responses should expose source status and observation time. If live sources are unavailable, the UI should report that state rather than silently presenting stale inventory.
+## 3. Data planes
 
-### 3. Inventory data
-Current repository snapshot:
-- data/latest.json
-- historical data under data/ and reports/
+Source intelligence:
+- PostgreSQL/Supabase registry, capabilities, endpoints, health, discoveries
 
-Inventory records should retain enough provenance to answer:
-- where did this vehicle come from?
-- when was it observed?
-- what identity information was available?
-- what evidence supports the result?
+Current inventory:
+- live responses from external marketplaces
 
-### 4. Search API
-api/search.py
+Historical/reporting:
+- data/latest.json, data/, reports/
 
-Responsibilities:
-- accept customer search intent
-- search across available inventory
-- apply hard constraints
-- calculate purchase context
-- rank/present useful results
-- return source/evidence information
+A source-intelligence row is source metadata, not a vehicle listing.
 
-Destination should annotate local/same-state/interstate context rather than silently restricting the inventory universe.
+## 4. Search API
 
-### 5. Deal intelligence
-src/deal_engine.py
+api/search.py loads source intelligence, plans sources, queries live adapters, applies hard constraints, calculates purchase context, and returns source/evidence information.
 
-The generic deal engine provides concepts including:
-- DealIntent
-- ListingSnapshot
-- DealEvaluation
-- GenericDealEngine
+Destination annotates local/same-state/interstate context rather than silently restricting inventory.
 
-This layer should remain reusable and should not become tightly coupled to a particular UI.
+## 5. Source lifecycle
 
-### 6. Presentation
-Current primary UI:
-- index.html
+DISCOVERED -> CLASSIFIED -> VALIDATED -> PARSER_CREATED -> INVENTORY_VERIFIED -> LIVE
 
-The UI should remain thin: collect intent, explain results, expose evidence, and link to original sources. Business rules should not proliferate in client-side code when they belong in the API/domain layer.
+Only LIVE adapter sources enter customer search execution.
 
-### 7. Persistence and future alerts
-Supabase schema exists under:
-- supabase/migrations/001_deal_watch.sql
+## 6. Reliability
 
-Future customer-specific watch/alert functionality should build on explicit deal intent rather than duplicating search rules.
+- A source fetch failure is not zero inventory.
+- Source outages are observable and persistable.
+- One slow source must not serially block all other sources.
+- PostgreSQL control-plane failure may use YAML source metadata fallback.
+- PostgreSQL failure must never trigger historical inventory fallback.
+- Production behavior must be verified independently of GitHub merge state.
 
-## Data contract principles
-When adding fields:
-- prefer additive changes
-- preserve existing fields unless there is a strong reason to remove them
-- preserve source URLs
-- preserve source timestamps
-- distinguish observed facts from calculated fields
-- document breaking changes
+## 7. Security model
 
-## Search contract
-The search contract should support at least:
-- condition
-- brand
-- model
-- budget range
-- destination
-- optional refinements
+RLS is enabled on sources, source_capabilities, source_endpoints, source_health, and source_discoveries. No direct customer API policy is granted by default. Database credentials remain deployment secrets.
 
-The contract should remain extensible for:
-- mileage
-- age
-- fuel
-- transmission
-- ownership
-- radius
-- seller type
-- must-have/nice-to-have/avoid
+## 8. Scaling path
 
-Not every field should be exposed in the first screen.
-
-## Scaling path
-1. Repository-backed inventory
-2. More source adapters
-3. Normalized canonical vehicle identity
-4. Better deduplication
-5. Persistent inventory store
-6. Search/index layer if needed
-7. Deal/evidence scoring
-8. Buyer-specific intent and alerts
-9. Interstate landed-cost intelligence
+1. Live source adapters
+2. Source intelligence PostgreSQL control plane
+3. More source adapters
+4. Canonical vehicle identity
+5. Persistent normalized inventory
+6. Better deduplication
+7. Search/index layer if needed
+8. Deal/evidence scoring
+9. Buyer-specific intent and alerts
 10. PAN-India operational scale
 
 Do not introduce distributed infrastructure merely because the long-term system may need it.
-
-## Reliability principles
-- A crawl failure must not be confused with zero inventory.
-- Historical observations must remain distinguishable from current availability.
-- Source outages should be observable.
-- Search should degrade gracefully when one source is unavailable.
-- Production behavior should be verifiable independently of GitHub merge state.
