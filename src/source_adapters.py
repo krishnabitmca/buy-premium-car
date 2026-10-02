@@ -16,6 +16,11 @@ from .source_intelligence import normalize_condition
 from .source_registry_db import enabled as registry_db_enabled, _connect as registry_connect
 
 
+def fetch_text(url: str) -> str:
+    """Compatibility seam for tests and integrations; delegate dynamically."""
+    return live_marketplaces.fetch_text(url)
+
+
 @dataclass(frozen=True)
 class AdapterRequest:
     query: str = ""
@@ -43,11 +48,7 @@ class SourceAdapter(Protocol):
 
 
 class BuiltinMarketplaceAdapter:
-    """Adapter for a verified registry source using the existing parser.
-
-    The adapter receives exactly one source registry record and can only fetch
-    the URL selected for that source. It does not fan out to other sources.
-    """
+    """Adapter for a verified registry source using the existing parser."""
 
     def __init__(self, source: dict[str, Any]):
         self.source = source
@@ -75,7 +76,7 @@ class BuiltinMarketplaceAdapter:
             )
 
         try:
-            html = live_marketplaces.fetch_text(url)
+            html = fetch_text(url)
             parsed = live_marketplaces.parse_live_listings(html, self.source_name, url)
             if not parsed and request.query:
                 parsed = live_marketplaces.parse_visible_listing_links(
@@ -103,9 +104,7 @@ class BuiltinMarketplaceAdapter:
                 row["identity_confidence"] = (
                     1.0 if row.get("brand") and row.get("model") else 0.0
                 )
-                row["identity_evidence"] = [
-                    "brand", "model", "listing_name", "url"
-                ]
+                row["identity_evidence"] = ["brand", "model", "listing_name", "url"]
                 filtered.append(row)
 
             result = AdapterResult(
@@ -137,7 +136,6 @@ class BuiltinMarketplaceAdapter:
                 error=error,
                 query_url=url,
             )
-
 
 
 def _health_snapshot(source_name: str) -> dict[str, Any] | None:
@@ -225,15 +223,11 @@ def record_adapter_execution(
             )
         conn.commit()
 
+
 def build_verified_adapters(
     registry: list[dict[str, Any]],
 ) -> list[BuiltinMarketplaceAdapter]:
-    """Build adapters only for sources explicitly marked live.
-
-    Candidate/draft/degraded/disabled sources are never executed here.
-    Degraded sources are intentionally excluded until the control plane
-    promotes them back to live.
-    """
+    """Build adapters only for sources explicitly marked live."""
     return [
         BuiltinMarketplaceAdapter(source)
         for source in registry
@@ -247,32 +241,23 @@ def execute_adapters(
     *,
     max_workers: int = 5,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Execute verified adapters independently and aggregate their results.
-
-    A source exception is converted into that source's status record. Other
-    adapters continue and the aggregate search remains successful.
-    """
+    """Execute verified adapters independently and aggregate their results."""
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     adapters = build_verified_adapters(registry)
     if not adapters:
         return [], []
 
-    def run(adapter: BuiltinMarketplaceAdapter) -> AdapterResult:
-        return adapter.fetch(request)
-
     results: list[AdapterResult] = []
     with ThreadPoolExecutor(max_workers=min(max_workers, len(adapters))) as pool:
         future_to_adapter = {
-            pool.submit(run, adapter): adapter for adapter in adapters
+            pool.submit(adapter.fetch, request): adapter for adapter in adapters
         }
         for future in as_completed(future_to_adapter):
             adapter = future_to_adapter[future]
             try:
                 results.append(future.result())
             except Exception as exc:
-                # Defensive isolation even if an adapter implementation itself
-                # violates the fetch contract. Preserve the source identity.
                 results.append(
                     AdapterResult(
                         source_name=adapter.source_name,
