@@ -106,7 +106,21 @@ def load_registry() -> list[dict[str, Any]]:
                coalesce(jsonb_agg(distinct sc.capability_value) filter
                  (where sc.capability_type='condition'),'[]') as conditions,
                coalesce(jsonb_agg(distinct sc.capability_value) filter
-                 (where sc.capability_type='segment'),'[]') as segments
+                 (where sc.capability_type='segment'),'[]') as segments,
+               coalesce((
+                 select jsonb_agg(jsonb_build_object(
+                   'brand', smc.brand,
+                   'model', smc.model,
+                   'condition', smc.condition,
+                   'supported', smc.supported,
+                   'query_template', smc.query_template,
+                   'listing_count', smc.listing_count,
+                   'freshness_minutes', smc.freshness_minutes,
+                   'last_verified_at', smc.last_verified_at
+                 ) order by smc.brand, smc.model, smc.condition)
+                 from public.source_model_capabilities smc
+                 where smc.source_id=s.source_id
+               ), '[]') as model_capabilities
                from public.sources s
                left join public.source_capabilities sc on sc.source_id=s.source_id
                where s.enabled=true
@@ -117,7 +131,7 @@ def load_registry() -> list[dict[str, Any]]:
     result = []
     for row in rows:
         item = dict(row)
-        for key in ("brands", "conditions", "segments"):
+        for key in ("brands", "conditions", "segments", "model_capabilities"):
             item[key] = list(item.get(key) or [])
         result.append(item)
     return result
