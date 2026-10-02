@@ -20,6 +20,7 @@ from .live_marketplaces import (
     _identity_matches_query,
 )
 from .source_intelligence import normalize_condition
+from .source_registry_db import enabled as registry_db_enabled, _connect as registry_connect
 
 
 @dataclass(frozen=True)
@@ -123,6 +124,92 @@ class BuiltinMarketplaceAdapter:
                 query_url=url,
             )
 
+
+
+def _health_snapshot(source_name: str) -> dict[str, Any] | None:
+    if not registry_db_enabled():
+        return None
+    try:
+        with registry_connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                """select sa.status, sa.circuit_state, sa.next_retry_at
+                     from public.source_adapters sa
+                     join public.sources s on s.source_id=sa.source_id
+                    where s.name=%s and sa.status='verified'
+                    order by sa.updated_at desc limit 1""",
+                (source_name,),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+    except Exception:
+        return None
+
+
+def adapter_execution_allowed(source_name: str) -> bool:
+    """Skip verified adapters whose circuit is open and still cooling down."""
+    health = _health_snapshot(source_name)
+    if not health:
+        return True
+    if health.get("status") != "verified":
+        return False
+    state = str(health.get("circuit_state") or "closed")
+    if state == "closed" or state == "half_open":
+        return True
+    retry_at = health.get("next_retry_at")
+    if state == "open" and retry_at:
+        from datetime import datetime, timezone
+        return retry_at <= datetime.now(timezone.utc)
+    return False
+
+
+def record_adapter_execution(
+    source_name: str,
+    *,
+    success: bool,
+    latency_ms: int | None = None,
+    error: str | None = None,
+    failure_threshold: int = 3,
+    cooldown_minutes: int = 15,
+) -> None:
+    """Update per-adapter health and open the circuit after repeated failures."""
+    if not registry_db_enabled():
+        return
+    with registry_connect() as conn, conn.cursor() as cur:
+        adapter_filter = """select sa.adapter_id
+                              from public.source_adapters sa
+                              join public.sources s on s.source_id=sa.source_id
+                             where s.name=%s and sa.status='verified'
+                             order by sa.updated_at desc limit 1"""
+        if success:
+            cur.execute(
+                f"""update public.source_adapters
+                       set consecutive_failures=0,total_successes=total_successes+1,
+                           last_success_at=now(),last_latency_ms=%s,last_error=null,
+                           circuit_state='closed',circuit_opened_at=null,
+                           next_retry_at=null,updated_at=now()
+                     where adapter_id=({adapter_filter})""",
+                (latency_ms, source_name),
+            )
+        else:
+            cur.execute(
+                f"""update public.source_adapters
+                       set consecutive_failures=consecutive_failures+1,
+                           total_failures=total_failures+1,last_failure_at=now(),
+                           last_error=%s,last_latency_ms=%s,
+                           circuit_state=case when consecutive_failures+1 >= %s
+                                              then 'open' else circuit_state end,
+                           circuit_opened_at=case when consecutive_failures+1 >= %s
+                                                 then now() else circuit_opened_at end,
+                           next_retry_at=case when consecutive_failures+1 >= %s
+                                              then now()+make_interval(mins => %s)
+                                              else next_retry_at end,
+                           updated_at=now()
+                     where adapter_id=({adapter_filter})""",
+                (str(error or "")[:500], latency_ms, failure_threshold,
+                 failure_threshold, failure_threshold, cooldown_minutes,
+                 source_name),
+            )
+        conn.commit()
 
 def build_verified_adapters(
     registry: list[dict[str, Any]],
