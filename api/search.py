@@ -13,6 +13,7 @@ ROOT=Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 
 from src.acquisition import purchase_context
+from src.inventory_db import enabled as inventory_enabled, search_inventory
 from src.india_geo import infer_state
 from src.live_marketplaces import live_inventory, _query_parts
 from src.source_intelligence import load_source_registry, plan_sources, summarize_plan
@@ -90,7 +91,7 @@ class handler(BaseHTTPRequestHandler):
             return _response(self,404,{"error":"Not found"})
         try:
             vehicles,sources=live_inventory()
-            return _response(self,200,{"ok":True,"mode":"live","search_scope":"india","vehicles_count":len(vehicles),"sources":sources})
+            return _response(self,200,{"ok":True,"mode":search_mode,"search_scope":"india","vehicles_count":len(vehicles),"sources":sources})
         except Exception as exc:
             return _response(self,500,{"error":f"Search inventory unavailable: {exc}"})
     def do_POST(self):
@@ -115,7 +116,29 @@ class handler(BaseHTTPRequestHandler):
                 destination=destination,
                 registry=load_source_registry(),
             )
-            vehicles,sources=live_inventory(query,condition,budget_min,budget_max,destination)
+            search_mode = "live"
+            if inventory_enabled():
+                vehicles, sources = search_inventory(
+                    query=query,
+                    condition=condition,
+                    budget_min=budget_min,
+                    budget_max=budget_max,
+                    max_age_years=max_age,
+                )
+                if vehicles:
+                    search_mode = "inventory"
+                else:
+                    # Transitional fallback while the background ingestion fleet is
+                    # warming up. Once inventory coverage is healthy this path should
+                    # be disabled to prevent cache-miss fanout to marketplaces.
+                    vehicles, sources = live_inventory(
+                        query, condition, budget_min, budget_max, destination
+                    )
+                    search_mode = "live_fallback"
+            else:
+                vehicles, sources = live_inventory(
+                    query, condition, budget_min, budget_max, destination
+                )
             if source_db_enabled():
                 parts = _query_parts(query)
                 state = infer_state(destination, destination) if destination else ""
