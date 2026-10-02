@@ -161,6 +161,28 @@ def record_discoveries(discoveries: Iterable[dict[str, Any]]) -> int:
     return len(rows)
 
 
+def load_search_demand(*, limit: int = 100, lookback_hours: int = 168) -> list[dict[str, Any]]:
+    """Return aggregated high-demand intents for background source discovery."""
+    if not enabled():
+        return []
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """select brand, model, condition, budget_band, destination_state,
+                      search_count, inventory_hit_count,
+                      case when search_count > 0
+                           then round(inventory_hit_count::numeric / search_count, 4)
+                           else 0 end as hit_rate
+               from public.search_demand
+               where last_searched_at >= now() - make_interval(hours => %s)
+               order by search_count desc,
+                        (search_count - inventory_hit_count) desc
+               limit %s""",
+            (lookback_hours, limit),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+
 def record_health(source_name: str, *, status: str, http_status: int | None = None,
                   latency_ms: int | None = None, listings_found: int = 0,
                   parser_ok: bool | None = None, inventory_verified: bool | None = None,
