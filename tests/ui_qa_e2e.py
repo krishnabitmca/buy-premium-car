@@ -56,6 +56,19 @@ async def main():
         assert "LIVE" in await page.locator(".livebar").inner_text()
         assert "Bengaluru" in await page.locator("#destination").input_value()
 
+        # Valid broad search: Used only + BMW + All models + no price bounds.
+        # This must return BMW inventory across models, not an empty state.
+        await page.locator("#clear").click()
+        await page.locator("#condition").select_option("used")
+        await page.locator("#brand").select_option(label="BMW")
+        assert await page.locator("#model").input_value() == ""
+        await page.locator("#min").fill("")
+        await page.locator("#max").fill("")
+        await page.locator("#search").click()
+        await page.locator(".card").first.wait_for()
+        assert await page.locator(".card").count() == 2
+        assert all("USED" in x for x in await page.locator(".card .photo span").all_inner_texts())
+
         # Condition filtering must distinguish Used and Demonstrator.
         await page.locator("#condition").select_option("used")
         assert await page.locator(".card").count() == 2
