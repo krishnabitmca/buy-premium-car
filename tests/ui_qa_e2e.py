@@ -60,6 +60,7 @@ async def main():
         # This must return BMW inventory across models, not an empty state.
         await page.locator("#clear").click()
         await page.locator("#condition").select_option("used")
+        await page.locator("#brand").select_option(label="Audi")
         await page.locator("#brand").select_option(label="BMW")
         assert await page.locator("#model").input_value() == ""
         await page.locator("#min").fill("")
