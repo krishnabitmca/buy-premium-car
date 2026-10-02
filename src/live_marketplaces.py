@@ -162,6 +162,10 @@ def _is_current_model_link(selected: dict[str,str], href: str) -> bool:
     if parts and (parts[-1] in navigation_slugs or
                   parts[-1].endswith(("-offers","-offer","-dealer","-dealers"))):
         return False
+    # Reject common navigation labels even when the source exposes them through
+    # a query/hash URL or a path variant that otherwise resembles a model page.
+    if any(token in parts for token in {"gallery","images","photos","photo","videos","video","reviews","review","offers","offer","dealers","dealer","service","compare","accessories"}):
+        return False
     if len(parts)==2 and parts[0] in brand_tokens:
         return True
     if len(parts)==3 and parts[0]=="carmodels" and parts[1] in brand_tokens:
