@@ -38,11 +38,9 @@ def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
                           coalesce(s.stale_after_minutes,1440) as stale_after_minutes,
                           coalesce(s.expire_after_minutes,10080) as expire_after_minutes,
                           coalesce(sh.status,'healthy') as health_status,
-                          greatest(
-                            coalesce(
-                              extract(epoch from (now()-max(l.last_verified_at)))/60,
-                              999999
-                            ), 999999
+                          coalesce(
+                            extract(epoch from (now()-max(l.last_verified_at)))/60,
+                            999999
                           ) as age_minutes
                      from public.sources s
                      join public.source_adapters sa
