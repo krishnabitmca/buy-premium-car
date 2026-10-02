@@ -135,7 +135,7 @@ def main() -> None:
         if name:
             promoted.append((name, listings_found))
             print(
-                f"STAGED source={name} listings={listings_found} 
+                f"STAGED source={name} listings={listings_found} "
                 f"brand={item.brand_hint or 'all'} condition={item.condition}"
             )
 
