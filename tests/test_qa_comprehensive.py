@@ -173,6 +173,35 @@ class TestPureFunctions(unittest.TestCase):
         self.assertEqual(urls["CarWale Used"],"https://www.carwale.com/used/mercedes-benz-c-class/")
         self.assertEqual(urls["CarDekho Used"],"https://www.cardekho.com/used-mercedes-benz-c-class+cars")
 
+    def test_brand_only_builds_brand_inventory_urls(self):
+        urls=lm._targeted_source_urls("BMW")
+        self.assertEqual(urls["CarWale Used"],"https://www.carwale.com/used/bmw/")
+        self.assertEqual(urls["CarDekho Used"],"https://www.cardekho.com/used-bmw+cars")
+
+    def test_brand_only_live_search_keeps_all_models(self):
+        calls=[]
+        def fake_fetch(url):
+            calls.append(url)
+            if url=="https://www.cardekho.com/used-bmw+cars":
+                return jsonld("BMW X5",model="X5",url="/used/bmw-x5") + jsonld(
+                    "BMW X3",model="X3",url="/used/bmw-x3",price="4200000")
+            if url=="https://www.carwale.com/used/bmw/":
+                return jsonld("BMW X1",model="X1",url="/used/bmw-x1",price="3500000")
+            return "<html></html>"
+
+        with patch.object(lm, "fetch_text", side_effect=fake_fetch):
+            vehicles, sources = lm.live_inventory(
+                query="BMW", condition="used", budget_min=None, budget_max=None,
+                destination="Bengaluru"
+            )
+
+        self.assertIn("https://www.cardekho.com/used-bmw+cars", calls)
+        self.assertIn("https://www.carwale.com/used/bmw/", calls)
+        self.assertGreaterEqual(len(vehicles), 3)
+        self.assertEqual({v["brand"] for v in vehicles}, {"BMW"})
+        self.assertEqual({v["model"] for v in vehicles}, {"X1","X3","X5"})
+        self.assertTrue(all(v["condition_signal"]=="used" for v in vehicles))
+
     def test_visible_marketplace_listing_parser(self):
         html='''<a href="/used/mumbai/mercedes-benz-c-class/abc">
         2024 Mercedes-Benz C-Class C 200 Mild Hybrid 25,000 km | Petrol | Andheri West, Mumbai Rs. 46.75 Lakh

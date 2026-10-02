@@ -10,21 +10,27 @@ from .dedupe import dedupe
 from .discovery import discover
 from .reporting import render_report,write_csv,write_dashboard_json
 from .scoring import enrich_and_score,negotiation_band
+from .source_registry_db import enabled as source_db_enabled, sync_registry, record_discoveries, record_health, promote_discovery
 
 def load_known_sources(path):return load_yaml(path).get("known_sources",[])
 def domain(url):return urlparse(url).netloc.lower().removeprefix("www.")
 
 def main():
     ap=argparse.ArgumentParser();ap.add_argument("--config",default="config/settings.yaml");ap.add_argument("--sources",default="config/sources.yaml");ap.add_argument("--no-discovery",action="store_true");args=ap.parse_args()
-    settings=load_settings(args.config);known_sources=load_known_sources(args.sources);conn=connect(settings.output["database_path"]);now=datetime.now(timezone.utc).isoformat();run_id=now
+    settings=load_settings(args.config);known_sources=load_known_sources(args.sources)
+    if source_db_enabled():
+        sync_registry(known_sources)
+    conn=connect(settings.output["database_path"]);now=datetime.now(timezone.utc).isoformat();run_id=now
     conn.execute("INSERT INTO run_history(run_id,started_at) VALUES(?,?)",(run_id,now))
     for s in known_sources:record_source(conn,domain(s["url"]),s["url"],s["name"],True,now,"known")
     conn.commit()
     queue=[(s["name"],s["url"],int(s.get("tier",2))) for s in known_sources];new_sources=[]
     if not args.no_discovery:
         found=discover(settings,known_domains(conn));cap=int(settings.market.get("max_discovered_sources_per_run",20))
-        for r in found[:cap]:record_source(conn,r.domain,r.url,r.domain,False,now,"discovered");new_sources.append({"domain":r.domain,"url":r.url,"query":r.query});queue.append((r.domain,r.url,3))
+        for r in found[:cap]:record_source(conn,r.domain,r.url,r.domain,False,now,"discovered");new_sources.append({"domain":r.domain,"url":r.url,"title":r.title,"snippet":r.snippet,"query":r.query,"source_type":r.source_type,"condition":r.condition,"segment":r.segment,"brand_hint":r.brand_hint or "","candidate_confidence":r.candidate_confidence});queue.append((r.domain,r.url,3))
     conn.commit()
+    if source_db_enabled() and new_sources:
+        record_discoveries(new_sources)
     vehicles=dedupe(asyncio.run(crawl_urls(queue,settings)))
     ref_year=int(settings.market["reference_date"][:4]);min_year=ref_year-int(settings.market["default_dashboard_age_years"])+1;filtered=[]
     for v in vehicles:
@@ -33,6 +39,37 @@ def main():
         if not v.live_verified or v.sold_signal:continue
         if v.price_lakh is None:continue
         filtered.append(v)
+    promoted_sources={}
+    if source_db_enabled():
+        source_counts={}
+        for v in filtered:
+            source_name=str(v.source or "unknown")
+            source_counts[source_name]=source_counts.get(source_name,0)+1
+
+        # A discovery becomes customer-searchable only after the crawler proves
+        # that the discovered page contains multiple extractable live listings.
+        # This prevents search-engine noise or one-off vehicle pages from
+        # becoming live marketplace sources.
+        for item in new_sources:
+            source_name=str(item.get("domain") or "")
+            count=source_counts.get(source_name,0)
+            if count >= 2:
+                promoted_name=promote_discovery(item, listings_found=count)
+                if promoted_name:
+                    promoted_sources[source_name]=promoted_name
+                    print(f"source promoted: {source_name} -> {promoted_name} ({count} listings)")
+
+        for source_name in [s[0] for s in queue]:
+            count=source_counts.get(source_name,0)
+            health_name=promoted_sources.get(source_name,source_name)
+            record_health(
+                health_name,
+                status="healthy" if count else "unknown",
+                listings_found=count,
+                parser_ok=bool(count),
+                inventory_verified=bool(count),
+            )
+
     changed=[]
     for v in filtered:
         prev=get_latest_for_fingerprint(conn,v.fingerprint)
@@ -44,7 +81,7 @@ def main():
     conn.commit()
     discovered_path=Path(settings.output["discovered_sources_path"]);discovered_path.parent.mkdir(parents=True,exist_ok=True);write_header=not discovered_path.exists()
     with discovered_path.open("a",newline="",encoding="utf-8") as f:
-        w=csv.DictWriter(f,fieldnames=["run_date","domain","url","query"])
+        w=csv.DictWriter(f,fieldnames=["run_date","domain","url","query","source_type","condition","segment","brand_hint","candidate_confidence"])
         if write_header:w.writeheader()
         for s in new_sources:w.writerow({"run_date":settings.market["reference_date"],**s})
     report_path=settings.output["latest_report_path"];dated_path=str(Path(settings.output["run_report_dir"])/f"run-{settings.market['reference_date']}.md")

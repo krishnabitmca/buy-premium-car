@@ -11,7 +11,8 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 
 from src.acquisition import purchase_context
 from src.india_geo import infer_state
-from src.live_marketplaces import live_inventory
+from src.live_marketplaces import live_inventory, _query_parts
+from src.source_intelligence import load_source_registry, plan_sources, summarize_plan
 
 def _read_json(handler):
     length=int(handler.headers.get("Content-Length","0"))
@@ -87,7 +88,17 @@ class handler(BaseHTTPRequestHandler):
             max_age=float(body["max_age_years"]) if body.get("max_age_years") not in (None,"") else None
             if budget_min is not None and budget_max is not None and budget_min>budget_max:
                 return _response(self,400,{"error":"Minimum budget cannot exceed maximum budget"})
-            vehicles,sources=live_inventory(query)
+            condition=str(body.get("condition") or "both")
+            source_plan=plan_sources(
+                brand=_query_parts(query)[0],
+                model=_query_parts(query)[1],
+                condition=condition,
+                budget_min=budget_min,
+                budget_max=budget_max,
+                destination=destination,
+                registry=load_source_registry(),
+            )
+            vehicles,sources=live_inventory(query,condition,budget_min,budget_max,destination)
             if not vehicles and sources and not any(s.get("status") == "live" for s in sources):
                 return _response(self,503,{"error":"Live marketplace sources are currently unavailable","mode":"live","sources":sources})
             results=[]
@@ -127,6 +138,8 @@ class handler(BaseHTTPRequestHandler):
                 "mode":"live",
                 "live_at":__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
                 "sources":sources,
+                "source_strategy":summarize_plan(source_plan),
+                "source_plan":[{k:p.get(k) for k in ("name","source_type","adapter_status","score","query_strategy","query","reasons")} for p in source_plan[:12]],
                 "total_results":len(results),
                 "sources_found":len({s for v in results for s in [v.get("source")] if s}),
                 "results":results

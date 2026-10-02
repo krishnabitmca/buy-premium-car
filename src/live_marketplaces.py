@@ -7,13 +7,17 @@ import urllib.request
 import urllib.error
 import time
 import socket
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
 from typing import Any
 
+from .source_intelligence import load_source_registry, plan_sources, normalize_condition
+
 USER_AGENT = "CarScanner/1.0 (+https://carscanner.in)"
-TIMEOUT = 12
+TIMEOUT = 5
 MAX_BODY_BYTES = 3000000
-FETCH_RETRIES = 3
+FETCH_RETRIES = 2
+MAX_PARALLEL_SOURCES = 5
 RETRYABLE_STATUS = {408,425,429,500,502,503,504}
 
 CURRENT_BRANDS = [
@@ -361,17 +365,26 @@ def _query_parts(query: str) -> tuple[str|None,str|None]:
 
 def _targeted_source_urls(query: str) -> dict[str,str]:
     brand,model=_query_parts(query)
-    if not brand or not model:
+    if not brand:
         return {}
     brand_slug=_slug(_canonical_brand(brand))
-    model_slug=_slug(model)
-    if not model_slug:
-        return {}
+    model_slug=_slug(model) if model else ""
     # These routes are verified marketplace model pages and keep the live query
     # India-wide rather than constraining it to the user's destination.
+    if model_slug:
+        return {
+            "CarDekho Used": f"https://www.cardekho.com/used-{brand_slug}-{model_slug}+cars",
+            "CarWale Used": f"https://www.carwale.com/used/{brand_slug}-{model_slug}/",
+        }
+
+    # Brand-only search is a valid "all models" request, so target brand inventory pages.
+    # A brand-only search must still target the brand inventory pages. The
+    # generic marketplace landing pages do not reliably expose listing cards,
+    # which can incorrectly turn a valid "Used + Brand + All models" search
+    # into an empty result set.
     return {
-        "CarDekho Used": f"https://www.cardekho.com/used-{brand_slug}-{model_slug}+cars",
-        "CarWale Used": f"https://www.carwale.com/used/{brand_slug}-{model_slug}/",
+        "CarDekho Used": f"https://www.cardekho.com/used-{brand_slug}+cars",
+        "CarWale Used": f"https://www.carwale.com/used/{brand_slug}/",
     }
 
 def _canonical_url(base_url: str, href: Any) -> str:
@@ -524,36 +537,76 @@ def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
         seen.add(key);out.append(row)
     return out
 
-LIVE_SOURCES=[
-    ("Motozite Demo","https://motozite.com/demo-cars"),
-    ("CarDekho Used","https://www.cardekho.com/used-cars"),
-    ("CarWale Used","https://www.carwale.com/used/"),
-    ("Cars24 Luxury Used","https://www.cars24.com/buy-used-luxury-cars/"),
-    ("Spinny Luxury Used","https://www.spinny.com/used-luxury-cars/s/"),
-]
+def _live_source_entries() -> list[dict]:
+    """Return only registry sources whose adapters are verified for live search."""
+    return [s for s in load_source_registry() if s.get("adapter_status") == "live"]
 
-def live_inventory(query: str="") -> tuple[list[dict],list[dict]]:
-    vehicles=[];source_status=[]
+
+def _execute_source(planned: dict, source: dict, url: str, query: str, condition: str) -> tuple[list[dict],dict]:
+    name=str(planned["name"])
+    try:
+        html=fetch_text(url)
+        parsed=parse_live_listings(html,name,url)
+        # Some marketplace pages expose cards as rendered links rather than
+        # JSON-LD. Use the visible listing representation as a second parser.
+        if not parsed and query:
+            parsed=parse_visible_listing_links(html,name,url,query)
+        if query:
+            filtered=[]
+            for row in parsed:
+                if not _identity_matches_query(row,query):
+                    continue
+                actual=normalize_condition(row.get("condition_signal"))
+                wanted=normalize_condition(condition)
+                if wanted in {"used","demo"} and actual != wanted:
+                    continue
+                row["identity_confidence"]=1.0 if row.get("brand") and row.get("model") else 0.0
+                row["identity_evidence"]=["brand","model","listing_name","url"]
+                filtered.append(row)
+            parsed=filtered
+        return parsed,{
+            "source":name,"status":"live","listings_found":len(parsed),"query_url":url,
+            "source_type":planned.get("source_type"),"source_score":planned.get("score"),
+            "query_strategy":planned.get("query_strategy"),"selection_reasons":planned.get("reasons",[]),
+        }
+    except Exception as exc:
+        return [],{
+            "source":name,"status":"unavailable","listings_found":0,"error":str(exc)[:160],
+            "query_url":url,"source_type":planned.get("source_type"),
+            "source_score":planned.get("score"),"query_strategy":planned.get("query_strategy"),
+            "selection_reasons":planned.get("reasons",[]),
+        }
+
+def live_inventory(
+    query: str = "",
+    condition: str = "both",
+    budget_min: float | None = None,
+    budget_max: float | None = None,
+    destination: str | None = None,
+) -> tuple[list[dict],list[dict]]:
+    """Search selected live sources concurrently; destination never restricts inventory."""
+    brand,model=_query_parts(query)
+    registry=_live_source_entries()
+    plan=plan_sources(
+        brand=brand,model=model,condition=condition,budget_min=budget_min,
+        budget_max=budget_max,destination=destination,registry=registry,live_only=True,
+    )
     targeted=_targeted_source_urls(query)
-    for name,default_url in LIVE_SOURCES:
-        url=targeted.get(name,default_url)
-        try:
-            html=fetch_text(url)
-            parsed=parse_live_listings(html,name,url)
-            # Some marketplace pages expose cards as rendered links rather than
-            # JSON-LD. Use the visible listing representation as a second parser.
-            if not parsed and query:
-                parsed=parse_visible_listing_links(html,name,url,query)
-            if query:
-                filtered=[]
-                for row in parsed:
-                    if _identity_matches_query(row,query):
-                        row["identity_confidence"]=1.0 if row.get("brand") and row.get("model") else 0.0
-                        row["identity_evidence"]=["brand","model","listing_name","url"]
-                        filtered.append(row)
-                parsed=filtered
+    by_name={str(s.get("name")):s for s in registry}
+    jobs=[]
+    for planned in plan:
+        name=str(planned["name"])
+        source=by_name.get(name,{})
+        jobs.append((planned,source,targeted.get(name,str(source.get("url") or ""))))
+
+    vehicles=[];source_status=[]
+    with ThreadPoolExecutor(max_workers=min(MAX_PARALLEL_SOURCES,max(1,len(jobs)))) as pool:
+        futures=[pool.submit(_execute_source,p,s,u,query,condition) for p,s,u in jobs]
+        for future in as_completed(futures):
+            parsed,status=future.result()
             vehicles.extend(parsed)
-            source_status.append({"source":name,"status":"live","listings_found":len(parsed),"query_url":url})
-        except Exception as exc:
-            source_status.append({"source":name,"status":"unavailable","listings_found":0,"error":str(exc)[:160],"query_url":url})
+            source_status.append(status)
+
+    # Stable ordering for deterministic API output and tests.
+    source_status.sort(key=lambda x:x.get("source",""))
     return vehicles,source_status
