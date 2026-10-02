@@ -356,6 +356,39 @@ class TestHTTPContracts(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertIn("Minimum budget", body["error"])
 
+    def test_inventory_partial_source_coverage_falls_back_to_live_sources(self):
+        inventory_rows=[{
+            "brand":"Audi","model":"Q5","price_lakh":45,
+            "source":"CarDekho Used","condition":"used",
+            "live_verified":True,"data_consistent":True,
+        }]
+        live_rows=[
+            dict(inventory_rows[0]),
+            {"brand":"Audi","model":"Q5","price_lakh":47,"source":"CarWale Used","condition_signal":"used","live_verified":True,"data_consistent":True},
+            {"brand":"Audi","model":"Q5","price_lakh":46,"source":"Cars24 Luxury Used","condition_signal":"used","live_verified":True,"data_consistent":True},
+            {"brand":"Audi","model":"Q5","price_lakh":48,"source":"Spinny Luxury Used","condition_signal":"used","live_verified":True,"data_consistent":True},
+        ]
+        inventory_sources=[{"name":"CarDekho Used","status":"inventory","mode":"inventory"}]
+        live_sources=[
+            {"source":"CarDekho Used","status":"live","listings_found":1},
+            {"source":"CarWale Used","status":"live","listings_found":1},
+            {"source":"Cars24 Luxury Used","status":"live","listings_found":1},
+            {"source":"Spinny Luxury Used","status":"live","listings_found":1},
+        ]
+        with patch.object(search_api,"inventory_enabled",return_value=True), \
+             patch.object(search_api,"search_inventory",return_value=(inventory_rows,inventory_sources)), \
+             patch.object(search_api,"live_inventory",return_value=(live_rows,live_sources)), \
+             patch.object(search_api,"load_source_registry",return_value=[
+                 {"name":"CarDekho Used","adapter_status":"live","conditions":["used"],"segments":["luxury"],"brands":["all"],"priority":90},
+                 {"name":"CarWale Used","adapter_status":"live","conditions":["used"],"segments":["luxury"],"brands":["all"],"priority":90},
+                 {"name":"Cars24 Luxury Used","adapter_status":"live","conditions":["used"],"segments":["luxury"],"brands":["Audi"],"priority":82},
+                 {"name":"Spinny Luxury Used","adapter_status":"live","conditions":["used"],"segments":["luxury"],"brands":["Audi"],"priority":82},
+             ]):
+            status,body=self.request("POST","/api/search",{"query":"Audi Q5","condition":"used"})
+        self.assertEqual(status,200)
+        self.assertEqual(body["mode"],"live_coverage_fallback")
+        self.assertEqual(body["sources_found"],4)
+
     def test_post_market_reference_and_destination_is_not_filter(self):
         vehicles=[]
         for price, city in [(45,"Delhi"),(50,"Mumbai"),(55,"Bengaluru"),(60,"Pune")]:
