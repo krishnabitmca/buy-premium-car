@@ -124,6 +124,33 @@ def _destination_bonus(source: dict[str, Any], destination: str | None) -> int:
     return 5 if source.get("geography") == "regional" else 0
 
 
+
+def _model_matches(source: dict[str, Any], brand: str | None, model: str | None, condition: str) -> bool:
+    """Require verified source/model capability when a model is explicitly requested."""
+    if not model:
+        return True
+
+    capabilities = source.get("model_capabilities") or []
+    if not capabilities:
+        # YAML/bootstrap sources have no matrix yet; preserve current fallback behavior.
+        return True
+
+    wanted_brand = str(brand or "*").strip().lower()
+    wanted_model = str(model).strip().lower()
+    wanted_condition = normalize_condition(condition)
+
+    for cap in capabilities:
+        if not cap.get("supported", True):
+            continue
+        cap_brand = str(cap.get("brand") or "").strip().lower()
+        cap_model = str(cap.get("model") or "").strip().lower()
+        cap_condition = normalize_condition(cap.get("condition"))
+        if (cap_brand in {"*", wanted_brand}
+                and cap_model in {"*", wanted_model}
+                and cap_condition in {"both", wanted_condition}):
+            return True
+    return False
+
 def plan_sources(
     *,
     brand: str | None = None,
@@ -147,6 +174,8 @@ def plan_sources(
         if not _condition_matches(source, condition):
             continue
         if not _brand_matches(source, brand):
+            continue
+        if not _model_matches(source, brand, model, condition):
             continue
         if not _segment_matches(source, segments):
             continue
@@ -188,6 +217,7 @@ def plan_sources(
             "geography": source.get("geography", "unknown"),
             "conditions": source.get("conditions") or [],
             "segments": source.get("segments") or [],
+            "model_capabilities": source.get("model_capabilities") or [],
             "priority": int(source.get("priority") or 50),
             "score": score,
             "query_strategy": source.get("query_strategy", "brand_model"),
