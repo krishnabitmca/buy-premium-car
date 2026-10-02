@@ -365,7 +365,7 @@ def _query_parts(query: str) -> tuple[str|None,str|None]:
 
 def _targeted_source_urls(query: str) -> dict[str,str]:
     brand,model=_query_parts(query)
-    if not brand or not model:
+    if not brand:
         return {}
     brand_slug=_slug(_canonical_brand(brand))
     model_slug=_slug(model)
