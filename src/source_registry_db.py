@@ -168,3 +168,108 @@ def record_health(source_name: str, *, status: str, http_status: int | None = No
             (source_name,)
         )
         conn.commit()
+
+
+def promote_discovery(discovery: dict[str, Any], *, listings_found: int) -> str | None:
+    """Promote a validated discovery into the live source registry.
+
+    Promotion is deliberately evidence-based: the caller must have fetched the
+    endpoint and proven that it exposes extractable inventory before calling
+    this function. Existing YAML/DB sources are never overwritten by a discovery.
+    """
+    if not enabled() or listings_found < 2:
+        return None
+
+    url = str(discovery.get("url") or "").strip()
+    domain = str(discovery.get("domain") or urlparse(url).netloc).lower().removeprefix("www.")
+    if not url or not domain:
+        return None
+
+    brand = str(discovery.get("brand_hint") or "").strip()
+    condition = str(discovery.get("condition") or "both").strip().lower()
+    segment = str(discovery.get("segment") or "mass_market").strip().lower()
+    source_type = str(discovery.get("source_type") or "marketplace").strip().lower()
+    name = f"Discovered - {domain}"
+    key = f"discovered_{domain.replace('.', '_').replace('-', '_')}"
+
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """select source_id, name from public.sources
+               where lower(regexp_replace(url, '^https?://(www\\.)?', '')) like %s
+                  or source_key=%s
+               limit 1""",
+            (domain + "%", key),
+        )
+        existing = cur.fetchone()
+        if existing:
+            cur.execute(
+                """update public.sources
+                   set last_seen_at=now(), last_validated_at=now()
+                   where source_id=%s""",
+                (existing["source_id"],),
+            )
+            cur.execute(
+                """update public.source_discoveries
+                   set source_id=%s,status='promoted'
+                   where domain=%s and url=%s""",
+                (existing["source_id"], domain, url),
+            )
+            conn.commit()
+            return str(existing["name"])
+
+        metadata = {
+            "discovered": True,
+            "discovery_title": discovery.get("title"),
+            "discovery_query": discovery.get("query"),
+            "candidate_confidence": discovery.get("candidate_confidence"),
+            "validation_listings_found": listings_found,
+        }
+        cur.execute(
+            """insert into public.sources
+               (source_key,name,url,tier,source_type,adapter_status,geography,
+                query_strategy,vehicle_link_pattern,priority,enabled,metadata)
+               values (%s,%s,%s,2,%s,'live','india','discovered_catalogue',
+                       '/(?:used|pre-owned|demo|cars|vehicle|listing)[^?#]*',
+                       %s,true,%s)
+               returning source_id""",
+            (key, name, url, source_type, 75 + min(15, int(float(discovery.get("candidate_confidence") or 0) * 10)),
+             json.dumps(metadata)),
+        )
+        source_id = cur.fetchone()["source_id"]
+
+        capabilities = [
+            ("brand", brand or "all"),
+            ("condition", condition if condition in {"used", "demo"} else "both"),
+            ("segment", segment),
+        ]
+        for capability_type, capability_value in capabilities:
+            cur.execute(
+                """insert into public.source_capabilities
+                   (source_id,capability_type,capability_value)
+                   values (%s,%s,%s)
+                   on conflict do nothing""",
+                (source_id, capability_type, capability_value),
+            )
+        cur.execute(
+            """insert into public.source_endpoints
+               (source_id,url,endpoint_type,is_active,last_checked_at,
+                last_http_status,metadata)
+               values (%s,%s,'catalogue',true,now(),200,%s)
+               on conflict (source_id,url) do update set
+                 is_active=true,last_checked_at=now(),last_http_status=200""",
+            (source_id, url, json.dumps({"validated_listings": listings_found})),
+        )
+        cur.execute(
+            """update public.source_discoveries
+               set source_id=%s,status='promoted'
+               where domain=%s and url=%s""",
+            (source_id, domain, url),
+        )
+        cur.execute(
+            """insert into public.source_health
+               (source_id,status,http_status,listings_found,parser_ok,inventory_verified,metadata)
+               values (%s,'healthy',200,%s,true,true,%s)""",
+            (source_id, listings_found, json.dumps({"promotion": "discovery_validation"})),
+        )
+        conn.commit()
+    return name
