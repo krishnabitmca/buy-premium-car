@@ -11,14 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 import time
 
-from .live_marketplaces import (
-    _execute_source,
-    _targeted_source_urls,
-    fetch_text,
-    parse_live_listings,
-    parse_visible_listing_links,
-    _identity_matches_query,
-)
+from . import live_marketplaces as live_marketplaces
 from .source_intelligence import normalize_condition
 from .source_registry_db import enabled as registry_db_enabled, _connect as registry_connect
 
@@ -61,7 +54,7 @@ class BuiltinMarketplaceAdapter:
         self.source_name = str(source.get("name") or "")
 
     def _url(self, request: AdapterRequest) -> str:
-        targeted = _targeted_source_urls(request.query)
+        targeted = live_marketplaces._targeted_source_urls(request.query)
         return targeted.get(self.source_name, str(self.source.get("url") or ""))
 
     def fetch(self, request: AdapterRequest) -> AdapterResult:
@@ -82,17 +75,17 @@ class BuiltinMarketplaceAdapter:
             )
 
         try:
-            html = fetch_text(url)
-            parsed = parse_live_listings(html, self.source_name, url)
+            html = live_marketplaces.fetch_text(url)
+            parsed = live_marketplaces.parse_live_listings(html, self.source_name, url)
             if not parsed and request.query:
-                parsed = parse_visible_listing_links(
+                parsed = live_marketplaces.parse_visible_listing_links(
                     html, self.source_name, url, request.query
                 )
 
             wanted_condition = normalize_condition(request.condition)
             filtered: list[dict[str, Any]] = []
             for row in parsed:
-                if request.query and not _identity_matches_query(row, request.query):
+                if request.query and not live_marketplaces._identity_matches_query(row, request.query):
                     continue
                 actual = normalize_condition(row.get("condition_signal"))
                 if wanted_condition in {"used", "demo"} and actual != wanted_condition:
