@@ -1,76 +1,345 @@
+# Canonical source registry for acquisition + source planning.
+# adapter_status: live = currently wired into the customer live-search path;
+# candidate = known source, not yet wired to live search;
+# discovery_only = tracked for discovery/research, not directly crawled yet.
+# conditions describe the inventory segment the source is intended to cover.
+# segments are product segments, not customer-facing filters.
+
 known_sources:
+- name: CarDekho Used
+  url: https://www.cardekho.com/usedCars/
+  tier: 1
+  source_type: marketplace
+  adapter_status: live
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium, luxury]
+  brands: [all]
+  priority: 90
+  query_strategy: brand_model
+  vehicle_link_pattern: /used-car-details/[^?#]+\.htm
+
+- name: CarWale Used
+  url: https://www.carwale.com/used/
+  tier: 1
+  source_type: marketplace
+  adapter_status: live
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium, luxury]
+  brands: [all]
+  priority: 90
+  query_strategy: brand_model
+  vehicle_link_pattern: /used/[^?#]+
+
+- name: Cars24 Luxury Used
+  url: https://www.cars24.com/buy-used-luxury-cars/
+  tier: 1
+  source_type: used_retailer
+  adapter_status: live
+  geography: india
+  conditions: [used]
+  segments: [premium, luxury]
+  brands: [BMW, Mercedes-Benz, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI]
+  priority: 82
+  query_strategy: luxury_model
+  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
+
+- name: Spinny Luxury Used
+  url: https://www.spinny.com/used-luxury-cars/s/
+  tier: 1
+  source_type: used_retailer
+  adapter_status: live
+  geography: india
+  conditions: [used]
+  segments: [premium, luxury]
+  brands: [BMW, Mercedes-Benz, Audi, Volvo, MINI]
+  priority: 82
+  query_strategy: luxury_model
+  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
+
+- name: Motozite Demo
+  url: https://motozite.com/demo-cars
+  tier: 2
+  source_type: luxury_specialist
+  adapter_status: live
+  geography: regional
+  conditions: [demo]
+  segments: [premium, luxury, super_luxury]
+  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
+  priority: 86
+  query_strategy: demo_model
+  vehicle_link_pattern: /(?:pre-owned-cars|demo-cars)/[^/?#]+
+
 - name: Mercedes-Benz Used Cars
   url: https://www.mercedes-benzusedcar.in/buy-used-cars
   tier: 1
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used, demo]
+  segments: [luxury, super_luxury]
   brands: [Mercedes-Benz]
+  priority: 100
+  query_strategy: oem_brand_model
   vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
-- name: Motozite
-  url: https://motozite.com/pre-owned-cars
+
+- name: BMW Premium Selection
+  url: https://www.bmwusedcars.in/buy-used-cars
   tier: 1
-  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
-  vehicle_link_pattern: /(?:pre-owned-cars|demo-cars)/[^/?#]+
-- name: Motozite Demo
-  url: https://motozite.com/demo-cars
-  tier: 1
-  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
-  vehicle_link_pattern: /(?:pre-owned-cars|demo-cars)/[^/?#]+
-- name: Big Boy Toyz
-  url: https://www.bigboytoyz.com/
-  tier: 2
-  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used, demo]
+  segments: [luxury, super_luxury]
+  brands: [BMW, MINI]
+  priority: 100
+  query_strategy: oem_brand_model
   vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
-- name: CarWale Used
-  url: https://www.carwale.com/used/
-  tier: 2
-  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche, Jeep]
-  vehicle_link_pattern: /used/[^?#]+/[a-z0-9]+/?$
-- name: CarDekho Used
-  url: https://www.cardekho.com/used-cars
-  tier: 2
-  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche, Jeep]
-  vehicle_link_pattern: /used-car-details/[^?#]+\.htm
-- name: Cars24
-  url: https://www.cars24.com/buy-used-luxury-cars/
-  tier: 2
-  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI]
-  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
-- name: Spinny
-  url: https://www.spinny.com/used-luxury-cars/s/
-  tier: 2
-  brands: [Mercedes-Benz, BMW, Audi, Volvo, MINI]
-  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
-- name: AutoBest Emperio
-  url: https://autobest.co.in/pre-owned-cars
-  tier: 2
-  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
-  vehicle_link_pattern: /pre-owned-cars/[^/?#]+
-- name: 9th Gear
-  url: https://www.9thgear.co.in/luxury-used-cars-bangalore
-  tier: 2
-  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
-  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
-- name: Luxury Ride
-  url: https://luxuryrideofficial.com/
-  tier: 2
-  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
-  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
-- name: AutoHangar Used Cars
-  url: https://autohangar.net/usedcars/
-  tier: 1
-  brands: [Mercedes-Benz, BMW]
-  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
-- name: Volvo Selekt
-  url: https://www.volvocars.com/in/l/used-cars/
-  tier: 1
-  brands: [Volvo]
-  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
+
 - name: Audi Approved Plus
   url: https://www.audi.in/en/used-cars/
   tier: 1
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [luxury, super_luxury]
   brands: [Audi]
+  priority: 100
+  query_strategy: oem_brand_model
   vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
-- name: BMW Premium Selection
-  url: https://www.bmw-usedcars.in/
+
+- name: Volvo Selekt
+  url: https://www.volvocars.com/in/l/used-cars/
   tier: 1
-  brands: [BMW]
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [premium, luxury]
+  brands: [Volvo]
+  priority: 100
+  query_strategy: oem_brand_model
   vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
+
+- name: Maruti Suzuki True Value
+  url: https://www.marutisuzukitruevalue.com/buy-car
+  tier: 1
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [mass_market]
+  brands: [Maruti Suzuki]
+  priority: 100
+  query_strategy: oem_brand_model
+  vehicle_link_pattern: /(?:buy-car|used|pre-owned)[^?#]*
+
+- name: Toyota U Trust
+  url: https://alpha3.toyotautrust.in/
+  tier: 1
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium]
+  brands: [Toyota, all]
+  priority: 96
+  query_strategy: oem_brand_model
+  vehicle_link_pattern: /(?:used|cars|search)[^?#]*
+
+- name: Hyundai Promise
+  url: https://www.hyundai.com/in/en/click-to-buy/hyundai-promise
+  tier: 1
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium]
+  brands: [Hyundai]
+  priority: 100
+  query_strategy: oem_brand_model
+  vehicle_link_pattern: /(?:used|pre-owned|promise)[^?#]*
+
+- name: Honda Auto Terrace
+  url: https://www.hondaautoterrace.com/used-cars/
+  tier: 1
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium]
+  brands: [Honda, all]
+  priority: 96
+  query_strategy: oem_brand_model
+  vehicle_link_pattern: /used-cars/[^?#]*
+
+- name: Mahindra First Choice
+  url: https://www.mahindrafirstchoice.com/used/
+  tier: 1
+  source_type: used_retailer
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium]
+  brands: [all]
+  priority: 92
+  query_strategy: brand_model
+  vehicle_link_pattern: /used/[^?#]+
+
+- name: Das WeltAuto
+  url: https://www.dasweltauto.co.in/buy-used-cars
+  tier: 1
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium, luxury]
+  brands: [Volkswagen, Skoda, all]
+  priority: 96
+  query_strategy: certified_brand_model
+  vehicle_link_pattern: /used/[^?#]+
+
+- name: CarTrade
+  url: https://www.cartrade.com/second-hand/
+  tier: 1
+  source_type: marketplace
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium, luxury]
+  brands: [all]
+  priority: 84
+  query_strategy: brand_model
+  vehicle_link_pattern: /(?:second-hand|used)[^?#]*
+
+- name: Droom
+  url: https://droom.in/cars/used
+  tier: 2
+  source_type: marketplace
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium, luxury]
+  brands: [all]
+  priority: 78
+  query_strategy: brand_model
+  vehicle_link_pattern: /(?:cars|used)[^?#]*
+
+- name: OLX Cars
+  url: https://www.olx.in/cars_c84
+  tier: 2
+  source_type: classifieds
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium, luxury, super_luxury]
+  brands: [all]
+  priority: 72
+  query_strategy: classifieds_brand_model
+  vehicle_link_pattern: /(?:cars|cars-vehicles)[^?#]*
+
+- name: Quikr Cars
+  url: https://www.quikr.com/cars/used-cars/all-india/
+  tier: 2
+  source_type: classifieds
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium, luxury]
+  brands: [all]
+  priority: 65
+  query_strategy: classifieds_brand_model
+  vehicle_link_pattern: /cars[^?#]*
+
+- name: Big Boy Toyz
+  url: https://www.bigboytoyz.com/
+  tier: 2
+  source_type: luxury_specialist
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [luxury, super_luxury]
+  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
+  priority: 90
+  query_strategy: luxury_model
+  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
+
+- name: AutoBest Emperio
+  url: https://autobest.co.in/pre-owned-cars
+  tier: 2
+  source_type: luxury_specialist
+  adapter_status: candidate
+  geography: regional
+  conditions: [used]
+  segments: [luxury, super_luxury]
+  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
+  priority: 76
+  query_strategy: luxury_model
+  vehicle_link_pattern: /pre-owned-cars/[^/?#]+
+
+- name: AutoHangar Used Cars
+  url: https://autohangar.net/usedcars/
+  tier: 2
+  source_type: dealer_group
+  adapter_status: candidate
+  geography: regional
+  conditions: [used, demo]
+  segments: [premium, luxury]
+  brands: [Mercedes-Benz, BMW]
+  priority: 86
+  query_strategy: dealer_brand_model
+  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
+
+- name: 9th Gear
+  url: https://www.9thgear.co.in/luxury-used-cars-bangalore
+  tier: 2
+  source_type: luxury_specialist
+  adapter_status: candidate
+  geography: regional
+  conditions: [used]
+  segments: [luxury, super_luxury]
+  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
+  priority: 70
+  query_strategy: luxury_model
+  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
+
+- name: Luxury Ride
+  url: https://luxuryrideofficial.com/
+  tier: 2
+  source_type: luxury_specialist
+  adapter_status: candidate
+  geography: regional
+  conditions: [used]
+  segments: [luxury, super_luxury]
+  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
+  priority: 70
+  query_strategy: luxury_model
+  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
+
+- name: Tata Assured
+  url: https://www.tatamotors.com/
+  tier: 2
+  source_type: oem_certified
+  adapter_status: discovery_only
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium]
+  brands: [Tata]
+  priority: 92
+  query_strategy: oem_brand_model
+  vehicle_link_pattern: /(?:used|assured|pre-owned)[^?#]*
+
+- name: Motozite
+  url: https://motozite.com/pre-owned-cars
+  tier: 2
+  source_type: luxury_specialist
+  adapter_status: candidate
+  geography: regional
+  conditions: [used]
+  segments: [premium, luxury, super_luxury]
+  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
+  priority: 76
+  query_strategy: luxury_model
+  vehicle_link_pattern: /(?:pre-owned-cars|demo-cars)/[^/?#]+

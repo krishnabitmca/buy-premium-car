@@ -62,19 +62,47 @@ const money=x=>x==null?'—':'₹'+Number(x).toFixed(2)+'L';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const age=v=>v.mfg_year?new Date().getFullYear()-Number(v.mfg_year):99;
 function conditionOf(v){const s=String(v.condition_signal||'').toLowerCase();if(s==='used')return'used';if(s==='demo'||s==='demonstrator')return'demo';return(String(v.variant||'')+' '+String(v.source||'')).toLowerCase().includes('demo')?'demo':'used'}
+const FALLBACK_BRANDS=['Maruti Suzuki','Tata','Kia','Toyota','Hyundai','Mahindra','Honda','MG Motor','Skoda','Jeep','Renault','Nissan','Volkswagen','Citroën','Aston Martin','Audi','Bajaj','Bentley','Blinq Mobility','BMW','BYD','Ferrari','Force','Isuzu','Jaguar','Lamborghini','Land Rover','Lexus','Lotus','Maserati','McLaren','Mercedes-Benz','MINI','PMV','Porsche','Pravaig','Rolls-Royce','Strom Motors','Tesla','Vayve Mobility','VinFast','Volvo'];
+function setBrandOptions(brands){
+ const names=[...new Set((brands||[]).map(x=>typeof x==='string'?x:x?.name).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+ $('brand').innerHTML='<option value="">All brands</option>'+names.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
+ $('brand').disabled=false;
+}
+function catalogFetch(url){
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+ return fetch(url,{cache:'no-store',signal:controller.signal}).finally(()=>clearTimeout(timer));
+}
 async function loadCatalog(){
- $('brand').disabled=true;$('model').disabled=true;$('brand').innerHTML='<option>Loading live brands…</option>';
- try{const r=await fetch('/api/catalog?ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error();const p=await r.json();if(!p.ok||p.mode!=='live')throw Error();
- const brands=(p.brands||[]).map(x=>x.name).filter(Boolean);$('brand').innerHTML='<option value="">All brands</option>'+brands.map(x=>'<option>'+esc(x)+'</option>').join('');
- }catch(e){$('brand').innerHTML='<option value="">Live catalog unavailable</option>'}
- finally{$('brand').disabled=false;$('model').disabled=false}
+ // Never leave the primary search control blank while the live catalog is
+ // being refreshed. This prevents a slow/blocked upstream marketplace from
+ // making the page look broken.
+ setBrandOptions(FALLBACK_BRANDS);
+ try{
+  const r=await catalogFetch('/api/catalog?ts='+Date.now());
+  if(!r.ok)throw Error('catalog HTTP '+r.status);
+  const p=await r.json();
+  if(!p.ok||p.mode!=='live'||!Array.isArray(p.brands))throw Error('invalid live catalog');
+  if(p.brands.length)setBrandOptions(p.brands);
+ }catch(e){
+  // Keep the known-good taxonomy. The model lookup remains live per brand.
+  $('brand').disabled=false;
+ }
 }
 async function loadModels(){
- const b=$('brand').value;$('model').disabled=true;if(!b){$('model').innerHTML='<option value="">All models</option>';$('model').disabled=false;return}
- $('model').innerHTML='<option>Loading live models…</option>';
- try{const r=await fetch('/api/catalog?brand='+encodeURIComponent(b)+'&ts='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error();const p=await r.json();if(!p.ok||p.mode!=='live')throw Error();
- const models=(p.models||[]).map(x=>x.name).filter(Boolean);$('model').innerHTML='<option value="">All models</option>'+models.map(x=>'<option>'+esc(x)+'</option>').join('');
- }catch(e){$('model').innerHTML='<option value="">Live models unavailable</option>'}finally{$('model').disabled=false}
+ const b=$('brand').value;
+ $('model').disabled=true;
+ if(!b){$('model').innerHTML='<option value="">All models</option>';$('model').disabled=false;return}
+ $('model').innerHTML='<option value="">Loading live models…</option>';
+ try{
+  const r=await catalogFetch('/api/catalog?brand='+encodeURIComponent(b)+'&ts='+Date.now());
+  if(!r.ok)throw Error('models HTTP '+r.status);
+  const p=await r.json();
+  if(!p.ok||p.mode!=='live'||!Array.isArray(p.models))throw Error('invalid live models');
+  const models=[...new Map(p.models.filter(x=>x&&x.name&&x.name.toLowerCase()!=='images').map(x=>[x.name.toLowerCase(),x])).values()];
+  $('model').innerHTML='<option value="">All models</option>'+models.map(x=>'<option value="'+esc(x.name)+'">'+esc(x.name)+'</option>').join('');
+ }catch(e){
+  $('model').innerHTML='<option value="">Live models unavailable</option>';
+ }finally{$('model').disabled=false}
 }
 $('brand').onchange=loadModels;
 async function searchLive(){

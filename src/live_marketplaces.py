@@ -7,13 +7,17 @@ import urllib.request
 import urllib.error
 import time
 import socket
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
 from typing import Any
 
+from .source_intelligence import load_source_registry, plan_sources, normalize_condition
+
 USER_AGENT = "CarScanner/1.0 (+https://carscanner.in)"
-TIMEOUT = 12
+TIMEOUT = 5
 MAX_BODY_BYTES = 3000000
-FETCH_RETRIES = 3
+FETCH_RETRIES = 2
+MAX_PARALLEL_SOURCES = 5
 RETRYABLE_STATUS = {408,425,429,500,502,503,504}
 
 CURRENT_BRANDS = [
@@ -147,7 +151,20 @@ def _is_current_model_link(selected: dict[str,str], href: str) -> bool:
         return False
     parts=[p for p in path.split("/") if p]
     brand_tokens=_brand_path_tokens(selected)
-    if len(parts) >= 2 and (parts[-1] in {"dealers","offers","view-all-models","new-cars","used-cars"} or parts[-1].endswith(("-offers","-dealer","-dealers"))):
+    # CarDekho places gallery/navigation links alongside model links. They
+    # share the same /<brand>/<slug> URL shape, so explicitly reject known
+    # non-model endpoints before accepting the generic two-segment shape.
+    navigation_slugs = {
+        "gallery","images","photos","photo","videos","video","reviews",
+        "review","news","offers","offer","dealers","dealer","service",
+        "new-cars","used-cars","view-all-models","compare","accessories",
+    }
+    if parts and (parts[-1] in navigation_slugs or
+                  parts[-1].endswith(("-offers","-offer","-dealer","-dealers"))):
+        return False
+    # Reject common navigation labels even when the source exposes them through
+    # a query/hash URL or a path variant that otherwise resembles a model page.
+    if any(token in parts for token in {"gallery","images","photos","photo","videos","video","reviews","review","offers","offer","dealers","dealer","service","compare","accessories"}):
         return False
     if len(parts)==2 and parts[0] in brand_tokens:
         return True
@@ -192,6 +209,10 @@ def live_models(brand: str) -> list[dict[str,str]]:
         clean=_clean_model_catalog_name(text)
         absolute=_absolute(selected["url"],href)
         if not clean or not _is_current_model_link(selected,absolute):
+            continue
+        # A brand-name anchor can point at a real model URL when the source
+        # page markup is malformed; it is not a customer-selectable model.
+        if _canonical_brand(clean).lower() == _canonical_brand(selected["name"]).lower():
             continue
         canonical=absolute.split("#",1)[0].rstrip("/")
         if canonical in seen_urls:
@@ -360,19 +381,45 @@ def _query_parts(query: str) -> tuple[str|None,str|None]:
     return None, q or None
 
 def _targeted_source_urls(query: str) -> dict[str,str]:
-    brand,model=_query_parts(query)
-    if not brand or not model:
+    """Build a source-specific India-wide inventory URL for the requested intent.
+
+    Generic marketplace homepages are not valid search endpoints: they often
+    expose only a subset of inventory or require client-side filters. Every
+    live adapter therefore gets a deterministic brand/model route where the
+    marketplace supports one.
+    """
+    brand, model = _query_parts(query)
+    if not brand:
         return {}
-    brand_slug=_slug(_canonical_brand(brand))
-    model_slug=_slug(model)
-    if not model_slug:
-        return {}
-    # These routes are verified marketplace model pages and keep the live query
-    # India-wide rather than constraining it to the user's destination.
-    return {
-        "CarDekho Used": f"https://www.cardekho.com/used-{brand_slug}-{model_slug}+cars",
-        "CarWale Used": f"https://www.carwale.com/used/{brand_slug}-{model_slug}/",
+
+    brand_slug = _slug(_canonical_brand(brand))
+    model_slug = _slug(model) if model else ""
+
+    urls = {
+        "CarDekho Used": (
+            f"https://www.cardekho.com/used-{brand_slug}-{model_slug}+cars"
+            if model_slug else f"https://www.cardekho.com/used-{brand_slug}+cars"
+        ),
+        "CarWale Used": (
+            f"https://www.carwale.com/used/{brand_slug}-{model_slug}/"
+            if model_slug else f"https://www.carwale.com/used/{brand_slug}/"
+        ),
+        "Cars24 Luxury Used": (
+            f"https://www.cars24.com/buy-used-{brand_slug}-{model_slug}-cars/"
+            if model_slug else f"https://www.cars24.com/buy-used-{brand_slug}-cars/"
+        ),
+        "Spinny Luxury Used": (
+            f"https://www.spinny.com/used-{model_slug or brand_slug}-cars/s/"
+        ),
     }
+
+    # Motozite's demo catalogue is a filterable catalogue rather than a
+    # brand/model-specific route. Its adapter still receives the catalogue and
+    # applies strict identity + condition filtering after extraction.
+    if not model_slug:
+        urls["Motozite Demo"] = "https://motozite.com/demo-cars"
+
+    return urls
 
 def _canonical_url(base_url: str, href: Any) -> str:
     absolute=_absolute(base_url,str(href or "")).split("#",1)[0]
@@ -524,36 +571,85 @@ def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
         seen.add(key);out.append(row)
     return out
 
-LIVE_SOURCES=[
-    ("Motozite Demo","https://motozite.com/demo-cars"),
-    ("CarDekho Used","https://www.cardekho.com/used-cars"),
-    ("CarWale Used","https://www.carwale.com/used/"),
-    ("Cars24 Luxury Used","https://www.cars24.com/buy-used-luxury-cars/"),
-    ("Spinny Luxury Used","https://www.spinny.com/used-luxury-cars/s/"),
-]
+def _live_source_entries() -> list[dict]:
+    """Return only registry sources whose adapters are verified for live search."""
+    return [s for s in load_source_registry() if s.get("adapter_status") == "live"]
 
-def live_inventory(query: str="") -> tuple[list[dict],list[dict]]:
-    vehicles=[];source_status=[]
-    targeted=_targeted_source_urls(query)
-    for name,default_url in LIVE_SOURCES:
-        url=targeted.get(name,default_url)
-        try:
-            html=fetch_text(url)
-            parsed=parse_live_listings(html,name,url)
-            # Some marketplace pages expose cards as rendered links rather than
-            # JSON-LD. Use the visible listing representation as a second parser.
-            if not parsed and query:
-                parsed=parse_visible_listing_links(html,name,url,query)
-            if query:
-                filtered=[]
-                for row in parsed:
-                    if _identity_matches_query(row,query):
-                        row["identity_confidence"]=1.0 if row.get("brand") and row.get("model") else 0.0
-                        row["identity_evidence"]=["brand","model","listing_name","url"]
-                        filtered.append(row)
-                parsed=filtered
-            vehicles.extend(parsed)
-            source_status.append({"source":name,"status":"live","listings_found":len(parsed),"query_url":url})
-        except Exception as exc:
-            source_status.append({"source":name,"status":"unavailable","listings_found":0,"error":str(exc)[:160],"query_url":url})
-    return vehicles,source_status
+
+def _execute_source(planned: dict, source: dict, url: str, query: str, condition: str) -> tuple[list[dict],dict]:
+    name=str(planned["name"])
+    try:
+        html=fetch_text(url)
+        parsed=parse_live_listings(html,name,url)
+        # Some marketplace pages expose cards as rendered links rather than
+        # JSON-LD. Use the visible listing representation as a second parser.
+        if not parsed and query:
+            parsed=parse_visible_listing_links(html,name,url,query)
+        if query:
+            filtered=[]
+            for row in parsed:
+                if not _identity_matches_query(row,query):
+                    continue
+                actual=normalize_condition(row.get("condition_signal"))
+                wanted=normalize_condition(condition)
+                if wanted in {"used","demo"} and actual != wanted:
+                    continue
+                row["identity_confidence"]=1.0 if row.get("brand") and row.get("model") else 0.0
+                row["identity_evidence"]=["brand","model","listing_name","url"]
+                filtered.append(row)
+            parsed=filtered
+        return parsed,{
+            "source":name,"status":"live","listings_found":len(parsed),"query_url":url,
+            "source_type":planned.get("source_type"),"source_score":planned.get("score"),
+            "query_strategy":planned.get("query_strategy"),"selection_reasons":planned.get("reasons",[]),
+        }
+    except Exception as exc:
+        return [],{
+            "source":name,"status":"unavailable","listings_found":0,"error":str(exc)[:160],
+            "query_url":url,"source_type":planned.get("source_type"),
+            "source_score":planned.get("score"),"query_strategy":planned.get("query_strategy"),
+            "selection_reasons":planned.get("reasons",[]),
+        }
+
+def live_inventory(
+    query: str = "",
+    condition: str = "both",
+    budget_min: float | None = None,
+    budget_max: float | None = None,
+    destination: str | None = None,
+) -> tuple[list[dict],list[dict]]:
+    """Search selected live sources concurrently; destination never restricts inventory."""
+    brand,model=_query_parts(query)
+    registry=_live_source_entries()
+    plan=plan_sources(
+        brand=brand,model=model,condition=condition,budget_min=budget_min,
+        budget_max=budget_max,destination=destination,registry=registry,live_only=True,
+    )
+    # Execute only the sources selected by the intent planner. The planner
+    # is the source-of-truth for applicability; executing every live adapter
+    # would turn future source expansion into unnecessary customer-path
+    # crawling and could query sources that do not support the requested
+    # brand/condition/segment.
+    by_name={str(s.get("name")):s for s in registry}
+    selected_registry=[
+        by_name[str(planned["name"])]
+        for planned in plan
+        if str(planned.get("name") or "") in by_name
+    ]
+
+    # Source-isolated adapter execution. Each verified source owns its
+    # acquisition/parser boundary; one source failure is converted to a status
+    # record and cannot fail the aggregate search.
+    from .source_adapters import AdapterRequest, execute_adapters
+
+    return execute_adapters(
+        AdapterRequest(
+            query=query,
+            condition=condition,
+            budget_min=budget_min,
+            budget_max=budget_max,
+            destination=destination,
+        ),
+        selected_registry,
+        max_workers=MAX_PARALLEL_SOURCES,
+    )

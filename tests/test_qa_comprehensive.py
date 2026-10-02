@@ -173,6 +173,50 @@ class TestPureFunctions(unittest.TestCase):
         self.assertEqual(urls["CarWale Used"],"https://www.carwale.com/used/mercedes-benz-c-class/")
         self.assertEqual(urls["CarDekho Used"],"https://www.cardekho.com/used-mercedes-benz-c-class+cars")
 
+    def test_brand_only_builds_brand_inventory_urls(self):
+        urls=lm._targeted_source_urls("BMW")
+        self.assertEqual(urls["CarWale Used"],"https://www.carwale.com/used/bmw/")
+        self.assertEqual(urls["CarDekho Used"],"https://www.cardekho.com/used-bmw+cars")
+        self.assertEqual(urls["Cars24 Luxury Used"],"https://www.cars24.com/buy-used-bmw-cars/")
+        self.assertEqual(urls["Spinny Luxury Used"],"https://www.spinny.com/used-bmw-cars/s/")
+
+    def test_brand_only_targets_all_live_source_routes(self):
+        urls=lm._targeted_source_urls("Audi")
+        self.assertEqual(urls["CarDekho Used"],"https://www.cardekho.com/used-audi+cars")
+        self.assertEqual(urls["CarWale Used"],"https://www.carwale.com/used/audi/")
+        self.assertEqual(urls["Cars24 Luxury Used"],"https://www.cars24.com/buy-used-audi-cars/")
+        self.assertEqual(urls["Spinny Luxury Used"],"https://www.spinny.com/used-audi-cars/s/")
+        self.assertEqual(urls["Motozite Demo"],"https://motozite.com/demo-cars")
+
+    def test_selected_model_targets_cars24_and_spinny(self):
+        urls=lm._targeted_source_urls("Audi Q5")
+        self.assertEqual(urls["Cars24 Luxury Used"],"https://www.cars24.com/buy-used-audi-q5-cars/")
+        self.assertEqual(urls["Spinny Luxury Used"],"https://www.spinny.com/used-q5-cars/s/")
+
+    def test_brand_only_live_search_keeps_all_models(self):
+        calls=[]
+        def fake_fetch(url):
+            calls.append(url)
+            if url=="https://www.cardekho.com/used-bmw+cars":
+                return jsonld("BMW X5",model="X5",url="/used/bmw-x5") + jsonld(
+                    "BMW X3",model="X3",url="/used/bmw-x3",price="4200000")
+            if url=="https://www.carwale.com/used/bmw/":
+                return jsonld("BMW X1",model="X1",url="/used/bmw-x1",price="3500000")
+            return "<html></html>"
+
+        with patch.object(lm, "fetch_text", side_effect=fake_fetch):
+            vehicles, sources = lm.live_inventory(
+                query="BMW", condition="used", budget_min=None, budget_max=None,
+                destination="Bengaluru"
+            )
+
+        self.assertIn("https://www.cardekho.com/used-bmw+cars", calls)
+        self.assertIn("https://www.carwale.com/used/bmw/", calls)
+        self.assertGreaterEqual(len(vehicles), 3)
+        self.assertEqual({v["brand"] for v in vehicles}, {"BMW"})
+        self.assertEqual({v["model"] for v in vehicles}, {"X1","X3","X5"})
+        self.assertTrue(all(v["condition_signal"]=="used" for v in vehicles))
+
     def test_visible_marketplace_listing_parser(self):
         html='''<a href="/used/mumbai/mercedes-benz-c-class/abc">
         2024 Mercedes-Benz C-Class C 200 Mild Hybrid 25,000 km | Petrol | Andheri West, Mumbai Rs. 46.75 Lakh
@@ -312,6 +356,39 @@ class TestHTTPContracts(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertIn("Minimum budget", body["error"])
 
+    def test_inventory_partial_source_coverage_falls_back_to_live_sources(self):
+        inventory_rows=[{
+            "brand":"Audi","model":"Q5","price_lakh":45,
+            "source":"CarDekho Used","condition":"used",
+            "live_verified":True,"data_consistent":True,
+        }]
+        live_rows=[
+            dict(inventory_rows[0]),
+            {"brand":"Audi","model":"Q5","price_lakh":47,"source":"CarWale Used","condition_signal":"used","live_verified":True,"data_consistent":True},
+            {"brand":"Audi","model":"Q5","price_lakh":46,"source":"Cars24 Luxury Used","condition_signal":"used","live_verified":True,"data_consistent":True},
+            {"brand":"Audi","model":"Q5","price_lakh":48,"source":"Spinny Luxury Used","condition_signal":"used","live_verified":True,"data_consistent":True},
+        ]
+        inventory_sources=[{"name":"CarDekho Used","status":"inventory","mode":"inventory"}]
+        live_sources=[
+            {"source":"CarDekho Used","status":"live","listings_found":1},
+            {"source":"CarWale Used","status":"live","listings_found":1},
+            {"source":"Cars24 Luxury Used","status":"live","listings_found":1},
+            {"source":"Spinny Luxury Used","status":"live","listings_found":1},
+        ]
+        with patch.object(search_api,"inventory_enabled",return_value=True), \
+             patch.object(search_api,"search_inventory",return_value=(inventory_rows,inventory_sources)), \
+             patch.object(search_api,"live_inventory",return_value=(live_rows,live_sources)), \
+             patch.object(search_api,"load_source_registry",return_value=[
+                 {"name":"CarDekho Used","adapter_status":"live","conditions":["used"],"segments":["luxury"],"brands":["all"],"priority":90},
+                 {"name":"CarWale Used","adapter_status":"live","conditions":["used"],"segments":["luxury"],"brands":["all"],"priority":90},
+                 {"name":"Cars24 Luxury Used","adapter_status":"live","conditions":["used"],"segments":["luxury"],"brands":["Audi"],"priority":82},
+                 {"name":"Spinny Luxury Used","adapter_status":"live","conditions":["used"],"segments":["luxury"],"brands":["Audi"],"priority":82},
+             ]):
+            status,body=self.request("POST","/api/search",{"query":"Audi Q5","condition":"used"})
+        self.assertEqual(status,200)
+        self.assertEqual(body["mode"],"live_coverage_fallback")
+        self.assertEqual(body["sources_found"],4)
+
     def test_post_market_reference_and_destination_is_not_filter(self):
         vehicles=[]
         for price, city in [(45,"Delhi"),(50,"Mumbai"),(55,"Bengaluru"),(60,"Pune")]:
@@ -399,3 +476,15 @@ class TestCatalogHTTPContract(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+    def test_model_catalog_rejects_navigation_links(self):
+        from src import live_marketplaces as lm
+        selected={"name":"BMW","url":"https://www.cardekho.com/bmw"}
+        for slug in ["gallery","images","photos","videos","reviews","offers","dealers","service","compare","accessories"]:
+            self.assertFalse(lm._is_current_model_link(selected, f"https://www.cardekho.com/bmw/{slug}"))
+
+    def test_model_catalog_rejects_discontinued_labels(self):
+        from src import live_marketplaces as lm
+        self.assertIsNone(lm._clean_model_catalog_name("5 Series Discontinued"))
+        self.assertIsNone(lm._clean_model_catalog_name("X5 Expected Launch"))

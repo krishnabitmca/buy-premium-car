@@ -9,7 +9,7 @@ market:
   reference_date: null
   mileage_preference_km: 50000
   high_mileage_km_per_year: 18000
-  max_discovery_results_per_query: 8
+  max_discovery_results_per_query: 6
   max_urls_per_source: 6
   max_discovered_sources_per_run: 20
   min_comparables_for_price_call: 4
@@ -34,7 +34,7 @@ search:
   - brave
   - duckduckgo
   - google
-  queries_per_brand: 2
+  queries_per_brand: 1
   all_india: true
   # Discovery hints improve local-dealer discovery but never restrict matching.
   city_hints:
@@ -81,7 +81,14 @@ search:
   - Jodhpur
   - Udaipur
   - Goa
-  city_hints_per_run: 12
+  city_hints_per_run: 20
+  source_types:
+  - marketplace
+  - oem_certified
+  - demo_dealer
+  - luxury_specialist
+  - classifieds
+  - dealer_network
   brands:
   - Maruti Suzuki
   - Hyundai

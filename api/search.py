@@ -5,13 +5,20 @@ from pathlib import Path
 from urllib.parse import urlparse
 from datetime import datetime
 import sys
+import os
+from concurrent.futures import ThreadPoolExecutor
+
+_DEMAND_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="search-demand")
 
 ROOT=Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 
 from src.acquisition import purchase_context
+from src.inventory_db import enabled as inventory_enabled, search_inventory
 from src.india_geo import infer_state
-from src.live_marketplaces import live_inventory
+from src.live_marketplaces import live_inventory, _query_parts
+from src.source_intelligence import load_source_registry, plan_sources, summarize_plan
+from src.source_registry_db import enabled as source_db_enabled, record_search_demand
 
 def _read_json(handler):
     length=int(handler.headers.get("Content-Length","0"))
@@ -28,6 +35,19 @@ def _response(handler,status,payload):
     handler.send_header("Access-Control-Allow-Methods","GET, POST, OPTIONS")
     handler.end_headers()
     handler.wfile.write(raw)
+
+
+def _budget_band(budget_min, budget_max):
+    ceiling = budget_max if budget_max is not None else budget_min
+    if ceiling is None:
+        return "unspecified"
+    if ceiling <= 15:
+        return "0-15"
+    if ceiling <= 40:
+        return "15-40"
+    if ceiling <= 100:
+        return "40-100"
+    return "100+"
 
 def _vehicle_condition(v):
     explicit=str(v.get("condition_signal") or "").strip().lower()
@@ -87,7 +107,72 @@ class handler(BaseHTTPRequestHandler):
             max_age=float(body["max_age_years"]) if body.get("max_age_years") not in (None,"") else None
             if budget_min is not None and budget_max is not None and budget_min>budget_max:
                 return _response(self,400,{"error":"Minimum budget cannot exceed maximum budget"})
-            vehicles,sources=live_inventory(query)
+            condition=str(body.get("condition") or "both")
+            source_plan=plan_sources(
+                brand=_query_parts(query)[0],
+                model=_query_parts(query)[1],
+                condition=condition,
+                budget_min=budget_min,
+                budget_max=budget_max,
+                destination=destination,
+                registry=load_source_registry(),
+            )
+            search_mode = "live"
+            if inventory_enabled():
+                vehicles, sources = search_inventory(
+                    query=query,
+                    condition=condition,
+                    budget_min=budget_min,
+                    budget_max=budget_max,
+                    max_age_years=max_age,
+                )
+                expected_live_sources = {
+                    str(p.get("name"))
+                    for p in source_plan
+                    if p.get("adapter_status") == "live"
+                }
+                inventory_sources = {
+                    str(s.get("name") or s.get("source"))
+                    for s in sources
+                    if s.get("name") or s.get("source")
+                }
+                coverage_complete = bool(expected_live_sources) and expected_live_sources.issubset(inventory_sources)
+
+                if vehicles and coverage_complete:
+                    search_mode = "inventory"
+                else:
+                    # During inventory warm-up, do not silently present a partial
+                    # snapshot as the whole market. If one or more applicable live
+                    # sources are missing from inventory, query the live source set.
+                    # Once background refresh establishes complete source coverage,
+                    # customer traffic becomes inventory-only again.
+                    allow_coverage_fallback = os.getenv(
+                        "CARSCANNER_ALLOW_LIVE_COVERAGE_FALLBACK", "true"
+                    ).lower() not in {"0", "false", "no"}
+                    if vehicles and not allow_coverage_fallback:
+                        search_mode = "inventory_partial"
+                    else:
+                        vehicles, sources = live_inventory(
+                            query, condition, budget_min, budget_max, destination
+                        )
+                        search_mode = "live_coverage_fallback" if vehicles else "live_fallback"
+            else:
+                vehicles, sources = live_inventory(
+                    query, condition, budget_min, budget_max, destination
+                )
+            if source_db_enabled():
+                parts = _query_parts(query)
+                state = infer_state(destination, destination) if destination else ""
+                _DEMAND_EXECUTOR.submit(
+                    record_search_demand,
+                    brand=parts[0],
+                    model=parts[1],
+                    condition=condition,
+                    budget_band=_budget_band(budget_min, budget_max),
+                    destination_state=state,
+                    inventory_hit_count=len(vehicles),
+                    source_count=len(sources),
+                )
             if not vehicles and sources and not any(s.get("status") == "live" for s in sources):
                 return _response(self,503,{"error":"Live marketplace sources are currently unavailable","mode":"live","sources":sources})
             results=[]
@@ -124,9 +209,11 @@ class handler(BaseHTTPRequestHandler):
                 "search_scope":"india",
                 "destination":destination or None,
                 "destination_state":infer_state(destination,destination) if destination else None,
-                "mode":"live",
+                "mode":search_mode,
                 "live_at":__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
                 "sources":sources,
+                "source_strategy":summarize_plan(source_plan),
+                "source_plan":[{k:p.get(k) for k in ("name","source_type","adapter_status","score","query_strategy","query","reasons")} for p in source_plan[:12]],
                 "total_results":len(results),
                 "sources_found":len({s for v in results for s in [v.get("source")] if s}),
                 "results":results
