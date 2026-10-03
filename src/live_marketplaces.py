@@ -39,6 +39,30 @@ BRAND_ALIASES = {
     "Vinfast": "VinFast",
 }
 
+class _ImageLinkParser(HTMLParser):
+    """Collect image URLs nested inside listing anchors."""
+    def __init__(self):
+        super().__init__()
+        self.rows=[]
+        self._href=None
+        self._images=[]
+    def handle_starttag(self, tag, attrs):
+        attrs=dict(attrs)
+        if tag.lower()=="a":
+            self._href=attrs.get("href")
+            self._images=[]
+        elif tag.lower()=="img" and self._href:
+            for key in ("src","data-src","data-lazy-src","data-original"):
+                value=attrs.get(key)
+                if value and not str(value).startswith("data:"):
+                    self._images.append(value)
+                    break
+    def handle_endtag(self, tag):
+        if tag.lower()=="a" and self._href:
+            self.rows.append((self._href,list(dict.fromkeys(self._images))))
+            self._href=None
+            self._images=[]
+
 class _LinkParser(HTMLParser):
     def __init__(self):
         super().__init__()
@@ -269,6 +293,26 @@ def _walk(value: Any):
     elif isinstance(value,list):
         for v in value: yield from _walk(v)
 
+def _image_urls(obj: dict, base_url: str) -> list[str]:
+    values=[]
+    for key in ("image","images","photo","photos"):
+        value=obj.get(key)
+        if value:
+            values.extend(value if isinstance(value,list) else [value])
+    urls=[]
+    for value in values:
+        if isinstance(value,dict):
+            value=value.get("url") or value.get("contentUrl") or value.get("thumbnailUrl")
+        if isinstance(value,str) and value.strip() and not value.startswith("data:"):
+            urls.append(_canonical_url(base_url,value.strip()))
+    return list(dict.fromkeys(urls))[:12]
+
+def _linked_images(html: str, base_url: str) -> dict[str,list[str]]:
+    parser=_ImageLinkParser()
+    parser.feed(html)
+    return {_canonical_url(base_url,href): [_canonical_url(base_url,x) for x in images]
+            for href,images in parser.rows if images}
+
 def _number(text: Any) -> float | None:
     if text is None:
         return None
@@ -461,6 +505,7 @@ def parse_visible_listing_links(html: str, source: str, base_url: str, query: st
     parser=_LinkParser()
     parser.feed(html)
     requested_brand,requested_model=_query_parts(query)
+    linked_images=_linked_images(html, base_url)
     rows=[]
     for text,href in parser.links:
         clean=" ".join(text.split())
@@ -498,6 +543,8 @@ def parse_visible_listing_links(html: str, source: str, base_url: str, query: st
             "variant":variant,
             "price_lakh":price_lakh,
             "url":_canonical_url(base_url,href),
+            "images": linked_images.get(_canonical_url(base_url,href), []),
+            "image": (linked_images.get(_canonical_url(base_url,href), []) or [None])[0],
             "source":source,
             "live_verified":True,
             "data_consistent":bool(href and price_lakh and variant),
@@ -541,6 +588,7 @@ def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
             price_text=str(price_raw or "")
             price_lakh=(price/100000 if price and price>100000 else price)
             url=obj.get("url") or offers.get("url") or base_url
+            image_urls=_image_urls(obj, base_url)
             brand,model=_infer_brand_model(str(name),obj.get("brand"),obj.get("model"))
             seller_city,seller_state,location_raw=_infer_location(obj)
             location=seller_city or seller_state
@@ -551,6 +599,8 @@ def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
                 "variant":obj.get("vehicleConfiguration") or obj.get("vehicleVariant") or obj.get("name") or "",
                 "price_lakh":price_lakh,
                 "url":_canonical_url(base_url,url),
+                "images":image_urls,
+                "image":image_urls[0] if image_urls else None,
                 "source":source,
                 "live_verified":True,
                 "data_consistent":bool(name and price is not None and url),
