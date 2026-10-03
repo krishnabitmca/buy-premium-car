@@ -334,6 +334,24 @@ class TestPureFunctions(unittest.TestCase):
         self.assertGreater(search_api._score(high), search_api._score(low))
 
 
+    def test_model_catalog_rejects_navigation_links(self):
+        selected={"name":"BMW","url":"https://www.cardekho.com/bmw"}
+        for slug in ["gallery","images","photos","videos","reviews","offers","dealers","service","compare","accessories"]:
+            self.assertFalse(lm._is_current_model_link(selected, f"https://www.cardekho.com/bmw/{slug}"))
+
+    def test_model_catalog_rejects_discontinued_labels(self):
+        self.assertIsNone(lm._clean_model_catalog_name("5 Series Discontinued"))
+        self.assertIsNone(lm._clean_model_catalog_name("X5 Expected Launch"))
+        self.assertIsNone(lm._clean_model_catalog_name("X5 Estimated"))
+
+    def test_model_catalog_has_direct_brand_page_fallback(self):
+        with patch.object(lm, "live_brands", return_value=[]), patch.object(lm, "fetch_text", return_value="<html></html>"):
+            rows=lm.live_models("BMW")
+        self.assertTrue(rows)
+        self.assertTrue(all(x["catalog_verified"]=="fallback" for x in rows))
+        self.assertIn("X5", {x["name"] for x in rows})
+
+
 class TestImageCoverage(unittest.TestCase):
     def test_adapter_status_reports_image_coverage(self):
         from src import source_adapters as adapters
