@@ -51,7 +51,10 @@ class TestSourceIntelligence(unittest.TestCase):
                             registry=self.registry)
         summary = summarize_plan(plan)
         self.assertEqual(summary["selected_sources"], summary["live_sources"] + summary["candidate_sources"])
-        self.assertGreater(summary["candidate_sources"], 0)
+        # Production registry intentionally promotes all certified/registered
+        # sources to live; candidates are still supported by the planner for
+        # newly discovered sources (covered by the dedicated candidate test).
+        self.assertEqual(summary["candidate_sources"], 0)
         self.assertGreater(summary["live_sources"], 0)
 
 
