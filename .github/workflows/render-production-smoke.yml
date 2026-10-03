@@ -1,0 +1,68 @@
+name: CarScanner Render Production Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  render-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Render homepage
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 30             https://buy-premium-car1.onrender.com/ >/tmp/home.html
+          grep -q "CarScanner" /tmp/home.html
+
+      - name: Verify catalog and model navigation
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, urllib.request
+
+          base = "https://buy-premium-car1.onrender.com"
+
+          def get(path):
+              req = urllib.request.Request(base + path, headers={"Cache-Control": "no-cache"})
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  assert r.status == 200, (path, r.status)
+                  return json.load(r)
+
+          catalog = get("/api/catalog")
+          assert catalog.get("ok") is True
+          assert catalog.get("mode") == "live"
+          assert catalog.get("brands"), "brand catalog is empty"
+
+          for brand in ("Audi", "BMW"):
+              payload = get("/api/catalog?brand=" + brand)
+              assert payload.get("ok") is True
+              assert payload.get("mode") == "live"
+              models = payload.get("models")
+              assert isinstance(models, list) and models, f"{brand} model catalog is empty"
+
+              names = [str(x.get("name", "")).strip() for x in models]
+              bad = [n for n in names if n.lower() in {"images", "image", "gallery", "photos", "videos", "reviews", "news", "offers", "dealers", "service", "compare", "accessories", "all models"}]
+              assert not bad, f"{brand} navigation artifacts leaked into models: {bad}"
+
+              slugs = [str(x.get("slug", "")) for x in models]
+              assert len(slugs) == len(set(slugs)), f"{brand} model slugs are duplicated"
+
+          print("PASS: live brand catalog + Audi/BMW model catalogs + navigation-artifact regression")
+          PY
+
+      - name: Verify live search GET contract
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, urllib.request
+          url = "https://buy-premium-car1.onrender.com/api/search?ts=render-smoke"
+          req = urllib.request.Request(url, headers={"Cache-Control": "no-cache"})
+          with urllib.request.urlopen(req, timeout=60) as r:
+              assert r.status == 200, r.status
+              p = json.load(r)
+          assert p.get("ok") is True, p
+          assert p.get("mode") == "live", p
+          assert isinstance(p.get("sources"), list), p
+          print("PASS: live search GET contract; sources=", len(p["sources"]))
+          PY
