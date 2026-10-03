@@ -75,7 +75,7 @@ known_sources:
   url: https://www.mercedes-benzusedcar.in/buy-used-cars
   tier: 1
   source_type: oem_certified
-  adapter_status: candidate
+  adapter_status: live
   geography: india
   conditions: [used, demo]
   segments: [luxury, super_luxury]
@@ -88,7 +88,7 @@ known_sources:
   url: https://www.bmwusedcars.in/buy-used-cars
   tier: 1
   source_type: oem_certified
-  adapter_status: candidate
+  adapter_status: live
   geography: india
   conditions: [used, demo]
   segments: [luxury, super_luxury]
@@ -101,7 +101,7 @@ known_sources:
   url: https://www.audi.in/en/used-cars/
   tier: 1
   source_type: oem_certified
-  adapter_status: candidate
+  adapter_status: live
   geography: india
   conditions: [used]
   segments: [luxury, super_luxury]
@@ -114,7 +114,7 @@ known_sources:
   url: https://www.volvocars.com/in/l/used-cars/
   tier: 1
   source_type: oem_certified
-  adapter_status: candidate
+  adapter_status: live
   geography: india
   conditions: [used]
   segments: [premium, luxury]
@@ -127,7 +127,7 @@ known_sources:
   url: https://www.marutisuzukitruevalue.com/buy-car
   tier: 1
   source_type: oem_certified
-  adapter_status: candidate
+  adapter_status: live
   geography: india
   conditions: [used]
   segments: [mass_market]
@@ -140,7 +140,7 @@ known_sources:
   url: https://alpha3.toyotautrust.in/
   tier: 1
   source_type: oem_certified
-  adapter_status: candidate
+  adapter_status: live
   geography: india
   conditions: [used]
   segments: [mass_market, premium]
@@ -153,7 +153,7 @@ known_sources:
   url: https://www.hyundai.com/in/en/click-to-buy/hyundai-promise
   tier: 1
   source_type: oem_certified
-  adapter_status: candidate
+  adapter_status: live
   geography: india
   conditions: [used]
   segments: [mass_market, premium]
@@ -166,7 +166,7 @@ known_sources:
   url: https://www.hondaautoterrace.com/used-cars/
   tier: 1
   source_type: oem_certified
-  adapter_status: candidate
+  adapter_status: live
   geography: india
   conditions: [used]
   segments: [mass_market, premium]
@@ -179,7 +179,7 @@ known_sources:
   url: https://www.mahindrafirstchoice.com/used/
   tier: 1
   source_type: used_retailer
-  adapter_status: candidate
+  adapter_status: live
   geography: india
   conditions: [used]
   segments: [mass_market, premium]
@@ -192,7 +192,7 @@ known_sources:
   url: https://www.dasweltauto.co.in/buy-used-cars
   tier: 1
   source_type: oem_certified
-  adapter_status: candidate
+  adapter_status: live
   geography: india
   conditions: [used]
   segments: [mass_market, premium, luxury]
@@ -205,7 +205,7 @@ known_sources:
   url: https://www.cartrade.com/second-hand/
   tier: 1
   source_type: marketplace
-  adapter_status: candidate
+  adapter_status: live
   geography: india
   conditions: [used]
   segments: [mass_market, premium, luxury]
@@ -218,7 +218,7 @@ known_sources:
   url: https://droom.in/cars/used
   tier: 2
   source_type: marketplace
-  adapter_status: candidate
+  adapter_status: live
   geography: india
   conditions: [used]
   segments: [mass_market, premium, luxury]
@@ -231,7 +231,7 @@ known_sources:
   url: https://www.olx.in/cars_c84
   tier: 2
   source_type: classifieds
-  adapter_status: candidate
+  adapter_status: live
   geography: india
   conditions: [used]
   segments: [mass_market, premium, luxury, super_luxury]
@@ -244,7 +244,7 @@ known_sources:
   url: https://www.quikr.com/cars/used-cars/all-india/
   tier: 2
   source_type: classifieds
-  adapter_status: candidate
+  adapter_status: live
   geography: india
   conditions: [used]
   segments: [mass_market, premium, luxury]
@@ -257,7 +257,7 @@ known_sources:
   url: https://www.bigboytoyz.com/
   tier: 2
   source_type: luxury_specialist
-  adapter_status: candidate
+  adapter_status: live
   geography: india
   conditions: [used]
   segments: [luxury, super_luxury]
@@ -270,7 +270,7 @@ known_sources:
   url: https://autobest.co.in/pre-owned-cars
   tier: 2
   source_type: luxury_specialist
-  adapter_status: candidate
+  adapter_status: live
   geography: regional
   conditions: [used]
   segments: [luxury, super_luxury]
@@ -283,7 +283,7 @@ known_sources:
   url: https://autohangar.net/usedcars/
   tier: 2
   source_type: dealer_group
-  adapter_status: candidate
+  adapter_status: live
   geography: regional
   conditions: [used, demo]
   segments: [premium, luxury]
@@ -296,7 +296,7 @@ known_sources:
   url: https://www.9thgear.co.in/luxury-used-cars-bangalore
   tier: 2
   source_type: luxury_specialist
-  adapter_status: candidate
+  adapter_status: live
   geography: regional
   conditions: [used]
   segments: [luxury, super_luxury]
@@ -309,7 +309,7 @@ known_sources:
   url: https://luxuryrideofficial.com/
   tier: 2
   source_type: luxury_specialist
-  adapter_status: candidate
+  adapter_status: live
   geography: regional
   conditions: [used]
   segments: [luxury, super_luxury]
@@ -335,7 +335,7 @@ known_sources:
   url: https://motozite.com/pre-owned-cars
   tier: 2
   source_type: luxury_specialist
-  adapter_status: candidate
+  adapter_status: live
   geography: regional
   conditions: [used]
   segments: [premium, luxury, super_luxury]
