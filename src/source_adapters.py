@@ -232,10 +232,16 @@ def record_adapter_execution(
 def build_verified_adapters(
     registry: list[dict[str, Any]],
 ) -> list[BuiltinMarketplaceAdapter]:
+    """Build adapters for every source explicitly enabled for live search.
+
+    Source eligibility is controlled by the registry; runtime failures are
+    handled independently by the adapter health/circuit-breaker layer.
+    """
     return [
         BuiltinMarketplaceAdapter(source)
         for source in registry
         if source.get("adapter_status") == "live"
+        and source.get("enabled", True) is not False
     ]
 
 
@@ -243,7 +249,7 @@ def execute_adapters(
     request: AdapterRequest,
     registry: list[dict[str, Any]],
     *,
-    max_workers: int = 5,
+    max_workers: int = 8,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
