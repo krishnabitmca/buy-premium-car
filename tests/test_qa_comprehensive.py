@@ -188,6 +188,23 @@ class TestPureFunctions(unittest.TestCase):
         self.assertEqual(urls["Spinny Luxury Used"],"https://www.spinny.com/used-audi-cars/s/")
         self.assertEqual(urls["Motozite Demo"],"https://motozite.com/demo-cars")
 
+    def test_demo_mercedes_e_class_builds_model_specific_demo_routes(self):
+        urls=lm._targeted_source_urls("Mercedes-Benz E-Class", "demo")
+        self.assertEqual(urls["Motozite Demo"],"https://motozite.com/demo/mercedes-benz/e-class/all")
+        self.assertEqual(urls["Mercedes-Benz Used Cars"],"https://www.mercedes-benzusedcar.in/buy-used-cars?ctype=demonstrator")
+
+    def test_demo_adapter_keeps_oem_and_motozite_demo_inventory(self):
+        from src.source_adapters import AdapterRequest, BuiltinMarketplaceAdapter
+        moto={"name":"Motozite Demo","adapter_status":"live","url":"https://motozite.com/demo-cars"}
+        html=jsonld("Mercedes-Benz E-Class LWB E200",brand="Mercedes-Benz",model="E-Class LWB E200",price="7500000",url="/demo/mercedes-benz/e-class/1")
+        with patch.object(lm,"fetch_text",return_value=html):
+            result=BuiltinMarketplaceAdapter(moto).fetch(AdapterRequest(query="Mercedes-Benz E-Class",condition="demo"))
+        self.assertEqual(result.status,"live")
+        self.assertEqual(len(result.listings),1)
+        self.assertEqual(result.listings[0]["condition_signal"],"demo")
+        self.assertEqual(result.listings[0]["brand"],"Mercedes-Benz")
+        self.assertTrue(lm._identity_matches_query(result.listings[0],"Mercedes-Benz E-Class"))
+
     def test_selected_model_targets_cars24_and_spinny(self):
         urls=lm._targeted_source_urls("Audi Q5")
         self.assertEqual(urls["Cars24 Luxury Used"],"https://www.cars24.com/buy-used-audi-q5-cars/")
