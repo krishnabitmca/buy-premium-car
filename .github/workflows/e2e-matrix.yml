@@ -45,3 +45,30 @@ jobs:
         env:
           CARSCANNER_BASE_URL: https://buy-premium-car1.onrender.com
         run: python scripts/production_e2e.py
+
+  qa-agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install browser test runtime
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null 2>&1
+      - name: Run comprehensive customer journey QA
+        env:
+          CARSCANNER_BASE_URL: https://buy-premium-car1.onrender.com
+          QA_REPORT_DIR: qa-reports
+        run: node tests/qa_customer_journey.js
+      - name: Upload QA report and failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: carscanner-qa-report-${{ github.run_number }}
+          path: qa-reports/
+          if-no-files-found: warn
