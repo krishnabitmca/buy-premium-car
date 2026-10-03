@@ -380,7 +380,7 @@ def _query_parts(query: str) -> tuple[str|None,str|None]:
             return brand, model or None
     return None, q or None
 
-def _targeted_source_urls(query: str) -> dict[str,str]:
+def _targeted_source_urls(query: str, condition: str = "both") -> dict[str,str]:
     """Build a source-specific India-wide inventory URL for the requested intent.
 
     Generic marketplace homepages are not valid search endpoints: they often
@@ -416,7 +416,12 @@ def _targeted_source_urls(query: str) -> dict[str,str]:
     # Motozite's demo catalogue is a filterable catalogue rather than a
     # brand/model-specific route. Its adapter still receives the catalogue and
     # applies strict identity + condition filtering after extraction.
-    if not model_slug:
+    wanted_condition = normalize_condition(condition)
+    if wanted_condition == "demo" and model_slug:
+        urls["Motozite Demo"] = f"https://motozite.com/demo/{brand_slug}/{model_slug}/all"
+        if brand_slug == "mercedes-benz":
+            urls["Mercedes-Benz Used Cars"] = "https://www.mercedes-benzusedcar.in/buy-used-cars?ctype=demonstrator"
+    elif not model_slug:
         urls["Motozite Demo"] = "https://motozite.com/demo-cars"
 
     return urls
