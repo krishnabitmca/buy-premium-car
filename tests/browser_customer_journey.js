@@ -1,0 +1,54 @@
+const { chromium } = require("playwright");
+
+const base = (process.env.CARSCANNER_BASE_URL || "https://buy-premium-car1.onrender.com").replace(/\/$/, "");
+
+(async () => {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage();
+  const errors = [];
+  page.on("pageerror", e => errors.push("pageerror: " + e.message));
+  page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
+
+  try {
+    await page.goto(base + "/?e2e=" + Date.now(), { waitUntil: "networkidle", timeout: 90000 });
+    await page.waitForSelector("#brand", { state: "visible", timeout: 15000 });
+
+    const brandCount = await page.locator("#brand option").count();
+    if (brandCount < 5) throw new Error("brand dropdown has too few options: " + brandCount);
+
+    await page.selectOption("#brand", { label: "BMW" });
+    await page.waitForFunction(() => {
+      const el = document.querySelector("#model");
+      return el && !el.disabled && [...el.options].some(o => /X5/i.test(o.textContent || ""));
+    }, null, { timeout: 30000 });
+
+    const modelNames = await page.locator("#model option").allTextContents();
+    if (!modelNames.some(x => /X5/i.test(x))) throw new Error("BMW X5 missing from model dropdown");
+
+    await page.selectOption("#model", { label: /BMW X5/i });
+    await page.click("#search");
+    await page.waitForFunction(() => {
+      const grid = document.querySelector("#grid");
+      return grid && !/Searching live inventory/i.test(grid.textContent || "");
+    }, null, { timeout: 90000 });
+
+    const body = await page.locator("body").innerText();
+    if (/Live models unavailable/i.test(body)) throw new Error("model catalog fell into unavailable state");
+    if (/Unexpected error|Search failed|Application error/i.test(body)) throw new Error("customer-facing error shown");
+
+    console.log(JSON.stringify({
+      pass: true,
+      brandCount,
+      modelCount: modelNames.length,
+      hasX5: true,
+      resultCards: await page.locator(".card").count(),
+      errors
+    }));
+    if (errors.length) throw new Error("browser errors: " + errors.join(" | "));
+  } finally {
+    await browser.close();
+  }
+})().catch(err => {
+  console.error(err.stack || err);
+  process.exit(1);
+});
