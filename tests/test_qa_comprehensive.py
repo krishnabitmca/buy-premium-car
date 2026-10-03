@@ -93,6 +93,17 @@ class TestPureFunctions(unittest.TestCase):
         self.assertEqual(lm._infer_brand_model("BMW X5 xDrive40i", None, None), ("BMW", "X5 xDrive40i"))
         self.assertEqual(lm._infer_brand_model("Unknown", None, None), ("Unknown", "Unknown"))
 
+    def test_parse_listing_preserves_vehicle_images(self):
+        html = jsonld().replace('"vehicleConfiguration":"xDrive40i M Sport",', '"vehicleConfiguration":"xDrive40i M Sport","image":["/images/x5-front.jpg","https://cdn.example.com/x5-side.jpg"],')
+        rows = lm.parse_live_listings(html, "Fixture", "https://example.com/")
+        self.assertEqual(rows[0]["image"], "https://example.com/images/x5-front.jpg")
+        self.assertEqual(rows[0]["images"][1], "https://cdn.example.com/x5-side.jpg")
+
+    def test_visible_listing_preserves_nested_car_image(self):
+        html = '''<a href="/used/bmw-x5/abc"><img src="/images/x5.jpg">2024 BMW X5 xDrive40i | Petrol | Bengaluru Rs. 49.5 Lakh 20,000 km</a>'''
+        rows = lm.parse_visible_listing_links(html, "Fixture", "https://example.com/", "BMW X5")
+        self.assertEqual(rows[0]["image"], "https://example.com/images/x5.jpg")
+
     def test_parse_listing_and_deduplicate(self):
         html = jsonld() + jsonld()
         rows = lm.parse_live_listings(html, "Fixture", "https://example.com/")
