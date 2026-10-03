@@ -334,6 +334,23 @@ class TestPureFunctions(unittest.TestCase):
         self.assertGreater(search_api._score(high), search_api._score(low))
 
 
+class TestImageCoverage(unittest.TestCase):
+    def test_adapter_status_reports_image_coverage(self):
+        from src import source_adapters as adapters
+        listings = [
+            {"image":"https://cdn.example.com/x5.jpg","images":["https://cdn.example.com/x5.jpg"]},
+            {"image":None,"images":[]},
+            {"images":["https://cdn.example.com/x5-side.jpg"]},
+        ]
+        count, pct = adapters._image_coverage(listings)
+        self.assertEqual(count, 2)
+        self.assertEqual(pct, 66.7)
+
+    def test_empty_source_has_zero_image_coverage(self):
+        from src import source_adapters as adapters
+        self.assertEqual(adapters._image_coverage([]), (0, 0.0))
+
+
 class TestAcquisitionContext(unittest.TestCase):
     def test_same_state_context(self):
         ctx=purchase_context({"location":"Bengaluru","price_lakh":35},"Bengaluru")
