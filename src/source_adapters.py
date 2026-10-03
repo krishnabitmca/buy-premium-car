@@ -62,7 +62,7 @@ class BuiltinMarketplaceAdapter:
         self.source_name = str(source.get("name") or "")
 
     def _url(self, request: AdapterRequest) -> str:
-        targeted = live_marketplaces._targeted_source_urls(request.query)
+        targeted = live_marketplaces._targeted_source_urls(request.query, request.condition)
         return targeted.get(self.source_name, str(self.source.get("url") or ""))
 
     def fetch(self, request: AdapterRequest) -> AdapterResult:
@@ -91,11 +91,19 @@ class BuiltinMarketplaceAdapter:
                 )
 
             wanted_condition = normalize_condition(request.condition)
+            demo_route = wanted_condition == "demo" and (
+                "ctype=demonstrator" in url.lower()
+                or "/demo/" in url.lower()
+                or "/demo-cars" in url.lower()
+            )
             filtered: list[dict[str, Any]] = []
             for row in parsed:
                 if request.query and not live_marketplaces._identity_matches_query(row, request.query):
                     continue
                 actual = normalize_condition(row.get("condition_signal"))
+                if demo_route:
+                    row["condition_signal"] = "demo"
+                    actual = "demo"
                 if wanted_condition in {"used", "demo"} and actual != wanted_condition:
                     continue
                 if request.budget_min is not None and (
