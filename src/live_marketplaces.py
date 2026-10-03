@@ -29,6 +29,26 @@ CURRENT_BRANDS = [
     "Vayve Mobility","VinFast","Volvo",
 ]
 
+MODEL_FALLBACKS = {
+    "BMW": ["2 Series","3 Series","5 Series","7 Series","X1","X3","X5","X7","i4","i5","i7","iX"],
+    "Audi": ["A4","A6","A8 L","Q3","Q5","Q7","Q8","e-tron","e-tron GT"],
+    "Mercedes-Benz": ["A-Class Limousine","C-Class","E-Class","S-Class","GLA","GLB","GLC","GLE","GLS"],
+    "Volvo": ["S90","XC40","XC60","XC90","C40 Recharge","EX40","EX30"],
+    "Jaguar": ["F-Pace","F-Type","I-Pace","XF"],
+    "Land Rover": ["Defender","Discovery","Discovery Sport","Range Rover","Range Rover Evoque","Range Rover Sport","Velar"],
+    "Porsche": ["Cayenne","Macan","Panamera","Taycan","911"],
+    "Lexus": ["ES","LM","LS","NX","RX","LX"],
+    "Mini": ["Cooper","Countryman","Clubman"],
+    "Jeep": ["Compass","Meridian","Wrangler","Grand Cherokee"],
+    "Toyota": ["Camry","Fortuner","Hilux","Innova Hycross","Land Cruiser 300","Vellfire"],
+    "Kia": ["Seltos","Sonet","Carnival","EV6","EV9"],
+    "Hyundai": ["Creta","Tucson","Alcazar","Ioniq 5","Ioniq 6"],
+    "Skoda": ["Kodiaq","Superb","Kushaq","Slavia"],
+    "Volkswagen": ["Tiguan","Taigun","Virtus","ID.4"],
+    "Honda": ["City","Elevate","Civic","CR-V"],
+    "Maruti Suzuki": ["Swift","Baleno","Brezza","Grand Vitara","Jimny","Invicto"],
+}
+
 BRAND_ALIASES = {
     "MG": "MG Motor",
     "Mercedes Benz": "Mercedes-Benz",
@@ -218,38 +238,53 @@ def _clean_model_catalog_name(text: str) -> str | None:
     clean=re.sub(r"\s+(?:estimated|expected)$", "", clean, flags=re.I).strip()
     return clean or None
 
+def _fallback_brand_record(brand: str) -> dict[str,str] | None:
+    canonical=_canonical_brand(brand)
+    if canonical not in CURRENT_BRANDS:
+        return None
+    return {"name":canonical,"slug":_slug(canonical),
+            "url":f"https://www.cardekho.com/{_slug(canonical)}-cars",
+            "catalog_verified":"fallback"}
+
+def _fallback_models(brand: str) -> list[dict[str,str]]:
+    canonical=_canonical_brand(brand)
+    return [{"name":name,"slug":_slug(name),"url":"","catalog_verified":"fallback"}
+            for name in MODEL_FALLBACKS.get(canonical,[])]
+
 def live_models(brand: str) -> list[dict[str,str]]:
-    brands=live_brands()
     wanted=_canonical_brand(brand).lower()
-    selected=next((x for x in brands if _canonical_brand(x["name"]).lower()==wanted),None)
+    selected=None
+    try:
+        brands=live_brands()
+        selected=next((x for x in brands if _canonical_brand(x["name"]).lower()==wanted),None)
+    except Exception:
+        selected=None
+    if not selected:
+        selected=_fallback_brand_record(brand)
     if not selected or not selected["url"]:
         return []
-    html=fetch_text(selected["url"])
-    parser=_LinkParser();parser.feed(html)
-    models=[]
-    seen_urls=set()
-    seen_model_keys=set()
+    try:
+        html=fetch_text(selected["url"])
+    except Exception:
+        return _fallback_models(brand)
+    parser=_LinkParser(); parser.feed(html)
+    models=[]; seen_urls=set(); seen_model_keys=set()
     for text,href in parser.links:
         clean=_clean_model_catalog_name(text)
         absolute=_absolute(selected["url"],href)
         if not clean or not _is_current_model_link(selected,absolute):
             continue
-        # A brand-name anchor can point at a real model URL when the source
-        # page markup is malformed; it is not a customer-selectable model.
-        if _canonical_brand(clean).lower() == _canonical_brand(selected["name"]).lower():
+        if _canonical_brand(clean).lower()==_canonical_brand(selected["name"]).lower():
             continue
         canonical=absolute.split("#",1)[0].rstrip("/")
         if canonical in seen_urls:
             continue
-        # Multiple source sections can point at the same model using different
-        # URLs/labels. The customer catalog should expose one current model.
         model_key=_slug(clean)
         if model_key in seen_model_keys:
             continue
-        seen_urls.add(canonical)
-        seen_model_keys.add(model_key)
-        models.append({"name":clean,"slug":model_key,"url":canonical})
-    return sorted(models,key=lambda x:x["name"].lower())
+        seen_urls.add(canonical); seen_model_keys.add(model_key)
+        models.append({"name":clean,"slug":model_key,"url":canonical,"catalog_verified":"true"})
+    return sorted(models,key=lambda x:x["name"].lower()) or _fallback_models(brand)
 
 def _identity_tokens(value: Any) -> list[str]:
     return re.findall(r"[a-z0-9]+",str(value or "").lower())
