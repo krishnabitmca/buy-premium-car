@@ -253,6 +253,14 @@ def build_verified_adapters(
     ]
 
 
+def _image_coverage(listings: list[dict[str, Any]]) -> tuple[int, float]:
+    """Return count and percentage of listings carrying at least one photo."""
+    if not listings:
+        return 0, 0.0
+    with_images = sum(1 for listing in listings if listing.get("image") or listing.get("images"))
+    return with_images, round(with_images * 100.0 / len(listings), 1)
+
+
 def execute_adapters(
     request: AdapterRequest,
     registry: list[dict[str, Any]],
@@ -291,10 +299,13 @@ def execute_adapters(
     for result in results:
         source = source_by_name.get(result.source_name, {})
         vehicles.extend(result.listings)
+        listings_with_images, image_coverage_pct = _image_coverage(result.listings)
         status = {
             "source": result.source_name,
             "status": result.status,
             "listings_found": len(result.listings),
+            "listings_with_images": listings_with_images,
+            "image_coverage_pct": image_coverage_pct,
             "query_url": result.query_url,
             "source_type": source.get("source_type"),
             "query_strategy": source.get("query_strategy"),
