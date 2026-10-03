@@ -53,7 +53,7 @@ class handler(BaseHTTPRequestHandler):
             brand=(q.get("brand") or [""])[0].strip()
             if brand:
                 models=_sanitize_models(live_models(brand))
-                return response(self,200,{"ok":True,"mode":"live","source":"CarDekho current catalog","brand":brand,"models":models})
+                return response(self,200,{"ok":True,"mode":"live","source":"CarDekho current catalog with resilient fallback","brand":brand,"catalog_fallback":any(x.get("catalog_verified")=="fallback" for x in models),"models":models})
             brands=live_brands()
             return response(self,200,{"ok":True,"mode":"live","source":"CarDekho current catalog","brands":brands})
         except Exception as exc:
