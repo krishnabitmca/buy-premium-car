@@ -244,7 +244,11 @@ class TestPureFunctions(unittest.TestCase):
         live=[s for s in sources if s["status"]=="live"]
         unavailable=[s for s in sources if s["status"]=="unavailable"]
         self.assertEqual(len(live),1)
-        self.assertEqual(len(unavailable),4)
+        # Source expansion means the exact number of attempted sources is no
+        # longer a fixed four. Every selected source other than the successful
+        # CarDekho adapter should be reported as unavailable.
+        self.assertGreater(len(unavailable), 0)
+        self.assertEqual(len(sources), len(live) + len(unavailable))
         self.assertTrue(all("timeout" in s["error"] for s in unavailable))
 
     def test_condition_filter_boundaries(self):
