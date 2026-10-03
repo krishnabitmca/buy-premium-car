@@ -112,7 +112,7 @@ async function searchLive(){
  $('search').disabled=true;$('search').textContent='Searching…';$('grid').innerHTML='<div class="empty"><b>Searching live marketplaces…</b>CarScanner is querying current source pages.</div>';
  try{
   const r=await fetch('/api/search?ts='+Date.now(),{method:'POST',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({query:[b,m].filter(Boolean).join(' '),destination,budget_min:fmin||null,budget_max:fmax||null,condition})});
-  if(!r.ok)throw Error((await r.text()).slice(0,150));const p=await r.json();if(!p.ok||p.mode!=='live')throw Error(p.error||'Live search unavailable');
+  if(!r.ok)throw Error((await r.text()).slice(0,150));const p=await r.json();if(!p.ok||p.search_scope!=='india'||!['live','inventory','live_coverage_fallback','live_fallback'].includes(p.mode))throw Error(p.error||'Live search unavailable');
   inventory=p.results||[];liveAt=p.live_at;sourceStatus=p.sources||[];populateRefinements();applyResults();
  }catch(e){inventory=[];shown=[];$('grid').innerHTML='<div class="empty"><b>Live search is currently unavailable.</b>CarScanner will not show an offline snapshot.</div>';$('summary').textContent='Live source query failed'}
  finally{$('search').disabled=false;$('search').textContent='Search cars'}
