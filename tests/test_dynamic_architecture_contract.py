@@ -57,7 +57,7 @@ def test_catalog_brand_discovery_is_source_driven(monkeypatch):
     monkeypatch.delenv("CARSCANNER_CATALOG_SOURCE_URL", raising=False)
     monkeypatch.setattr(lm, "_registry_brand_records", lambda: [])
     monkeypatch.setattr(lm, "load_source_registry", lambda: [
-        {"name": "Configured Catalog", "catalog_url": "https://catalog.example/newcars", "catalog_exclude_paths": ["compare-cars", "electric-cars"]}
+        {"name": "Configured Catalog", "catalog_url": "https://catalog.example/newcars", "catalog_exclude_paths": ["compare-cars", "electric-cars", "new-cars", "used-cars", "demo-cars"]}
     ])
     monkeypatch.setattr(
         lm,
