@@ -85,7 +85,13 @@ class BuiltinMarketplaceAdapter:
         try:
             html = fetch_text(url)
             parsed = parse_live_listings(html, self.source_name, url)
-            # Marketplace landing pages often expose most inventory as visible listing cards rather than JSON-LD.\n            # This fallback must also run for unscoped searches (All Brands + All Models), otherwise\n            # the empty query returns only the handful of structured-data records and severely undercounts inventory.\n            if not parsed:\n                parsed = parse_visible_listing_links(\n                    html, self.source_name, url, request.query\n                )
+            # Marketplace landing pages often expose most inventory as visible listing cards rather than JSON-LD.
+            # This fallback must also run for unscoped searches (All Brands + All Models), otherwise
+            # the empty query returns only the handful of structured-data records and severely undercounts inventory.
+            if not parsed:
+                parsed = parse_visible_listing_links(
+                    html, self.source_name, url, request.query
+                )
 
             wanted_condition = normalize_condition(request.condition)
             demo_route = wanted_condition == "demo" and (
