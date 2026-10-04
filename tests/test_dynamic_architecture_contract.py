@@ -56,13 +56,13 @@ def test_catalog_brand_discovery_is_source_driven(monkeypatch):
     monkeypatch.delenv("CARSCANNER_CATALOG_BRANDS_JSON", raising=False)
     monkeypatch.delenv("CARSCANNER_CATALOG_SOURCE_URL", raising=False)
     monkeypatch.setattr(lm, "load_source_registry", lambda: [
-        {"name": "Configured Catalog", "catalog_url": "https://catalog.example/newcars"}
+        {"name": "Configured Catalog", "catalog_url": "https://catalog.example/newcars", "catalog_exclude_paths": ["compare-cars", "electric-cars"]}
     ])
     monkeypatch.setattr(
         lm,
         "fetch_text",
         lambda url: """
-        <a href="/cars/BMW">BMW</a>
+        <a href="/cars/BMW">BMW</a>\n        <a href="/compare-cars">Compare</a>\n        <a href="/electric-cars">Electric</a>
         <a href="/cars/Audi">Audi</a>
         <a href="/cars/BMW/X5">X5</a>
         <a href="/new-cars">New Cars</a>
