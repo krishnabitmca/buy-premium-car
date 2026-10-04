@@ -344,12 +344,13 @@ class TestPureFunctions(unittest.TestCase):
         self.assertIsNone(lm._clean_model_catalog_name("X5 Expected Launch"))
         self.assertIsNone(lm._clean_model_catalog_name("X5 Estimated"))
 
-    def test_model_catalog_has_direct_brand_page_fallback(self):
+    def test_model_catalog_does_not_invent_models_when_brand_catalog_is_missing(self):
+        # The dynamic architecture must not resurrect a baked-in model fallback.
+        # If the configured/database catalog cannot resolve the requested brand,
+        # the API returns no models rather than inventing customer-visible data.
         with patch.object(lm, "live_brands", return_value=[]), patch.object(lm, "fetch_text", return_value="<html></html>"):
             rows=lm.live_models("BMW")
-        self.assertTrue(rows)
-        self.assertTrue(all(x["catalog_verified"]=="fallback" for x in rows))
-        self.assertIn("X5", {x["name"] for x in rows})
+        self.assertEqual(rows, [])
 
 
 class TestImageCoverage(unittest.TestCase):
