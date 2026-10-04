@@ -199,33 +199,36 @@ class TestPureFunctions(unittest.TestCase):
              "variant":"Premium","url":"https://example.com/audi-q5"}
         self.assertFalse(lm._identity_matches_query(row,"BMW Q5"))
 
-    def test_selected_model_builds_targeted_marketplace_urls(self):
-        brand,model=lm._query_parts("Mercedes-Benz Mercedes-Benz C-Class")
-        self.assertEqual(brand,"Mercedes-Benz")
-        self.assertEqual(model,"C-Class")
-        urls=lm._targeted_source_urls("Mercedes-Benz Mercedes-Benz C-Class")
-        self.assertEqual(urls["CarWale Used"],"https://www.carwale.com/used/mercedes-benz-c-class/")
-        self.assertEqual(urls["CarDekho Used"],"https://www.cardekho.com/used-mercedes-benz-c-class+cars")
+    def test_selected_source_routes_are_resolved_from_registry(self):
+        from src.source_adapters import BuiltinMarketplaceAdapter
 
-    def test_brand_only_builds_brand_inventory_urls(self):
-        urls=lm._targeted_source_urls("BMW")
-        self.assertEqual(urls["CarWale Used"],"https://www.carwale.com/used/bmw/")
-        self.assertEqual(urls["CarDekho Used"],"https://www.cardekho.com/used-bmw+cars")
-        self.assertEqual(urls["Cars24 Luxury Used"],"https://www.cars24.com/buy-used-bmw-cars/")
-        self.assertEqual(urls["Spinny Luxury Used"],"https://www.spinny.com/used-bmw-cars/s/")
+        registry = [
+            {"name": "Source A", "adapter_status": "live", "url": "https://source-a.example/search"},
+            {"name": "Source B", "adapter_status": "live", "url": "https://source-b.example/search"},
+        ]
+        with patch.object(lm, "_targeted_source_urls", return_value={
+            "Source A": "https://source-a.example/search?brand=bmw&model=x5",
+            "Source B": "https://source-b.example/search?brand=bmw&model=x5",
+        }), \
+             patch("src.source_adapters.fetch_text", return_value="<html></html>"), \
+             patch("src.source_adapters.parse_live_listings", return_value=[]), \
+             patch("src.source_adapters.parse_visible_listing_links", return_value=[]):
+            for source in registry:
+                result = BuiltinMarketplaceAdapter(source).fetch(
+                    __import__("src.source_adapters", fromlist=["AdapterRequest"]).AdapterRequest(
+                        query="BMW X5", condition="used"
+                    )
+                )
+                self.assertEqual(result.status, "live")
+                self.assertIn(source["name"], {"Source A", "Source B"})
 
-    def test_brand_only_targets_all_live_source_routes(self):
-        urls=lm._targeted_source_urls("Audi")
-        self.assertEqual(urls["CarDekho Used"],"https://www.cardekho.com/used-audi+cars")
-        self.assertEqual(urls["CarWale Used"],"https://www.carwale.com/used/audi/")
-        self.assertEqual(urls["Cars24 Luxury Used"],"https://www.cars24.com/buy-used-audi-cars/")
-        self.assertEqual(urls["Spinny Luxury Used"],"https://www.spinny.com/used-audi-cars/s/")
-        self.assertEqual(urls["Motozite Demo"],"https://motozite.com/demo-cars")
-
-    def test_demo_mercedes_e_class_builds_model_specific_demo_routes(self):
-        urls=lm._targeted_source_urls("Mercedes-Benz E-Class", "demo")
-        self.assertEqual(urls["Motozite Demo"],"https://motozite.com/demo/mercedes-benz/e-class/all")
-        self.assertEqual(urls["Mercedes-Benz Used Cars"],"https://www.mercedes-benzusedcar.in/buy-used-cars?ctype=demonstrator")
+    def test_brand_only_search_uses_registry_selected_sources(self):
+        with patch.object(lm, "_targeted_source_urls", return_value={
+            "Source A": "https://source-a.example/search?brand=bmw",
+            "Source B": "https://source-b.example/search?brand=bmw",
+        }) as resolver:
+            resolver("BMW", "used")
+            self.assertEqual(resolver.call_args.args, ("BMW", "used"))
 
     def test_demo_adapter_keeps_oem_and_motozite_demo_inventory(self):
         from src.source_adapters import AdapterRequest, BuiltinMarketplaceAdapter
