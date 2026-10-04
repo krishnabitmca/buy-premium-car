@@ -124,6 +124,19 @@ def _canonical_brand(name: str) -> str:
     n=" ".join(name.replace(" Cars","").split()).strip()
     return BRAND_ALIASES.get(n,n)
 
+def _catalog_exclude_paths() -> set[str]:
+    configured={x.strip().lower().strip("/") for x in os.getenv("CARSCANNER_CATALOG_EXCLUDE_PATHS","").split(",") if x.strip()}
+    if configured:
+        return configured
+    try:
+        for source in load_source_registry():
+            metadata=source.get("metadata") or {}
+            values=source.get("catalog_exclude_paths") or metadata.get("catalog_exclude_paths") or []
+            return {str(x).strip().lower().strip("/") for x in values if str(x).strip()}
+    except Exception:
+        pass
+    return set()
+
 def live_brands() -> list[dict[str,str]]:
     """Return only brands actually present in the current source catalogue.
 
@@ -295,10 +308,13 @@ def live_brands() -> list[dict[str,str]]:
             parser=_LinkParser(); parser.feed(html)
             discovered=[]
             seen=set()
+            excluded=_catalog_exclude_paths()
             for label,href in parser.links:
                 name=" ".join(str(label or "").replace(" Cars","").split()).strip()
                 absolute=_absolute(catalog_url,href)
                 path=urllib.parse.urlparse(absolute).path.strip("/").lower()
+                if path in excluded:
+                    continue
                 parts=[p for p in path.split("/") if p]
                 if not name or name.lower() in {"view all brands","all brands"}:
                     continue
