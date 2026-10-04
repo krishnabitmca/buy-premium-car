@@ -130,7 +130,11 @@ class TestPureFunctions(unittest.TestCase):
             {"brands": ["Mercedes-Benz"]},
         ]
         with patch.object(lm, "fetch_text", return_value=page), \
-             patch.object(lm, "_registry_brand_records", return_value=[\n                 {"name": "BMW", "url": "", "catalog_verified": "database"},\n                 {"name": "Audi", "url": "", "catalog_verified": "database"},\n                 {"name": "Mercedes-Benz", "url": "", "catalog_verified": "database"},\n             ]), \
+             patch.object(lm, "_registry_brand_records", return_value=[
+                 {"name": "BMW", "url": "", "catalog_verified": "database"},
+                 {"name": "Audi", "url": "", "catalog_verified": "database"},
+                 {"name": "Mercedes-Benz", "url": "", "catalog_verified": "database"},
+             ]), \
              patch.dict(lm.os.environ, {"CARSCANNER_CATALOG_SOURCE_URL": "https://catalog.example/newcars"}, clear=False):
             rows = lm.live_brands()
 
