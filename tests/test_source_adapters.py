@@ -85,7 +85,7 @@ def test_builtin_adapter_uses_registry_resolved_target_url(monkeypatch):
     )
     monkeypatch.setattr(
         "src.source_adapters.fetch_text",
-        lambda url: seen.setdefault("url", url) or "<html></html>",
+        lambda url: seen.__setitem__("url", url) or "<html></html>",
     )
     monkeypatch.setattr("src.source_adapters.parse_live_listings", lambda *args: [])
     monkeypatch.setattr("src.source_adapters.parse_visible_listing_links", lambda *args: [])
