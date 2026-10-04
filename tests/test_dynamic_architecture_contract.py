@@ -47,3 +47,10 @@ def test_runtime_dependency_declares_psycopg_for_database_driven_paths():
 def test_vercel_runtime_requirements_include_database_driver():
     source = Path("api/requirements.txt").read_text()
     assert "psycopg[binary]>=3.2,<4" in source
+
+
+def test_removed_catalog_fallback_symbols_do_not_reappear():
+    source = Path("src/live_marketplaces.py").read_text()
+    assert "_fallback_models" not in source
+    assert "CURRENT_BRANDS" not in source
+    assert "MODEL_FALLBACKS" not in source
