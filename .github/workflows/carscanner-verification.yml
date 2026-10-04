@@ -8,6 +8,7 @@ on:
       - 'chore/**'
       - 'feat/**'
       - 'fix/**'
+      - 'qa/**'
 
 jobs:
   verify:
