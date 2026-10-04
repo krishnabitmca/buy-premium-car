@@ -121,7 +121,7 @@ async def main():
         # Clear all.
         await page.locator("#clear").click()
         assert await page.locator(".card").count() == 3
-        assert await page.locator("#destination").input_value() == "Bengaluru"
+        assert await page.locator("#destination").input_value() == ""
 
         # Sort lowest price.
         await page.locator("#sort").select_option("price")
