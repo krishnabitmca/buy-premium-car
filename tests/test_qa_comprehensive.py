@@ -124,10 +124,12 @@ class TestPureFunctions(unittest.TestCase):
 
     def test_live_brands_uses_current_catalog_and_missing_match(self):
         page = '<a href="/bmw-cars">BMW Cars</a><a href="/audi-cars">Audi Cars</a>'
-        with patch.object(lm, "fetch_text", return_value=page):
+        with patch.object(lm, "fetch_text", return_value=page), \
+             patch.object(lm, "load_source_registry", return_value=[]), \
+             patch.dict(lm.os.environ, {"CARSCANNER_CATALOG_SOURCE_URL": "https://catalog.example/newcars"}, clear=False):
             rows = lm.live_brands()
         self.assertEqual(len(rows), 2)
-        self.assertTrue(all(x["catalog_verified"] == "true" for x in rows))
+        self.assertTrue(all(x["catalog_verified"] == "discovered" for x in rows))
         bmw = next(x for x in rows if x["name"] == "BMW")
         self.assertTrue(bmw["url"].endswith("/bmw-cars"))
 
