@@ -9,7 +9,7 @@ known_sources:
 - name: CarDekho Used
   url: https://www.cardekho.com/usedCars/
   catalog_url: https://www.cardekho.com/newcars
-  catalog_exclude_paths: [compare-cars, electric-cars]
+  catalog_exclude_paths: [compare-cars, electric-cars, new-cars, used-cars, demo-cars]
   tier: 1
   source_type: marketplace
   adapter_status: live
