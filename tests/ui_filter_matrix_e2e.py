@@ -106,7 +106,7 @@ async def main():
         assert await page.locator("#year").input_value() == ""
         assert await page.locator("#city").input_value() == ""
         assert await page.locator("#condition").input_value() == "both"
-        assert await page.locator("#destination").input_value() == "Bengaluru"
+        assert await page.locator("#destination").input_value() == ""
         assert await page.locator(".fuelCheck:checked").count() == 0
         assert await page.locator(".chip.active").get_attribute("data-filter") == ""
         assert await page.locator(".card").count() == 3
