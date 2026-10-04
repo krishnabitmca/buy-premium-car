@@ -450,6 +450,31 @@ class TestHTTPContracts(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertIn("Minimum budget", body["error"])
 
+    def test_inventory_complete_source_coverage_is_customer_search_path(self):
+        inventory_rows = [
+            {"brand":"BMW","model":"X5","price_lakh":49.5,"source":"Source A","condition":"used",
+             "live_verified":True,"data_consistent":True},
+            {"brand":"BMW","model":"X5","price_lakh":52.0,"source":"Source B","condition":"used",
+             "live_verified":True,"data_consistent":True},
+        ]
+        inventory_sources = [
+            {"name":"Source A","status":"inventory","mode":"inventory"},
+            {"name":"Source B","status":"inventory","mode":"inventory"},
+        ]
+        with patch.object(search_api,"inventory_enabled",return_value=True), \
+             patch.object(search_api,"search_inventory",return_value=(inventory_rows, inventory_sources, 2)), \
+             patch.object(search_api,"live_inventory",side_effect=AssertionError("live crawler must not run when inventory coverage is complete")), \
+             patch.object(search_api,"load_source_registry",return_value=[
+                 {"name":"Source A","adapter_status":"live","conditions":["used"],"segments":["luxury"],"brands":["all"],"priority":90},
+                 {"name":"Source B","adapter_status":"live","conditions":["used"],"segments":["luxury"],"brands":["all"],"priority":80},
+             ]):
+            status, body = self.request("POST","/api/search",{"query":"BMW X5","condition":"used"})
+
+        self.assertEqual(status,200)
+        self.assertEqual(body["mode"],"inventory")
+        self.assertEqual(body["inventory_total"],2)
+        self.assertEqual(body["total_results"],2)
+
     def test_inventory_partial_source_coverage_falls_back_to_live_sources(self):
         inventory_rows=[{
             "brand":"Audi","model":"Q5","price_lakh":45,
