@@ -304,7 +304,7 @@ def live_models(brand: str) -> list[dict[str,str]]:
     if not selected.get("url"):
         template=os.getenv("CARSCANNER_MODEL_CATALOG_URL_TEMPLATE","").strip()
         if template:
-            selected={**selected,"url":template.format(brand=_slug(selected["name"]),name=urllib.parse.quote(selected["name"]),"slug":_slug(selected["name"]))}
+            selected={**selected,"url":template.format(brand=_slug(selected["name"]),name=urllib.parse.quote(selected["name"]),slug=_slug(selected["name"]))}
     if not selected.get("url"):
         return []
     try:
