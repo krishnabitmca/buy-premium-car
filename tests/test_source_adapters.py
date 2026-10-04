@@ -68,33 +68,32 @@ def test_adapter_failure_returns_source_specific_status(monkeypatch):
     assert statuses[0]["status"] == "unavailable"
 
 
-def test_builtin_adapter_uses_source_specific_target_url(monkeypatch):
+def test_builtin_adapter_uses_registry_resolved_target_url(monkeypatch):
     source = {
-        "name": "CarDekho Used",
+        "name": "Configured Source",
         "adapter_status": "live",
-        "url": "https://www.cardekho.com/used-cars",
+        "url": "https://configured.example/search",
     }
     adapter = BuiltinMarketplaceAdapter(source)
-
     seen = {}
 
+    monkeypatch.setattr(
+        "src.source_adapters.live_marketplaces._targeted_source_urls",
+        lambda query, condition="both": {
+            "Configured Source": "https://configured.example/search?brand=bmw&model=x5"
+        },
+    )
     monkeypatch.setattr(
         "src.source_adapters.fetch_text",
         lambda url: seen.setdefault("url", url) or "<html></html>",
     )
-    monkeypatch.setattr(
-        "src.source_adapters.parse_live_listings",
-        lambda html, source_name, url: [],
-    )
-    monkeypatch.setattr(
-        "src.source_adapters.parse_visible_listing_links",
-        lambda html, source_name, url, query: [],
-    )
+    monkeypatch.setattr("src.source_adapters.parse_live_listings", lambda *args: [])
+    monkeypatch.setattr("src.source_adapters.parse_visible_listing_links", lambda *args: [])
 
-    adapter.fetch(AdapterRequest(query="BMW X5", condition="used"))
+    result = adapter.fetch(AdapterRequest(query="BMW X5", condition="used"))
 
-    assert seen["url"] == "https://www.cardekho.com/used-bmw-x5+cars"
-
+    assert result.status == "live"
+    assert seen["url"] == "https://configured.example/search?brand=bmw&model=x5"
 
 def test_open_circuit_is_not_executed(monkeypatch):
     source = {
