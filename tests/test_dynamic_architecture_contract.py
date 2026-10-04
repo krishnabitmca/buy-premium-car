@@ -19,7 +19,7 @@ def test_customer_catalog_has_no_baked_in_business_taxonomy():
 
 def test_catalog_endpoint_is_not_the_source_of_baked_in_brand_lists():
     source = Path("api/catalog.py").read_text()
-    assert "load_registry" in source or "live_brands" in source
+    assert "load_source_registry" in source or "live_brands" in source
     assert "['BMW'" not in source
     assert "['Audi'" not in source
     assert "Maruti Suzuki" not in source
