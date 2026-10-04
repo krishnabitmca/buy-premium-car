@@ -21,35 +21,6 @@ FETCH_RETRIES = 2
 MAX_PARALLEL_SOURCES = 5
 RETRYABLE_STATUS = {408,425,429,500,502,503,504}
 
-CURRENT_BRANDS = [
-    "Maruti Suzuki","Tata","Kia","Toyota","Hyundai","Mahindra","Honda","MG Motor",
-    "Skoda","Jeep","Renault","Nissan","Volkswagen","Citroen","Aston Martin","Audi",
-    "Bajaj","Bentley","Blinq Mobility","BMW","BYD","Ferrari","Force","Isuzu","Jaguar",
-    "Lamborghini","Land Rover","Lexus","Lotus","Maserati","McLaren","Mercedes-Benz",
-    "Mini","PMV","Porsche","Pravaig","Rolls-Royce","Strom Motors","Tesla",
-    "Vayve Mobility","VinFast","Volvo",
-]
-
-MODEL_FALLBACKS = {
-    "BMW": ["2 Series","3 Series","5 Series","7 Series","X1","X3","X5","X7","i4","i5","i7","iX"],
-    "Audi": ["A4","A6","A8 L","Q3","Q5","Q7","Q8","e-tron","e-tron GT"],
-    "Mercedes-Benz": ["A-Class Limousine","C-Class","E-Class","S-Class","GLA","GLB","GLC","GLE","GLS"],
-    "Volvo": ["S90","XC40","XC60","XC90","C40 Recharge","EX40","EX30"],
-    "Jaguar": ["F-Pace","F-Type","I-Pace","XF"],
-    "Land Rover": ["Defender","Discovery","Discovery Sport","Range Rover","Range Rover Evoque","Range Rover Sport","Velar"],
-    "Porsche": ["Cayenne","Macan","Panamera","Taycan","911"],
-    "Lexus": ["ES","LM","LS","NX","RX","LX"],
-    "Mini": ["Cooper","Countryman","Clubman"],
-    "Jeep": ["Compass","Meridian","Wrangler","Grand Cherokee"],
-    "Toyota": ["Camry","Fortuner","Hilux","Innova Hycross","Land Cruiser 300","Vellfire"],
-    "Kia": ["Seltos","Sonet","Carnival","EV6","EV9"],
-    "Hyundai": ["Creta","Tucson","Alcazar","Ioniq 5","Ioniq 6"],
-    "Skoda": ["Kodiaq","Superb","Kushaq","Slavia"],
-    "Volkswagen": ["Tiguan","Taigun","Virtus","ID.4"],
-    "Honda": ["City","Elevate","Civic","CR-V"],
-    "Maruti Suzuki": ["Swift","Baleno","Brezza","Grand Vitara","Jimny","Invicto"],
-}
-
 BRAND_ALIASES = {
     "MG": "MG Motor",
     "Mercedes Benz": "Mercedes-Benz",
@@ -239,18 +210,86 @@ def _clean_model_catalog_name(text: str) -> str | None:
     clean=re.sub(r"\s+(?:estimated|expected)$", "", clean, flags=re.I).strip()
     return clean or None
 
-def _fallback_brand_record(brand: str) -> dict[str,str] | None:
-    canonical=_canonical_brand(brand)
-    if canonical not in CURRENT_BRANDS:
-        return None
-    return {"name":canonical,"slug":_slug(canonical),
-            "url":f"https://www.cardekho.com/{_slug(canonical)}-cars",
-            "catalog_verified":"fallback"}
+def _catalog_source_url() -> str:
+    return os.getenv("CARSCANNER_CATALOG_SOURCE_URL", "").strip()
 
-def _fallback_models(brand: str) -> list[dict[str,str]]:
-    canonical=_canonical_brand(brand)
-    return [{"name":name,"slug":_slug(name),"url":"","catalog_verified":"fallback"}
-            for name in MODEL_FALLBACKS.get(canonical,[])]
+def _configured_brand_records() -> list[dict[str,str]]:
+    raw=os.getenv("CARSCANNER_CATALOG_BRANDS_JSON", "").strip()
+    if not raw:
+        return []
+    try:
+        values=json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    result=[]
+    for item in values if isinstance(values,list) else []:
+        if isinstance(item,str):
+            name=item.strip()
+            if name:
+                result.append({"name":name,"slug":_slug(name),"url":"" ,"catalog_verified":"config"})
+        elif isinstance(item,dict) and str(item.get("name") or "").strip():
+            name=str(item["name"]).strip()
+            result.append({
+                "name":name,
+                "slug":str(item.get("slug") or _slug(name)),
+                "url":str(item.get("url") or ""),
+                "catalog_verified":"config",
+            })
+    return result
+
+def _registry_brand_records() -> list[dict[str,str]]:
+    try:
+        from .source_registry_db import load_registry, enabled as registry_enabled
+        if not registry_enabled():
+            return []
+        values=[]
+        seen=set()
+        for source in load_registry():
+            for brand in source.get("brands") or []:
+                name=str(brand or "").strip()
+                if not name or name=="*":
+                    continue
+                key=_canonical_brand(name).lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                values.append({"name":_canonical_brand(name),"slug":_slug(_canonical_brand(name)),"url":"","catalog_verified":"database"})
+        return sorted(values,key=lambda x:x["name"].lower())
+    except Exception:
+        return []
+
+def live_brands() -> list[dict[str,str]]:
+    """Return brands from the database/configured catalog, never a baked-in taxonomy."""
+    configured=_configured_brand_records()
+    database=_registry_brand_records()
+    records=database or configured
+    if not records:
+        return []
+
+    # If a catalog source is configured, enrich the DB/config records with its
+    # current canonical links. The source itself is configuration, not code data.
+    catalog_url=_catalog_source_url()
+    if not catalog_url:
+        return records
+
+    try:
+        html=fetch_text(catalog_url)
+        parser=_LinkParser(); parser.feed(html)
+        links=parser.links
+        enriched=[]
+        for record in records:
+            wanted={record["name"],record["name"]+" Cars",_canonical_brand(record["name"])+" Cars"}
+            match=None
+            for text,href in links:
+                if text in wanted:
+                    absolute=_absolute(catalog_url,href)
+                    if urllib.parse.urlparse(absolute).netloc:
+                        match=absolute
+                        break
+            enriched.append({**record,"url":match or record.get("url") or ""})
+        return [x for x in enriched if x.get("url") or x.get("catalog_verified") in {"database","config"}]
+    except Exception:
+        return records
 
 def live_models(brand: str) -> list[dict[str,str]]:
     wanted=_canonical_brand(brand).lower()
@@ -261,8 +300,12 @@ def live_models(brand: str) -> list[dict[str,str]]:
     except Exception:
         selected=None
     if not selected:
-        selected=_fallback_brand_record(brand)
-    if not selected or not selected["url"]:
+        return []
+    if not selected.get("url"):
+        template=os.getenv("CARSCANNER_MODEL_CATALOG_URL_TEMPLATE","").strip()
+        if template:
+            selected={**selected,"url":template.format(brand=_slug(selected["name"]),name=urllib.parse.quote(selected["name"]),"slug":_slug(selected["name"]))}
+    if not selected.get("url"):
         return []
     try:
         html=fetch_text(selected["url"])
@@ -285,7 +328,7 @@ def live_models(brand: str) -> list[dict[str,str]]:
             continue
         seen_urls.add(canonical); seen_model_keys.add(model_key)
         models.append({"name":clean,"slug":model_key,"url":canonical,"catalog_verified":"true"})
-    return sorted(models,key=lambda x:x["name"].lower()) or _fallback_models(brand)
+    return sorted(models,key=lambda x:x["name"].lower())
 
 def _identity_tokens(value: Any) -> list[str]:
     return re.findall(r"[a-z0-9]+",str(value or "").lower())
