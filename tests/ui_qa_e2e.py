@@ -25,21 +25,31 @@ async def main():
         page.on("pageerror", lambda exc: errors.append(str(exc)))
         page.on("response", lambda response: responses.append((response.status, response.url)) if "/api/" in response.url else None)
 
-        async def route(route):
-            u=route.request.url
-            if "/api/catalog" in u:
-                if "brand=" in u:
-                    await route.fulfill(status=200,content_type="application/json",
-                        body='{"ok":true,"mode":"live","models":[{"name":"X5"},{"name":"X3"}]}')
-                else:
-                    await route.fulfill(status=200,content_type="application/json",
-                        body='{"ok":true,"mode":"live","brands":[{"name":"BMW"},{"name":"Audi"}]}')
-            elif "/api/search" in u:
-                await route.fulfill(status=200,content_type="application/json",body=__import__("json").dumps(RESULT))
+        async def catalog_route(route):
+            u = route.request.url
+            if "brand=" in u:
+                await route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body='{"ok":true,"mode":"live","models":[{"name":"X5"},{"name":"X3"}]}'
+                )
             else:
-                await route.continue_()
+                await route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body='{"ok":true,"mode":"live","brands":[{"name":"BMW"},{"name":"Audi"}]}'
+                )
 
-        await page.route("**/api/**",route)
+        async def search_route(route):
+            await route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=__import__("json").dumps(RESULT)
+            )
+
+        await page.route("**/api/catalog*", catalog_route)
+        await page.route("**/api/search*", search_route)
+
         await page.goto("http://127.0.0.1:4173/index.html")
         await page.wait_for_load_state("domcontentloaded")
 
