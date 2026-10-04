@@ -62,7 +62,15 @@ async def main():
         # Core E2E search.
         await page.locator("#max").fill("55")
         await page.locator("#destination").fill("Bengaluru")
-        await page.locator("#search").click()
+        async with page.expect_response("**/api/search*") as search_response_info:
+            await page.locator("#search").click()
+        search_response = await search_response_info.value
+        search_payload = await search_response.json()
+        assert search_response.status == 200
+        assert search_payload["ok"] is True
+        assert search_payload["mode"] == "live"
+        assert search_payload["search_scope"] == "india"
+        assert len(search_payload["results"]) == 3
         try:
             await page.locator(".card").first.wait_for(timeout=10000)
         except Exception as exc:
