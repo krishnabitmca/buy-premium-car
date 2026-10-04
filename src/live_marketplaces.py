@@ -320,7 +320,7 @@ def live_models(brand: str) -> list[dict[str,str]]:
     try:
         html=fetch_text(selected["url"])
     except Exception:
-        return _fallback_models(brand)
+        return []
     parser=_LinkParser(); parser.feed(html)
     models=[]; seen_urls=set(); seen_model_keys=set()
     for text,href in parser.links:
