@@ -36,8 +36,6 @@ def test_adapter_failure_isolated_from_other_sources(monkeypatch):
                 }],
             )
 
-    # Exercise the executor's defensive isolation path by replacing the
-    # adapter fetch implementation. The good source must still return data.
     monkeypatch.setattr(BuiltinMarketplaceAdapter, "fetch", fake_fetch)
     vehicles, statuses = execute_adapters(
         AdapterRequest(query="BMW X5", condition="used"),
@@ -98,7 +96,6 @@ def test_builtin_adapter_uses_source_specific_target_url(monkeypatch):
     assert seen["url"] == "https://www.cardekho.com/used-bmw-x5+cars"
 
 
-
 def test_open_circuit_is_not_executed(monkeypatch):
     source = {
         "name": "Broken",
@@ -136,9 +133,7 @@ def test_success_resets_adapter_health(monkeypatch):
     monkeypatch.setattr("src.source_adapters.registry_db_enabled", lambda: True)
     monkeypatch.setattr("src.source_adapters.registry_connect", lambda: Conn())
 
-    record_adapter_execution(
-        "Good", success=True, latency_ms=120
-    )
+    record_adapter_execution("Good", success=True, latency_ms=120)
 
     assert "circuit_state='closed'" in calls["sql"]
     assert calls["committed"] is True
@@ -152,6 +147,9 @@ def test_builtin_adapter_falls_back_to_visible_cards_for_unscoped_search(monkeyp
     }
     adapter = BuiltinMarketplaceAdapter(source)
 
+    # Isolate this test to the fallback/parser contract; circuit-breaker state
+    # belongs to a separate test and must not make this fixture environment-dependent.
+    monkeypatch.setattr("src.source_adapters.adapter_execution_allowed", lambda name: True)
     monkeypatch.setattr("src.source_adapters.fetch_text", lambda url: "<html>listing cards</html>")
     monkeypatch.setattr("src.source_adapters.parse_live_listings", lambda html, source_name, url: [])
     monkeypatch.setattr(
