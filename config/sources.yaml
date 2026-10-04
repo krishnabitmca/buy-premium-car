@@ -19,6 +19,7 @@ known_sources:
   brands: [all]
   priority: 90
   query_strategy: brand_model
+  query_url_template: https://www.cardekho.com/used-{brand_slug}-{model_slug}+cars
   vehicle_link_pattern: /used-car-details/[^?#]+\.htm
 
 - name: CarWale Used
@@ -32,6 +33,7 @@ known_sources:
   brands: [all]
   priority: 90
   query_strategy: brand_model
+  query_url_template: https://www.carwale.com/used/{brand_slug}-{model_slug}/
   vehicle_link_pattern: /used/[^?#]+
 
 - name: Cars24 Luxury Used
@@ -45,6 +47,7 @@ known_sources:
   brands: [BMW, Mercedes-Benz, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI]
   priority: 82
   query_strategy: luxury_model
+  query_url_template: https://www.cars24.com/buy-used-{brand_slug}-{model_slug}-cars/
   vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
 
 - name: Spinny Luxury Used
@@ -57,7 +60,7 @@ known_sources:
   segments: [premium, luxury]
   brands: [BMW, Mercedes-Benz, Audi, Volvo, MINI]
   priority: 82
-  query_strategy: luxury_model
+  query_url_template: https://www.spinny.com/used-{model_slug}-cars/s/
   vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
 
 - name: Motozite Demo
