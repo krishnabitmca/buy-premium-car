@@ -31,3 +31,9 @@ def test_catalog_brand_resolution_requires_database_or_explicit_configuration():
     assert 'load_registry' in source
     assert 'CARSCANNER_CATALOG_SOURCE_URL' in source
     assert 'CARSCANNER_MODEL_CATALOG_URL_TEMPLATE' in source
+
+
+def test_source_registry_uses_deployment_database_configuration():
+    source = Path("src/source_registry_db.py").read_text()
+    assert "POSTGRES_PRISMA_URL" in source
+    assert "POSTGRES_URL" in source
