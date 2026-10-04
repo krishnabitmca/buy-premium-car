@@ -63,7 +63,9 @@ class BuiltinMarketplaceAdapter:
 
     def _url(self, request: AdapterRequest) -> str:
         targeted = live_marketplaces._targeted_source_urls(request.query, request.condition)
-        return targeted.get(self.source_name, str(self.source.get("url") or ""))
+        # A registry route may be absent or unresolved while the source still
+        # has a valid canonical base URL. Never pass None into the fetch layer.
+        return targeted.get(self.source_name) or str(self.source.get("url") or "")
 
     def fetch(self, request: AdapterRequest) -> AdapterResult:
         started = time.monotonic()
