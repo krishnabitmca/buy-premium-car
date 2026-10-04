@@ -46,7 +46,7 @@
 <div class="filterSec"><h4>Fuel type</h4><div class="checklist"><label class="check"><input type="checkbox" class="fuelCheck" value="petrol"> Petrol</label><label class="check"><input type="checkbox" class="fuelCheck" value="diesel"> Diesel</label><label class="check"><input type="checkbox" class="fuelCheck" value="electric"> Electric</label><label class="check"><input type="checkbox" class="fuelCheck" value="hybrid"> Hybrid</label></div></div>
 <div class="filterSec"><h4>Seller location</h4><select id="city"><option value="">All India</option></select></div>
 <div class="filterSec"><h4>Age</h4><select id="year"><option value="">Any age</option><option value="2">≤ 2 years</option><option value="3">≤ 3 years</option><option value="5">≤ 5 years</option><option value="7">≤ 7 years</option></select></div>
-<div class="filterSec"><h4>Where will you buy/register?</h4><input id="destination" value="Bengaluru" placeholder="City"></div>
+<div class="filterSec"><h4>Where will you buy/register?</h4><input id="destination" value="" placeholder="City"></div>
 </aside>
 <section id="results">
 <div class="contentHead"><div><h2>Cars found</h2><div id="meta" class="meta">Search live marketplace inventory</div></div><select id="sort" class="sort"><option value="match">Recommended</option><option value="price">Lowest price</option><option value="gap">Best market gap</option><option value="km">Lowest mileage</option><option value="year">Newest</option></select></div>
@@ -62,7 +62,6 @@ const money=x=>x==null?'—':'₹'+Number(x).toFixed(2)+'L';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const age=v=>v.mfg_year?new Date().getFullYear()-Number(v.mfg_year):99;
 function conditionOf(v){const s=String(v.condition_signal||'').toLowerCase();if(s==='used')return'used';if(s==='demo'||s==='demonstrator')return'demo';return(String(v.variant||'')+' '+String(v.source||'')).toLowerCase().includes('demo')?'demo':'used'}
-const FALLBACK_BRANDS=['Maruti Suzuki','Tata','Kia','Toyota','Hyundai','Mahindra','Honda','MG Motor','Skoda','Jeep','Renault','Nissan','Volkswagen','Citroën','Aston Martin','Audi','Bajaj','Bentley','Blinq Mobility','BMW','BYD','Ferrari','Force','Isuzu','Jaguar','Lamborghini','Land Rover','Lexus','Lotus','Maserati','McLaren','Mercedes-Benz','MINI','PMV','Porsche','Pravaig','Rolls-Royce','Strom Motors','Tesla','Vayve Mobility','VinFast','Volvo'];
 function setBrandOptions(brands){
  const names=[...new Set((brands||[]).map(x=>typeof x==='string'?x:x?.name).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
  $('brand').innerHTML='<option value="">All brands</option>'+names.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');
@@ -76,7 +75,7 @@ async function loadCatalog(){
  // Never leave the primary search control blank while the live catalog is
  // being refreshed. This prevents a slow/blocked upstream marketplace from
  // making the page look broken.
- setBrandOptions(FALLBACK_BRANDS);
+
  try{
   const r=await catalogFetch('/api/catalog?ts='+Date.now());
   if(!r.ok)throw Error('catalog HTTP '+r.status);
@@ -175,7 +174,7 @@ $('search').onclick=searchLive;$('askSearch').onclick=runAssistant;$('aiPrompt')
 $('condition').onchange=()=>{condition=$('condition').value;document.querySelectorAll('input[name="cond"]').forEach(x=>x.checked=x.value===condition);if(inventory.length)applyResults()};
 document.querySelectorAll('input[name="cond"]').forEach(x=>x.onchange=()=>{$('condition').value=x.value;condition=x.value;applyResults()});
 document.querySelectorAll('.chip').forEach(x=>x.onclick=()=>{document.querySelectorAll('.chip').forEach(y=>y.classList.remove('active'));x.classList.add('active');quickFilter=x.dataset.filter;applyResults()});
-$('clear').onclick=()=>{document.querySelectorAll('.fuelCheck').forEach(x=>x.checked=false);$('city').value='';$('year').value='';$('fmin').value='';$('fmax').value='';$('destination').value='Bengaluru';$('condition').value='both';condition='both';document.querySelectorAll('input[name="cond"]').forEach(x=>x.checked=x.value==='both');quickFilter='';document.querySelectorAll('.chip').forEach((x,i)=>x.classList.toggle('active',i===0));applyResults()};
+$('clear').onclick=()=>{document.querySelectorAll('.fuelCheck').forEach(x=>x.checked=false);$('city').value='';$('year').value='';$('fmin').value='';$('fmax').value='';$('destination').value='';$('condition').value='both';condition='both';document.querySelectorAll('input[name="cond"]').forEach(x=>x.checked=x.value==='both');quickFilter='';document.querySelectorAll('.chip').forEach((x,i)=>x.classList.toggle('active',i===0));applyResults()};
 loadCatalog();
 </script>
 </body></html>
