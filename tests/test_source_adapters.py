@@ -142,3 +142,34 @@ def test_success_resets_adapter_health(monkeypatch):
 
     assert "circuit_state='closed'" in calls["sql"]
     assert calls["committed"] is True
+
+
+def test_builtin_adapter_falls_back_to_visible_cards_for_unscoped_search(monkeypatch):
+    source = {
+        "name": "All Inventory Source",
+        "adapter_status": "live",
+        "url": "https://market.example/used-cars",
+    }
+    adapter = BuiltinMarketplaceAdapter(source)
+
+    monkeypatch.setattr("src.source_adapters.fetch_text", lambda url: "<html>listing cards</html>")
+    monkeypatch.setattr("src.source_adapters.parse_live_listings", lambda html, source_name, url: [])
+    monkeypatch.setattr(
+        "src.source_adapters.parse_visible_listing_links",
+        lambda html, source_name, url, query: [{
+            "brand": "Maruti Suzuki",
+            "model": "Swift",
+            "price_lakh": 7.5,
+            "url": "https://market.example/car/swift-1",
+            "source": source_name,
+            "condition_signal": "used",
+            "live_verified": True,
+            "data_consistent": True,
+        }],
+    )
+
+    result = adapter.fetch(AdapterRequest(query="", condition="both"))
+
+    assert result.status == "live"
+    assert len(result.listings) == 1
+    assert result.listings[0]["model"] == "Swift"
