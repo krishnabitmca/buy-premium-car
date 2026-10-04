@@ -221,7 +221,18 @@ def _known_brand_names() -> list[str]:
     return names
 
 def _catalog_source_url() -> str:
-    return os.getenv("CARSCANNER_CATALOG_SOURCE_URL", "").strip()
+    configured=os.getenv("CARSCANNER_CATALOG_SOURCE_URL", "").strip()
+    if configured:
+        return configured
+    try:
+        for source in load_source_registry():
+            metadata=source.get("metadata") or {}
+            url=str(source.get("catalog_url") or metadata.get("catalog_url") or "").strip()
+            if url:
+                return url
+    except Exception:
+        pass
+    return ""
 
 def _configured_brand_records() -> list[dict[str,str]]:
     raw=os.getenv("CARSCANNER_CATALOG_BRANDS_JSON", "").strip()
@@ -273,8 +284,36 @@ def live_brands() -> list[dict[str,str]]:
     configured=_configured_brand_records()
     database=_registry_brand_records()
     records=database or configured
-    if not records:
-        return []
+    catalog_url=_catalog_source_url()
+
+    # When the control-plane does not yet contain a canonical brand taxonomy,
+    # derive it from the configured catalog source itself. This is discovery,
+    # not a baked-in brand list.
+    if not records and catalog_url:
+        try:
+            html=fetch_text(catalog_url)
+            parser=_LinkParser(); parser.feed(html)
+            discovered=[]
+            seen=set()
+            for label,href in parser.links:
+                name=" ".join(str(label or "").replace(" Cars","").split()).strip()
+                absolute=_absolute(catalog_url,href)
+                path=urllib.parse.urlparse(absolute).path.strip("/").lower()
+                parts=[p for p in path.split("/") if p]
+                if not name or name.lower() in {"view all brands","all brands"}:
+                    continue
+                is_brand_path=(len(parts)==2 and parts[0]=="cars") or (len(parts)==1 and parts[0].endswith("-cars"))
+                if not is_brand_path:
+                    continue
+                key=_canonical_brand(name).lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                discovered.append({"name":_canonical_brand(name),"slug":_slug(_canonical_brand(name)),
+                                   "url":absolute,"catalog_verified":"discovered"})
+            return sorted(discovered,key=lambda x:x["name"].lower())
+        except Exception:
+            return []
 
     # If a catalog source is configured, enrich the DB/config records with its
     # current canonical links. The source itself is configuration, not code data.
