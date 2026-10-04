@@ -155,7 +155,9 @@ class TestPureFunctions(unittest.TestCase):
         }
         self.assertEqual({row["name"] for row in rows}, expected)
         self.assertEqual(len(rows), len(expected))
-        self.assertTrue(all(row["catalog_verified"] == "true" for row in rows))
+        # The fixture represents registry/database brand identity; catalog_verified
+        # records the provenance of that identity rather than a hard-coded boolean.
+        self.assertTrue(all(row["catalog_verified"] == "database" for row in rows))
         self.assertTrue(all(row["url"].endswith(f"/{lm._slug(row['name'])}-cars") for row in rows))
 
     def test_live_models_filters_noise_and_discontinued_duplicates(self):
