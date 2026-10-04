@@ -113,7 +113,7 @@ def search_inventory(
       order by observed_at desc
       limit %s offset %s
     """
-    count_sql = f"with ranked as (" + sql.split("with ranked as (",1)[1].split("      select * from ranked where rn=1",1)[0] + ") select count(*)::bigint as total_count from ranked where rn=1"
+    count_sql = sql.split("      select * from ranked where rn=1", 1)[0] + "      select count(*)::bigint as total_count from ranked where rn=1"
     params_page = list(params) + [safe_limit, safe_offset]
     with _connect() as conn, conn.cursor() as cur:
         total_count = None
