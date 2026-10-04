@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from typing import Any, Iterable
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl,urlparse,urlunparse,urlencode
 
 try:
     import psycopg
@@ -16,7 +16,18 @@ except ImportError:
 
 
 def database_url() -> str | None:
-    return (os.getenv("SOURCE_INTELLIGENCE_DATABASE_URL") or os.getenv("DATABASE_URL") or os.getenv("POSTGRES_PRISMA_URL") or os.getenv("POSTGRES_URL"))
+    raw = (
+        os.getenv("SOURCE_INTELLIGENCE_DATABASE_URL")
+        or os.getenv("DATABASE_URL")
+        or os.getenv("POSTGRES_PRISMA_URL")
+        or os.getenv("POSTGRES_URL")
+        or os.getenv("POSTGRES_URL_NON_POOLING")
+    )
+    if not raw:
+        return None
+    parts = urlparse(raw)
+    params = [(k,v) for k,v in parse_qsl(parts.query, keep_blank_values=True) if k.lower() != "pgbouncer"]
+    return urlunparse(parts._replace(query=urlencode(params)))
 
 
 def enabled() -> bool:
