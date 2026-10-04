@@ -574,50 +574,56 @@ def _query_parts(query: str) -> tuple[str|None,str|None]:
     return None, q or None
 
 def _targeted_source_urls(query: str, condition: str = "both") -> dict[str,str]:
-    """Build a source-specific India-wide inventory URL for the requested intent.
+    """Resolve source routes from the canonical registry.
 
-    Generic marketplace homepages are not valid search endpoints: they often
-    expose only a subset of inventory or require client-side filters. Every
-    live adapter therefore gets a deterministic brand/model route where the
-    marketplace supports one.
+    URL templates are source configuration, not application taxonomy. A source
+    without a query template falls back to its configured base URL and is still
+    eligible for adapter-side identity filtering.
     """
     brand, model = _query_parts(query)
     if not brand:
         return {}
 
-    brand_slug = _slug(_canonical_brand(brand))
-    model_slug = _slug(model) if model else ""
-
-    urls = {
-        "CarDekho Used": (
-            f"https://www.cardekho.com/used-{brand_slug}-{model_slug}+cars"
-            if model_slug else f"https://www.cardekho.com/used-{brand_slug}+cars"
-        ),
-        "CarWale Used": (
-            f"https://www.carwale.com/used/{brand_slug}-{model_slug}/"
-            if model_slug else f"https://www.carwale.com/used/{brand_slug}/"
-        ),
-        "Cars24 Luxury Used": (
-            f"https://www.cars24.com/buy-used-{brand_slug}-{model_slug}-cars/"
-            if model_slug else f"https://www.cars24.com/buy-used-{brand_slug}-cars/"
-        ),
-        "Spinny Luxury Used": (
-            f"https://www.spinny.com/used-{model_slug or brand_slug}-cars/s/"
-        ),
-    }
-
-    # Motozite's demo catalogue is a filterable catalogue rather than a
-    # brand/model-specific route. Its adapter still receives the catalogue and
-    # applies strict identity + condition filtering after extraction.
+    brand_name = _canonical_brand(brand)
+    values = {}
     wanted_condition = normalize_condition(condition)
-    if wanted_condition == "demo" and model_slug:
-        urls["Motozite Demo"] = f"https://motozite.com/demo/{brand_slug}/{model_slug}/all"
-        if brand_slug == "mercedes-benz":
-            urls["Mercedes-Benz Used Cars"] = "https://www.mercedes-benzusedcar.in/buy-used-cars?ctype=demonstrator"
-    elif not model_slug:
-        urls["Motozite Demo"] = "https://motozite.com/demo-cars"
+    try:
+        registry = load_source_registry()
+    except Exception:
+        registry = []
 
-    return urls
+    for source in registry:
+        name = str(source.get("name") or "").strip()
+        if not name or source.get("adapter_status") != "live":
+            continue
+        conditions = {normalize_condition(x) for x in (source.get("conditions") or [])}
+        if wanted_condition in {"used", "demo"} and conditions and wanted_condition not in conditions:
+            continue
+        brands = {str(x).strip().lower() for x in (source.get("brands") or [])}
+        if brands and "all" not in brands and brand_name.lower() not in brands:
+            continue
+
+        template = str(
+            source.get("query_url_template")
+            or (source.get("metadata") or {}).get("query_url_template")
+            or ""
+        ).strip()
+        base_url = str(source.get("url") or "").strip()
+        if template:
+            try:
+                values[name] = template.format(
+                    brand=urllib.parse.quote(brand_name),
+                    brand_slug=_slug(brand_name),
+                    model=urllib.parse.quote(model or ""),
+                    model_slug=_slug(model or ""),
+                    condition=wanted_condition,
+                )
+            except (KeyError, ValueError):
+                values[name] = base_url
+        elif base_url:
+            values[name] = base_url
+
+    return values
 
 def _canonical_url(base_url: str, href: Any) -> str:
     absolute=_absolute(base_url,str(href or "")).split("#",1)[0]
