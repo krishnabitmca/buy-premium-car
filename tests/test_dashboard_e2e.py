@@ -37,7 +37,7 @@ def test_current_search_first_journey(dashboard_url):
         assert page.locator("#brand").count() == 1
         assert page.locator("#model").count() == 1
         assert page.locator("#condition").count() == 1
-        assert page.locator("#destination").input_value() == "Bengaluru"
+        assert page.locator("#destination").input_value() == ""
         assert page.locator(".hero h1").inner_text() == "Find the right car at the right price"
         assert page.locator(".card").count() == 0
         assert not errors
