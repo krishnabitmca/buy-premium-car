@@ -603,9 +603,13 @@ def _targeted_source_urls(query: str, condition: str = "both") -> dict[str,str]:
         if brands and "all" not in brands and brand_name.lower() not in brands:
             continue
 
+        metadata = source.get("metadata") or {}
+        template_key = "query_url_template" if model else "brand_query_url_template"
         template = str(
-            source.get("query_url_template")
-            or (source.get("metadata") or {}).get("query_url_template")
+            source.get(template_key)
+            or metadata.get(template_key)
+            or source.get("query_url_template")
+            or metadata.get("query_url_template")
             or ""
         ).strip()
         base_url = str(source.get("url") or "").strip()
