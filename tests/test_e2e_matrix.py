@@ -7,7 +7,7 @@ the scheduled production certification workflow.
 import pytest
 
 from src import live_marketplaces as lm
-from src.source_intelligence import load_source_registry, plan_sources
+from src.source_intelligence import load_source_registry, plan_sources, normalize_condition
 
 
 BRANDS_MODELS = [
