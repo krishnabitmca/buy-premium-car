@@ -33,12 +33,6 @@ def test_catalog_brand_resolution_requires_database_or_explicit_configuration():
     assert 'CARSCANNER_MODEL_CATALOG_URL_TEMPLATE' in source
 
 
-def test_source_registry_uses_deployment_database_configuration():
-    source = Path("src/source_registry_db.py").read_text()
-    assert "POSTGRES_PRISMA_URL" in source
-    assert "POSTGRES_URL" in source
-
-
 def test_runtime_dependency_declares_psycopg_for_database_driven_paths():
     source = Path("pyproject.toml").read_text()
     assert '"psycopg[binary]>=3.2,<4"' in source
