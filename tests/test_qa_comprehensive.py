@@ -269,6 +269,10 @@ class TestPureFunctions(unittest.TestCase):
             if url == "https://source-b.example/used/bmw/":
                 return jsonld("BMW X1", brand="BMW", model="X1", url="/x1", price="3500000")
             return "<html></html>"
+        expected_urls = {
+            "Source A": "https://source-a.example/used/bmw/",
+            "Source B": "https://source-b.example/used/bmw/",
+        }
         expected_vehicles = [
             {"brand": "BMW", "model": "X5", "condition_signal": "used"},
             {"brand": "BMW", "model": "X3", "condition_signal": "used"},
