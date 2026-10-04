@@ -842,41 +842,6 @@ def _live_source_entries() -> list[dict]:
     return [s for s in load_source_registry() if s.get("adapter_status") == "live"]
 
 
-def _execute_source(planned: dict, source: dict, url: str, query: str, condition: str) -> tuple[list[dict],dict]:
-    name=str(planned["name"])
-    try:
-        max_pages=max(1,min(int(os.getenv("CARSCANNER_MAX_PAGES_PER_SOURCE","20")),50))
-        parsed,pages=_crawl_paginated_source(url,name,query,condition,max_pages=max_pages)
-        filtered=[]
-        for row in parsed:
-            if not _identity_matches_query(row,query):
-                continue
-            actual=normalize_condition(row.get("condition_signal"))
-            wanted=normalize_condition(condition)
-            if wanted in {"used","demo"} and actual != wanted:
-                continue
-            row["identity_confidence"]=1.0 if row.get("brand") and row.get("model") else 0.0
-            row["identity_evidence"]=["brand","model","listing_name","url"]
-            filtered.append(row)
-        # Deduplicate the same listing appearing in structured and visible parsers
-        # or on adjacent pagination pages.
-        unique={}
-        for row in filtered:
-            key=(_canonical_url(url,str(row.get("url") or "")),row.get("price_lakh"),row.get("model"),row.get("condition_signal"))
-            unique[key]=row
-        filtered=list(unique.values())
-        return filtered,{
-            "source":name,"status":"live","listings_found":len(filtered),"pages_crawled":len(pages),
-            "query_url":url,"source_type":planned.get("source_type"),"source_score":planned.get("score"),
-            "query_strategy":planned.get("query_strategy"),"selection_reasons":planned.get("reasons",[]),
-        }
-    except Exception as exc:
-        return [],{
-            "source":name,"status":"unavailable","listings_found":0,"pages_crawled":0,"error":str(exc)[:160],
-            "query_url":url,"source_type":planned.get("source_type"),"source_score":planned.get("score"),"query_strategy":planned.get("query_strategy"),
-            "selection_reasons":planned.get("reasons",[]),
-        }
-
 def live_inventory(
     query: str = "",
     condition: str = "both",
