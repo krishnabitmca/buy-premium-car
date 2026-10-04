@@ -136,10 +136,13 @@ class TestPureFunctions(unittest.TestCase):
 
         # The catalog is the source of customer-visible truth: the result size
         # must be derived from current catalog links, not a baked-in count.
+        catalog_parser = lm._LinkParser()
+        catalog_parser.feed(page)
         catalog_names = {
             text.split(" Cars", 1)[0].strip()
-            for text, _ in lm._LinkParser().links
-        } if False else {"BMW", "Audi"}
+            for text, _ in catalog_parser.links
+            if text.endswith(" Cars")
+        }
         expected = {
             brand
             for record in registry
