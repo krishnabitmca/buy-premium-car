@@ -1,10 +1,6 @@
 name: CarScanner E2E Matrix
 
 on:
-
-concurrency:
-  group: carscanner-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
   push:
     branches: [main]
   pull_request:
@@ -12,6 +8,10 @@ concurrency:
   workflow_dispatch:
   schedule:
     - cron: "17 */6 * * *"
+
+concurrency:
+  group: carscanner-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   deterministic-e2e:
