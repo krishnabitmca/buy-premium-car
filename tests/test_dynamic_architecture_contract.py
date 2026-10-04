@@ -48,3 +48,27 @@ def test_removed_catalog_fallback_symbols_do_not_reappear():
     assert "_fallback_models" not in source
     assert "CURRENT_BRANDS" not in source
     assert "MODEL_FALLBACKS" not in source
+
+
+def test_catalog_brand_discovery_is_source_driven(monkeypatch):
+    import src.live_marketplaces as lm
+
+    monkeypatch.delenv("CARSCANNER_CATALOG_BRANDS_JSON", raising=False)
+    monkeypatch.delenv("CARSCANNER_CATALOG_SOURCE_URL", raising=False)
+    monkeypatch.setattr(lm, "load_source_registry", lambda: [
+        {"name": "Configured Catalog", "catalog_url": "https://catalog.example/newcars"}
+    ])
+    monkeypatch.setattr(
+        lm,
+        "fetch_text",
+        lambda url: """
+        <a href="/cars/BMW">BMW</a>
+        <a href="/cars/Audi">Audi</a>
+        <a href="/cars/BMW/X5">X5</a>
+        <a href="/new-cars">New Cars</a>
+        """,
+    )
+
+    brands = lm.live_brands()
+    assert [x["name"] for x in brands] == ["Audi", "BMW"]
+    assert all(x["catalog_verified"] == "discovered" for x in brands)
