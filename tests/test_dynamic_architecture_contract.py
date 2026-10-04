@@ -28,7 +28,7 @@ def test_catalog_endpoint_is_not_the_source_of_baked_in_brand_lists():
 def test_catalog_brand_resolution_requires_database_or_explicit_configuration():
     source = Path("src/live_marketplaces.py").read_text()
     assert 'CARSCANNER_CATALOG_BRANDS_JSON' in source
-    assert 'load_registry' in source
+    assert 'load_source_registry' in source
     assert 'CARSCANNER_CATALOG_SOURCE_URL' in source
     assert 'CARSCANNER_MODEL_CATALOG_URL_TEMPLATE' in source
 
