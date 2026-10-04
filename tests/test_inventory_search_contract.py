@@ -6,7 +6,7 @@ def test_inventory_search_contract_contains_pagination_and_image_projection():
     source = Path("src/inventory_db.py").read_text()
     tree = ast.parse(source)
     fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "search_inventory")
-    args = {a.arg for a in fn.args.args}
+    args = {a.arg for a in fn.args.args} | {a.arg for a in fn.args.kwonlyargs}
     assert {"limit", "offset", "return_count"} <= args
     assert "image_urls" in source
     assert "limit %s offset %s" in source
