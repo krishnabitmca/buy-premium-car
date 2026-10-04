@@ -2,7 +2,7 @@ import asyncio
 from playwright.async_api import async_playwright
 
 RESULT = {
-    "ok": True, "mode": "live", "live_at": "2026-10-01T08:00:00Z",
+    "ok": True, "mode": "live", "search_scope": "india", "live_at": "2026-10-01T08:00:00Z",
     "sources": [
         {"source":"CarDekho Used","status":"live","listings_found":3},
         {"source":"CarWale Used","status":"live","listings_found":1},
