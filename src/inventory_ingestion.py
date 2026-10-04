@@ -94,7 +94,7 @@ def ingest_vehicles(vehicles: list[Vehicle]) -> dict[str, int]:
                     if str(v.condition_signal or "used").lower() in {"used","demo"} else "unknown",
                     v.fuel, v.transmission, v.seller_city, v.seller_state,
                     v.registration_state, float(v.identity_confidence),
-                    {"identity_mode": "strong" if _strong_identity(v) else "provisional"},
+                    {"identity_mode": "strong" if _strong_identity(v) else "provisional",\n                     "image_urls": list(v.image_urls or [])},
                 ),
             )
             vehicle_id = cur.fetchone()["vehicle_id"]
