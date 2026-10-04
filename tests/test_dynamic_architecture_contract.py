@@ -73,3 +73,26 @@ def test_catalog_brand_discovery_is_source_driven(monkeypatch):
     brands = lm.live_brands()
     assert [x["name"] for x in brands] == ["Audi", "BMW"]
     assert all(x["catalog_verified"] == "discovered" for x in brands)
+
+def test_source_route_resolution_is_registry_driven():
+    from src import live_marketplaces as lm
+
+    source = Path("src/live_marketplaces.py").read_text()
+    start = source.index("def _targeted_source_urls")
+    end = source.index("def _canonical_url", start)
+    resolver = source[start:end].lower()
+
+    for token in ("cardekho.com", "carwale.com", "cars24.com", "spinny.com", "motozite.com"):
+        assert token not in resolver
+
+    assert "load_source_registry()" in resolver
+    assert "query_url_template" in resolver
+
+
+def test_registry_contains_query_route_configuration_for_primary_marketplaces():
+    import yaml
+
+    data = yaml.safe_load(Path("config/sources.yaml").read_text())
+    sources = {x["name"]: x for x in data["known_sources"]}
+    for name in ("CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"):
+        assert sources[name].get("query_url_template")
