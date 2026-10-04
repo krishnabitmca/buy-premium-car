@@ -108,6 +108,8 @@ class handler(BaseHTTPRequestHandler):
             if budget_min is not None and budget_max is not None and budget_min>budget_max:
                 return _response(self,400,{"error":"Minimum budget cannot exceed maximum budget"})
             condition=str(body.get("condition") or "both")
+            page=max(1, int(body.get("page") or 1))
+            page_size=max(1, min(int(body.get("page_size") or 50), 200))
             source_plan=plan_sources(
                 brand=_query_parts(query)[0],
                 model=_query_parts(query)[1],
@@ -118,14 +120,19 @@ class handler(BaseHTTPRequestHandler):
                 registry=load_source_registry(),
             )
             search_mode = "live"
+            inventory_total = None
             if inventory_enabled():
-                vehicles, sources = search_inventory(
+                inventory_result = search_inventory(
                     query=query,
                     condition=condition,
                     budget_min=budget_min,
                     budget_max=budget_max,
                     max_age_years=max_age,
+                    limit=page_size,
+                    offset=(page - 1) * page_size,
+                    return_count=True,
                 )
+                vehicles, sources, inventory_total = inventory_result
                 expected_live_sources = {
                     str(p.get("name"))
                     for p in source_plan
@@ -179,6 +186,9 @@ class handler(BaseHTTPRequestHandler):
             for v in vehicles:
                 if not _match(v,query,budget_min,budget_max,max_age,destination,body.get("condition") or "both"): continue
                 enriched=dict(v)
+                if enriched.get("image_urls") and not enriched.get("images"):
+                    enriched["images"] = enriched["image_urls"]
+                    enriched["image"] = enriched["image_urls"][0] if enriched["image_urls"] else None
                 enriched["purchase_context"]=purchase_context(v,destination)
                 enriched["_search_score"]=_score(v)
                 results.append(enriched)
@@ -214,7 +224,11 @@ class handler(BaseHTTPRequestHandler):
                 "sources":sources,
                 "source_strategy":summarize_plan(source_plan),
                 "source_plan":[{k:p.get(k) for k in ("name","source_type","adapter_status","score","query_strategy","query","reasons")} for p in source_plan[:12]],
-                "total_results":len(results),
+                "total_results": int(inventory_total) if search_mode == "inventory" and inventory_total is not None else len(results),
+                "page": page,
+                "page_size": page_size,
+                "has_more": ((page * page_size) < int(inventory_total)) if search_mode == "inventory" and inventory_total is not None else False,
+                "inventory_total": int(inventory_total) if inventory_total is not None else None,
                 "sources_found":len({s for v in results for s in [v.get("source")] if s}),
                 "results":results
             })
