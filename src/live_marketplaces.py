@@ -604,8 +604,35 @@ def parse_visible_listing_links(html: str, source: str, base_url: str, query: st
         if key in seen: continue
         seen.add(key);out.append(row)
     return out
+class _NextPageParser(HTMLParser):
+    """Extract an explicitly advertised next-results link without guessing page parameters."""
+    def __init__(self):
+        super().__init__()
+        self.next_href = None
+
+    def handle_starttag(self, tag, attrs):
+        if self.next_href or tag.lower() not in {"a", "link"}:
+            return
+        attrs = {str(k).lower(): str(v or "") for k, v in attrs}
+        rel = set(str(attrs.get("rel") or "").lower().split())
+        label = " ".join((attrs.get("aria-label"), attrs.get("title"), attrs.get("data-testid"))).lower()
+        if "next" in rel or re.search(r"\\bnext\\b", label):
+            href = attrs.get("href")
+            if href:
+                self.next_href = href
+
+
 def _next_page_url(html: str, base_url: str) -> str | None:
-    """Find a marketplace's canonical next-results URL without guessing pagination semantics."""
+    """Find an explicitly advertised next-results URL and canonicalize it."""
+    parser = _NextPageParser()
+    parser.feed(html)
+    if parser.next_href:
+        url = _canonical_url(base_url, parser.next_href)
+        if url != _canonical_url(base_url, base_url):
+            return url
+
+    # Compatibility fallback for malformed markup that the HTML parser cannot
+    # interpret cleanly. Still require an explicit rel/aria/title next marker.
     patterns = [
         r'<a[^>]+rel=["\\\'][^"\\\']*\\bnext\\b[^"\\\']*["\\\'][^>]+href=["\\\']([^"\\\']+)',
         r'<a[^>]+href=["\\\']([^"\\\']+)["\\\'][^>]+[^>]*(?:aria-label|title)=["\\\'][^"\\\']*\\bnext\\b',
