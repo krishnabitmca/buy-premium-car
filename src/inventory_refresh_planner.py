@@ -21,6 +21,16 @@ def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
         return 0
 
     demands = load_search_demand(limit=limit, lookback_hours=lookback_hours)
+    # Always maintain a global India-wide refresh demand. This bootstraps the
+    # inventory even before enough customer searches exist and keeps source
+    # freshness independent from customer traffic.
+    global_demand = {
+        "brand": "", "model": "", "condition": "both",
+        "destination_state": "", "search_count": 1, "inventory_hit_count": 0,
+    }
+    demands = [global_demand] + [d for d in demands if not (
+        not d.get("brand") and not d.get("model") and str(d.get("condition") or "both") == "both"
+    )]
     created = 0
 
     with _connect() as conn, conn.cursor() as cur:
