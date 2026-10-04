@@ -588,10 +588,11 @@ def _targeted_source_urls(query: str, condition: str = "both") -> dict[str,str]:
         else:
             condition_template_key = ""
         template_key = "query_url_template" if model else "brand_query_url_template"
-        template = str(
-            (source.get(condition_template_key) or metadata.get(condition_template_key))
-            if condition_template_key else ""
-        ).strip()
+        condition_template = (
+            source.get(condition_template_key) or metadata.get(condition_template_key)
+            if condition_template_key else None
+        )
+        template = str(condition_template).strip() if condition_template else ""
         if not template:
             template = str(
                 source.get(template_key)
