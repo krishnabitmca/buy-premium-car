@@ -2,7 +2,7 @@ name: Inventory Refresh Scheduler
 
 on:
   schedule:
-    - cron: "7 * * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       limit:
@@ -28,3 +28,11 @@ jobs:
         env:
           CARSCANNER_DATABASE_URL: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
         run: python -m src.inventory_refresh_planner --limit "${{ inputs.limit || '100' }}"
+      - name: Process refresh work
+        env:
+          CARSCANNER_DATABASE_URL: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
+          CARSCANNER_MAX_PAGES_PER_SOURCE: "20"
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            python -m src.inventory_refresh_worker --limit "10" || exit 1
+          done
