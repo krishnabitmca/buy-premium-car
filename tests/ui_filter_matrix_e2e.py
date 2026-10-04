@@ -5,6 +5,7 @@ from playwright.async_api import async_playwright
 RESULT = {
     "ok": True,
     "mode": "live",
+    "search_scope": "india",
     "live_at": "2026-10-01T08:00:00Z",
     "sources": [{"source": "CarDekho Used", "status": "live", "listings_found": 3}],
     "results": [
@@ -114,7 +115,7 @@ async def main():
 
         if errors:
             raise AssertionError("Browser console/page errors: "+repr(errors))
-        print("PASS: 50,400 sidebar filter/context permutations + interaction/reset checks")
+        print(f"PASS: {matrix['tested']:,} sidebar filter/context permutations + interaction/reset checks")
         await browser.close()
 
 asyncio.run(main())
