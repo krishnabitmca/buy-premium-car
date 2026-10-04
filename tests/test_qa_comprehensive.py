@@ -274,15 +274,17 @@ class TestPureFunctions(unittest.TestCase):
             "Source A": "https://source-a.example/used/bmw/",
             "Source B": "https://source-b.example/used/bmw/",
         }
+        with patch.object(lm, "load_source_registry", return_value=registry):
+            resolved = lm._targeted_source_urls("BMW", "used")
+        self.assertEqual(resolved, expected_urls)
+
         with patch.object(lm, "load_source_registry", return_value=registry), \
-             patch.object(lm, "_targeted_source_urls", return_value=expected_urls), \
              patch.object(BuiltinMarketplaceAdapter, "_url", side_effect=lambda self, request: expected_urls[self.source_name]), \
              patch("src.source_adapters.fetch_text", side_effect=fake_fetch), \
              patch("src.source_adapters.adapter_execution_allowed", return_value=True), \
              patch("src.source_adapters.record_adapter_execution", return_value=None):
             vehicles, sources = lm.live_inventory(
                 query="BMW", condition="used", budget_min=None, budget_max=None, destination="Bengaluru")
-        self.assertEqual(lm._targeted_source_urls("BMW", "used"), expected_urls)
         self.assertEqual({s["query_url"] for s in sources},
                          {"https://source-a.example/used/bmw/", "https://source-b.example/used/bmw/"})
         self.assertGreaterEqual(len(vehicles), 3)
