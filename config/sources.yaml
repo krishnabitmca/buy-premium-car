@@ -69,6 +69,8 @@ known_sources:
 
 - name: Motozite Demo
   url: https://motozite.com/demo-cars
+  query_url_template: https://motozite.com/demo/{brand_slug}/{model_slug}/all
+  brand_query_url_template: https://motozite.com/demo/{brand_slug}/all
   tier: 2
   source_type: luxury_specialist
   adapter_status: live
@@ -82,6 +84,8 @@ known_sources:
 
 - name: Mercedes-Benz Used Cars
   url: https://www.mercedes-benzusedcar.in/buy-used-cars
+  demo_query_url_template: https://www.mercedes-benzusedcar.in/buy-used-cars?ctype=demonstrator
+  brand_demo_query_url_template: https://www.mercedes-benzusedcar.in/buy-used-cars?ctype=demonstrator
   tier: 1
   source_type: oem_certified
   adapter_status: live
