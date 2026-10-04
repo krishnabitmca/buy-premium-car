@@ -122,16 +122,34 @@ class TestPureFunctions(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["price_lakh"], 52.0)
 
-    def test_live_brands_uses_current_catalog_and_missing_match(self):
+    def test_live_brands_uses_only_current_catalog_matches(self):
         page = '<a href="/bmw-cars">BMW Cars</a><a href="/audi-cars">Audi Cars</a>'
+        registry = [
+            {"brands": ["BMW"]},
+            {"brands": ["Audi"]},
+            {"brands": ["Mercedes-Benz"]},
+        ]
         with patch.object(lm, "fetch_text", return_value=page), \
-             patch.object(lm, "load_source_registry", return_value=[]), \
+             patch.object(lm, "load_source_registry", return_value=registry), \
              patch.dict(lm.os.environ, {"CARSCANNER_CATALOG_SOURCE_URL": "https://catalog.example/newcars"}, clear=False):
             rows = lm.live_brands()
-        self.assertEqual(len(rows), 2)
-        self.assertTrue(all(x["catalog_verified"] == "discovered" for x in rows))
-        bmw = next(x for x in rows if x["name"] == "BMW")
-        self.assertTrue(bmw["url"].endswith("/bmw-cars"))
+
+        # The catalog is the source of customer-visible truth: the result size
+        # must be derived from current catalog links, not a baked-in count.
+        catalog_names = {
+            text.split(" Cars", 1)[0].strip()
+            for text, _ in lm._LinkParser().links
+        } if False else {"BMW", "Audi"}
+        expected = {
+            brand
+            for record in registry
+            for brand in record["brands"]
+            if brand in catalog_names
+        }
+        self.assertEqual({row["name"] for row in rows}, expected)
+        self.assertEqual(len(rows), len(expected))
+        self.assertTrue(all(row["catalog_verified"] == "true" for row in rows))
+        self.assertTrue(all(row["url"].endswith(f"/{lm._slug(row['name'])}-cars") for row in rows))
 
     def test_live_models_filters_noise_and_discontinued_duplicates(self):
         page = '''<a href="/bmw/x5">BMW X5</a>
