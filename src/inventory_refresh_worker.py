@@ -38,7 +38,7 @@ def claim_jobs(limit: int = 10) -> list[dict[str, Any]]:
                update public.inventory_refresh_queue q
                set status='running',started_at=now(),attempt_count=attempt_count+1
                from picked where q.refresh_id=picked.refresh_id
-               returning q.*, (select s.name from public.sources s where s.source_id=q.source_id) as source_name""",
+               returning q.*, (select s.name from public.sources s where s.source_id=q.source_id) as source_name,\n                       (select s.url from public.sources s where s.source_id=q.source_id) as source_url""",
             (max(1, min(int(limit), 100)),),
         )
         rows = [dict(r) for r in cur.fetchall()]
@@ -71,7 +71,7 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
         source = {
             "name": source_name,
             "adapter_status": "live",
-            "url": str(job.get("metadata", {}).get("source_url") or ""),
+            "url": str(job.get("source_url") or job.get("metadata", {}).get("source_url") or ""),
         }
         adapter = BuiltinMarketplaceAdapter(source)
         result = adapter.fetch(
