@@ -443,7 +443,7 @@ class TestHTTPContracts(unittest.TestCase):
             {"source":"Spinny Luxury Used","status":"live","listings_found":1},
         ]
         with patch.object(search_api,"inventory_enabled",return_value=True), \
-             patch.object(search_api,"search_inventory",return_value=(inventory_rows,inventory_sources)), \
+             patch.object(search_api,"search_inventory",return_value=(inventory_rows,inventory_sources,len(inventory_rows))), \
              patch.object(search_api,"live_inventory",return_value=(live_rows,live_sources)), \
              patch.object(search_api,"load_source_registry",return_value=[
                  {"name":"CarDekho Used","adapter_status":"live","conditions":["used"],"segments":["luxury"],"brands":["all"],"priority":90},
