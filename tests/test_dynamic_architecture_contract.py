@@ -42,3 +42,8 @@ def test_source_registry_uses_deployment_database_configuration():
 def test_runtime_dependency_declares_psycopg_for_database_driven_paths():
     source = Path("pyproject.toml").read_text()
     assert '"psycopg[binary]>=3.2,<4"' in source
+
+
+def test_vercel_runtime_requirements_include_database_driver():
+    source = Path("api/requirements.txt").read_text()
+    assert "psycopg[binary]>=3.2,<4" in source
