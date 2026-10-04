@@ -78,7 +78,8 @@ async def main():
             }
             return {tested,failures};
         }""", RESULT["results"])
-        assert matrix["tested"] == 50400, matrix
+        expected_permutations = 3 * 5 * 6 * (1 + len({v["location"] for v in RESULT["results"]})) * 5 * 7 * (1 + len({v["location"] for v in RESULT["results"]}))
+        assert matrix["tested"] == expected_permutations, matrix
         assert matrix["failures"] == [], matrix
 
         await page.locator("#clear").click()
