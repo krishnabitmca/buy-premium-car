@@ -20,8 +20,10 @@ async def main():
         browser = await p.chromium.launch()
         page = await browser.new_page()
         errors=[]
+        responses=[]
         page.on("console", lambda msg: errors.append(msg.text) if msg.type=="error" else None)
         page.on("pageerror", lambda exc: errors.append(str(exc)))
+        page.on("response", lambda response: responses.append((response.status, response.url)) if "/api/" in response.url else None)
 
         async def route(route):
             u=route.request.url
@@ -51,7 +53,14 @@ async def main():
         await page.locator("#max").fill("55")
         await page.locator("#destination").fill("Bengaluru")
         await page.locator("#search").click()
-        await page.locator(".card").first.wait_for()
+        try:
+            await page.locator(".card").first.wait_for(timeout=10000)
+        except Exception as exc:
+            grid_text = await page.locator("#grid").inner_text()
+            response_snapshot = responses[-10:]
+            raise AssertionError(
+                f"Search did not render cards. grid={grid_text!r} responses={response_snapshot!r} errors={errors!r}; original={exc}"
+            ) from exc
         assert await page.locator(".card").count() == 3
         assert "LIVE" in await page.locator(".livebar").inner_text()
         assert "Bengaluru" in await page.locator("#destination").input_value()
