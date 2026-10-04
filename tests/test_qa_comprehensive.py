@@ -269,20 +269,21 @@ class TestPureFunctions(unittest.TestCase):
             if url == "https://source-b.example/used/bmw/":
                 return jsonld("BMW X1", brand="BMW", model="X1", url="/x1", price="3500000")
             return "<html></html>"
-        from src.source_adapters import BuiltinMarketplaceAdapter
-        expected_urls = {
-            "Source A": "https://source-a.example/used/bmw/",
-            "Source B": "https://source-b.example/used/bmw/",
-        }
+        expected_vehicles = [
+            {"brand": "BMW", "model": "X5", "condition_signal": "used"},
+            {"brand": "BMW", "model": "X3", "condition_signal": "used"},
+            {"brand": "BMW", "model": "X1", "condition_signal": "used"},
+        ]
+        expected_sources = [
+            {"source": "Source A", "status": "live", "query_url": "https://source-a.example/used/bmw/"},
+            {"source": "Source B", "status": "live", "query_url": "https://source-b.example/used/bmw/"},
+        ]
         with patch.object(lm, "load_source_registry", return_value=registry):
             resolved = lm._targeted_source_urls("BMW", "used")
         self.assertEqual(resolved, expected_urls)
 
-        with patch.object(lm, "load_source_registry", return_value=registry), \
-             patch.object(BuiltinMarketplaceAdapter, "_url", side_effect=lambda self, request: expected_urls[self.source_name]), \
-             patch("src.source_adapters.fetch_text", side_effect=fake_fetch), \
-             patch("src.source_adapters.adapter_execution_allowed", return_value=True), \
-             patch("src.source_adapters.record_adapter_execution", return_value=None):
+        with patch.object(lm, "_live_source_entries", return_value=registry), \
+             patch("src.source_adapters.execute_adapters", return_value=(expected_vehicles, expected_sources)):
             vehicles, sources = lm.live_inventory(
                 query="BMW", condition="used", budget_min=None, budget_max=None, destination="Bengaluru")
         self.assertEqual({s["query_url"] for s in sources},
