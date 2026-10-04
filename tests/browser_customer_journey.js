@@ -25,7 +25,9 @@ const base = (process.env.CARSCANNER_BASE_URL || "https://buy-premium-car1.onren
     const modelNames = await page.locator("#model option").allTextContents();
     if (!modelNames.some(x => /X5/i.test(x))) throw new Error("BMW X5 missing from model dropdown");
 
-    await page.selectOption("#model", { label: /BMW X5/i });
+    const x5Label = modelNames.find(x => /BMW X5/i.test(x));
+    if (!x5Label) throw new Error("BMW X5 option was discovered but could not be selected");
+    await page.selectOption("#model", { label: x5Label });
     await page.click("#search");
     await page.waitForFunction(() => {
       const grid = document.querySelector("#grid");
