@@ -16,7 +16,7 @@ except ImportError:
 
 
 def database_url() -> str | None:
-    return os.getenv("SOURCE_INTELLIGENCE_DATABASE_URL") or os.getenv("DATABASE_URL")
+    return (os.getenv("SOURCE_INTELLIGENCE_DATABASE_URL") or os.getenv("DATABASE_URL") or os.getenv("POSTGRES_PRISMA_URL") or os.getenv("POSTGRES_URL"))
 
 
 def enabled() -> bool:
