@@ -48,6 +48,7 @@ async function runSearch(page,spec){
     }
   };
   page.on("response",handler);
+  await page.click("#clear");
   await page.selectOption("#condition",{label:spec.condition==="used"?"Used only":spec.condition==="demo"?"Demo only":"Used + Demo"});
   await selectBrandModel(page,spec.brand,spec.model);
   await page.fill("#min",spec.min||"");
@@ -150,7 +151,7 @@ async function main(){
     const page=await browser.newPage({viewport:{width:1440,height:1100}});
     page.on("pageerror",e=>pageErrors.push("pageerror: "+e.message));
     page.on("console",m=>{if(m.type()==="error")pageErrors.push("console: "+m.text());});
-    await page.goto(BASE+"/?qa="+Date.now(),{waitUntil:"networkidle",timeout:90000});
+    await page.goto(BASE+"/?qa="+Date.now(),{waitUntil:"domcontentloaded",timeout:90000});
     await page.waitForSelector("#brand",{state:"visible",timeout:15000});
     const brandCount=await page.locator("#brand option").count();
     if(brandCount<5)throw new Error("brand dropdown has too few options: "+brandCount);
@@ -158,8 +159,6 @@ async function main(){
     for(const [brand,model] of journeys)for(const condition of conditions){
       const spec={brand,model,condition,min:"",max:"",destination:"Bengaluru"},t=Date.now();
       try{
-        await page.goto(BASE+"/?qa="+Date.now(),{waitUntil:"networkidle",timeout:90000});
-        await page.waitForSelector("#brand",{state:"visible",timeout:15000});
         const detail=await runSearch(page,spec);
         results.push({category:"journey",status:"PASS",...spec,...detail,ms:Date.now()-t});
       }catch(e){
