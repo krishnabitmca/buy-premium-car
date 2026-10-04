@@ -272,13 +272,18 @@ def _configured_brand_records() -> list[dict[str,str]]:
     return result
 
 def _registry_brand_records() -> list[dict[str,str]]:
+    """Build brand identity data from the configured registry.
+
+    PostgreSQL is preferred when enabled; the canonical YAML registry remains
+    the deterministic bootstrap/local fallback. Brand identity must not depend
+    on a database-only path because parser and catalog behavior must remain
+    functional before the control-plane DB is provisioned.
+    """
     try:
-        from .source_registry_db import load_registry, enabled as registry_enabled
-        if not registry_enabled():
-            return []
+        from .source_intelligence import load_source_registry
         values=[]
         seen=set()
-        for source in load_registry():
+        for source in load_source_registry():
             for brand in source.get("brands") or []:
                 name=str(brand or "").strip()
                 if not name or name=="*":
