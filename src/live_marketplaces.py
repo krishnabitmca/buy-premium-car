@@ -136,7 +136,7 @@ def live_brands() -> list[dict[str,str]]:
     links=parser.links
     result=[]
     seen=set()
-    for brand in CURRENT_BRANDS:
+    for brand in _known_brand_names():
         candidates={brand,brand+" Cars",_canonical_brand(brand)+" Cars"}
         for text,href in links:
             absolute=_absolute("https://www.cardekho.com",href)
@@ -209,6 +209,16 @@ def _clean_model_catalog_name(text: str) -> str | None:
     clean=re.sub(r"\s+\*+$", "", clean).strip()
     clean=re.sub(r"\s+(?:estimated|expected)$", "", clean, flags=re.I).strip()
     return clean or None
+
+def _known_brand_names() -> list[str]:
+    names=[]
+    seen=set()
+    for record in _registry_brand_records()+_configured_brand_records():
+        name=str(record.get("name") or "").strip()
+        if name and name.lower() not in seen:
+            seen.add(name.lower())
+            names.append(name)
+    return names
 
 def _catalog_source_url() -> str:
     return os.getenv("CARSCANNER_CATALOG_SOURCE_URL", "").strip()
@@ -485,7 +495,7 @@ def _infer_brand_model(name: str, brand: Any, model: Any) -> tuple[str|None,str]
     m=str(model).strip() if model else ""
     if b and m: return b,m
     clean=" ".join(str(name or "").split())
-    for candidate in sorted(CURRENT_BRANDS,key=len,reverse=True):
+    for candidate in sorted(_known_brand_names(),key=len,reverse=True):
         if clean.lower().startswith(candidate.lower()+" "):
             return candidate,clean[len(candidate):].strip()
     parts=clean.split(" ",1)
@@ -494,7 +504,7 @@ def _infer_brand_model(name: str, brand: Any, model: Any) -> tuple[str|None,str]
 def _query_parts(query: str) -> tuple[str|None,str|None]:
     q=" ".join(str(query or "").split()).strip()
     low=q.lower()
-    for brand in sorted(CURRENT_BRANDS,key=len,reverse=True):
+    for brand in sorted(_known_brand_names(),key=len,reverse=True):
         if brand.lower() in low:
             model=q[:low.find(brand.lower())]+q[low.find(brand.lower())+len(brand):]
             model=re.sub(r"\\s+"," ",model).strip()
@@ -565,7 +575,7 @@ def _canonical_url(base_url: str, href: Any) -> str:
 def _listing_identity_from_text(text: str, href: str) -> tuple[str|None,str|None]:
     blob=f"{text} {urllib.parse.urlsplit(href).path.replace('-',' ')}"
     brand=None
-    for candidate in sorted(CURRENT_BRANDS,key=len,reverse=True):
+    for candidate in sorted(_known_brand_names(),key=len,reverse=True):
         if re.search(r"\b"+re.escape(candidate)+r"\b",blob,re.I):
             brand=_canonical_brand(candidate); break
     if not brand:
