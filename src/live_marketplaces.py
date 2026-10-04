@@ -137,6 +137,142 @@ def _catalog_exclude_paths() -> set[str]:
         pass
     return set()
 
+
+def _brand_path_tokens(selected: dict[str,str]) -> set[str]:
+    parsed=urllib.parse.urlparse(selected["url"])
+    path=parsed.path.strip("/").lower()
+    if path.endswith("-cars"):
+        path=path[:-5]
+    tokens={_slug(selected["name"]),path}
+    tokens.update(_identity_tokens(_canonical_brand(selected["name"])))
+    return {t for t in tokens if t}
+
+def _is_current_model_link(selected: dict[str,str], href: str) -> bool:
+    """Accept only canonical CarDekho model landing pages, never variants/dealers/offers."""
+    parsed=urllib.parse.urlparse(href)
+    host=parsed.netloc.lower()
+    path=parsed.path.rstrip("/").lower()
+    if host and "cardekho.com" not in host:
+        return False
+    parts=[p for p in path.split("/") if p]
+    brand_tokens=_brand_path_tokens(selected)
+    # CarDekho places gallery/navigation links alongside model links. They
+    # share the same /<brand>/<slug> URL shape, so explicitly reject known
+    # non-model endpoints before accepting the generic two-segment shape.
+    navigation_slugs = {
+        "gallery","images","photos","photo","videos","video","reviews",
+        "review","news","offers","offer","dealers","dealer","service",
+        "new-cars","used-cars","view-all-models","compare","accessories",
+    }
+    if parts and (parts[-1] in navigation_slugs or
+                  parts[-1].endswith(("-offers","-offer","-dealer","-dealers"))):
+        return False
+    # Reject common navigation labels even when the source exposes them through
+    # a query/hash URL or a path variant that otherwise resembles a model page.
+    if any(token in parts for token in {"gallery","images","photos","photo","videos","video","reviews","review","offers","offer","dealers","dealer","service","compare","accessories"}):
+        return False
+    if len(parts)==2 and parts[0] in brand_tokens:
+        return True
+    if len(parts)==3 and parts[0]=="carmodels" and parts[1] in brand_tokens:
+        return True
+    return False
+
+def _clean_model_catalog_name(text: str) -> str | None:
+    """Normalize source link labels before exposing them as customer model names.
+
+    CarDekho reuses model landing URLs in historical/discontinued sections and
+    sometimes appends price, year-range, or status text to the same anchor.
+    Those labels are not separate current models and must not leak into the
+    customer-facing catalog.
+    """
+    clean=" ".join(str(text or "").split()).strip()
+    if not clean:
+        return None
+    if re.search(r"\bdiscontinued\b",clean,re.I):
+        return None
+    if re.search(r"\b(?:expected launch|upcoming|estimated)\b",clean,re.I):
+        return None
+    # Remove trailing source metadata such as prices and asterisks. Keep the
+    # actual model name, including meaningful terms such as Long Wheelbase.
+    clean=re.sub(r"\s+(?:₹|Rs\.?)[^|]*$", "", clean, flags=re.I).strip()
+    clean=re.sub(r"\s+\*+$", "", clean).strip()
+    clean=re.sub(r"\s+(?:estimated|expected)$", "", clean, flags=re.I).strip()
+    return clean or None
+
+def _known_brand_names() -> list[str]:
+    names=[]
+    seen=set()
+    for record in _registry_brand_records()+_configured_brand_records():
+        name=str(record.get("name") or "").strip()
+        if name and name.lower() not in seen:
+            seen.add(name.lower())
+            names.append(name)
+    return names
+
+def _catalog_source_url() -> str:
+    configured=os.getenv("CARSCANNER_CATALOG_SOURCE_URL", "").strip()
+    if configured:
+        return configured
+    try:
+        for source in load_source_registry():
+            metadata=source.get("metadata") or {}
+            url=str(source.get("catalog_url") or metadata.get("catalog_url") or "").strip()
+            if url:
+                return url
+    except Exception:
+        pass
+    return ""
+
+def _configured_brand_records() -> list[dict[str,str]]:
+    raw=os.getenv("CARSCANNER_CATALOG_BRANDS_JSON", "").strip()
+    if not raw:
+        return []
+    try:
+        values=json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    result=[]
+    for item in values if isinstance(values,list) else []:
+        if isinstance(item,str):
+            name=item.strip()
+            if name:
+                result.append({"name":name,"slug":_slug(name),"url":"" ,"catalog_verified":"config"})
+        elif isinstance(item,dict) and str(item.get("name") or "").strip():
+            name=str(item["name"]).strip()
+            result.append({
+                "name":name,
+                "slug":str(item.get("slug") or _slug(name)),
+                "url":str(item.get("url") or ""),
+                "catalog_verified":"config",
+            })
+    return result
+
+def _registry_brand_records() -> list[dict[str,str]]:
+    """Build brand identity data from the configured registry.
+
+    PostgreSQL is preferred when enabled; the canonical YAML registry remains
+    the deterministic bootstrap/local fallback. Brand identity must not depend
+    on a database-only path because parser and catalog behavior must remain
+    functional before the control-plane DB is provisioned.
+    """
+    try:
+        from .source_intelligence import load_source_registry
+        values=[]
+        seen=set()
+        for source in load_source_registry():
+            for brand in source.get("brands") or []:
+                name=str(brand or "").strip()
+                if not name or name=="*":
+                    continue
+                key=_canonical_brand(name).lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                values.append({"name":_canonical_brand(name),"slug":_slug(_canonical_brand(name)),"url":"","catalog_verified":"database"})
+        return sorted(values,key=lambda x:x["name"].lower())
+    except Exception:
+        return []
+
 def live_brands() -> list[dict[str,str]]:
     """Return brands from the database/configured catalog, never a baked-in taxonomy."""
     configured=_configured_brand_records()
