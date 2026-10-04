@@ -254,28 +254,30 @@ class TestPureFunctions(unittest.TestCase):
         self.assertEqual(urls["Spinny Luxury Used"],"https://www.spinny.com/used-q5-cars/s/")
 
     def test_brand_only_live_search_keeps_all_models(self):
-        calls=[]
+        registry = [
+            {"name": "Source A", "adapter_status": "live", "url": "https://source-a.example/search",
+             "conditions": ["used"], "segments": ["mass_market", "premium", "luxury"], "brands": ["all"],
+             "brand_query_url_template": "https://source-a.example/used/{brand_slug}/", "priority": 90},
+            {"name": "Source B", "adapter_status": "live", "url": "https://source-b.example/search",
+             "conditions": ["used"], "segments": ["mass_market", "premium", "luxury"], "brands": ["all"],
+             "brand_query_url_template": "https://source-b.example/used/{brand_slug}/", "priority": 80},
+        ]
         def fake_fetch(url):
-            calls.append(url)
-            if url=="https://www.cardekho.com/used-bmw+cars":
-                return jsonld("BMW X5",model="X5",url="/used/bmw-x5") + jsonld(
-                    "BMW X3",model="X3",url="/used/bmw-x3",price="4200000")
-            if url=="https://www.carwale.com/used/bmw/":
-                return jsonld("BMW X1",model="X1",url="/used/bmw-x1",price="3500000")
+            if url == "https://source-a.example/used/bmw/":
+                return jsonld("BMW X5", brand="BMW", model="X5", url="/x5") + jsonld(
+                    "BMW X3", brand="BMW", model="X3", url="/x3", price="4200000")
+            if url == "https://source-b.example/used/bmw/":
+                return jsonld("BMW X1", brand="BMW", model="X1", url="/x1", price="3500000")
             return "<html></html>"
-
-        with patch.object(lm, "fetch_text", side_effect=fake_fetch):
+        with patch.object(lm, "load_source_registry", return_value=registry),              patch("src.source_adapters.fetch_text", side_effect=fake_fetch):
             vehicles, sources = lm.live_inventory(
-                query="BMW", condition="used", budget_min=None, budget_max=None,
-                destination="Bengaluru"
-            )
-
-        self.assertIn("https://www.cardekho.com/used-bmw+cars", calls)
-        self.assertIn("https://www.carwale.com/used/bmw/", calls)
+                query="BMW", condition="used", budget_min=None, budget_max=None, destination="Bengaluru")
+        self.assertEqual({s["query_url"] for s in sources},
+                         {"https://source-a.example/used/bmw/", "https://source-b.example/used/bmw/"})
         self.assertGreaterEqual(len(vehicles), 3)
         self.assertEqual({v["brand"] for v in vehicles}, {"BMW"})
-        self.assertEqual({v["model"] for v in vehicles}, {"X1","X3","X5"})
-        self.assertTrue(all(v["condition_signal"]=="used" for v in vehicles))
+        self.assertEqual({v["model"] for v in vehicles}, {"X1", "X3", "X5"})
+        self.assertTrue(all(v["condition_signal"] == "used" for v in vehicles))
 
     def test_visible_marketplace_listing_parser(self):
         html='''<a href="/used/mumbai/mercedes-benz-c-class/abc">
