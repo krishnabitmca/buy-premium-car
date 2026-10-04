@@ -45,7 +45,9 @@ def search_inventory(
     budget_max: float | None = None,
     max_age_years: float | None = None,
     limit: int = 500,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    offset: int = 0,
+    return_count: bool = False,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]] | tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
     """Return the freshest active observation per vehicle from PostgreSQL."""
     if not enabled():
         return [], []
@@ -79,7 +81,8 @@ def search_inventory(
         predicates.append("(v.manufacture_year is not null and v.manufacture_year >= %s)")
         params.append(datetime.now(timezone.utc).year - int(max_age_years))
 
-    params.append(max(1, min(int(limit), 2000)))
+    safe_limit = max(1, min(int(limit), 2000))
+    safe_offset = max(0, min(int(offset), 1_000_000))
     where = " and ".join(predicates)
 
     sql = f"""
@@ -95,6 +98,7 @@ def search_inventory(
           o.price_lakh, o.mileage_km as km, o.owner_count as owners,
           o.observed_at, o.live_verified, o.data_consistent,
           o.sold_signal, s.name as source,
+          coalesce(l.metadata->'image_urls', v.metadata->'image_urls', '[]'::jsonb) as image_urls,
           row_number() over (
             partition by v.vehicle_id
             order by o.observed_at desc, l.last_seen_at desc
@@ -107,10 +111,16 @@ def search_inventory(
       )
       select * from ranked where rn=1
       order by observed_at desc
-      limit %s
+      limit %s offset %s
     """
+    count_sql = f"with ranked as (" + sql.split("with ranked as (",1)[1].split("      select * from ranked where rn=1",1)[0] + ") select count(*)::bigint as total_count from ranked where rn=1"
+    params_page = list(params) + [safe_limit, safe_offset]
     with _connect() as conn, conn.cursor() as cur:
-        cur.execute(sql, params)
+        total_count = None
+        if return_count:
+            cur.execute(count_sql, params)
+            total_count = int(cur.fetchone()["total_count"])
+        cur.execute(sql, params_page)
         rows = [dict(r) for r in cur.fetchall()]
 
     sources = []
