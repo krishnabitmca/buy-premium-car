@@ -728,7 +728,7 @@ class _NextPageParser(HTMLParser):
             return
         attrs = {str(k).lower(): str(v or "") for k, v in attrs}
         rel = set(str(attrs.get("rel") or "").lower().split())
-        label = " ".join((attrs.get("aria-label"), attrs.get("title"), attrs.get("data-testid"))).lower()
+        label = " ".join(v for v in (attrs.get("aria-label"), attrs.get("title"), attrs.get("data-testid")) if v).lower()
         if "next" in rel or re.search(r"\\bnext\\b", label):
             href = attrs.get("href")
             if href:
