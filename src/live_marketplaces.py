@@ -603,6 +603,46 @@ def parse_visible_listing_links(html: str, source: str, base_url: str, query: st
         if key in seen: continue
         seen.add(key);out.append(row)
     return out
+def _next_page_url(html: str, base_url: str) -> str | None:
+    """Find a marketplace's canonical next-results URL without guessing pagination semantics."""
+    patterns = [
+        r'<a[^>]+rel=["\\\'][^"\\\']*\\bnext\\b[^"\\\']*["\\\'][^>]+href=["\\\']([^"\\\']+)',
+        r'<a[^>]+href=["\\\']([^"\\\']+)["\\\'][^>]+[^>]*(?:aria-label|title)=["\\\'][^"\\\']*\\bnext\\b',
+        r'<link[^>]+rel=["\\\'][^"\\\']*\\bnext\\b[^"\\\']*["\\\'][^>]+href=["\\\']([^"\\\']+)',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, html, re.I | re.S)
+        if match:
+            url = _canonical_url(base_url, match.group(1))
+            if url != _canonical_url(base_url, base_url):
+                return url
+    return None
+
+
+def _crawl_paginated_source(url: str, source: str, query: str, condition: str, max_pages: int = 20) -> tuple[list[dict], list[str]]:
+    """Collect a bounded sequence of canonical result pages from one source."""
+    rows: list[dict] = []
+    pages: list[str] = []
+    seen_urls: set[str] = set()
+    current = _canonical_url(url, url)
+    for _ in range(max(1, max_pages)):
+        if not current or current in seen_urls:
+            break
+        seen_urls.add(current)
+        html = fetch_text(current)
+        parsed = parse_live_listings(html, source, current)
+        # Always use visible cards when structured data is absent, including an
+        # unscoped All Brands + All Models request.
+        if not parsed:
+            parsed = parse_visible_listing_links(html, source, current, query)
+        rows.extend(parsed)
+        pages.append(current)
+        nxt = _next_page_url(html, current)
+        if not nxt or nxt in seen_urls:
+            break
+        current = nxt
+    return rows, pages
+
 def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
     rows=[]
     for root in _json_objects(html):
@@ -669,35 +709,35 @@ def _live_source_entries() -> list[dict]:
 def _execute_source(planned: dict, source: dict, url: str, query: str, condition: str) -> tuple[list[dict],dict]:
     name=str(planned["name"])
     try:
-        html=fetch_text(url)
-        parsed=parse_live_listings(html,name,url)
-        # Some marketplace pages expose cards as rendered links rather than
-        # JSON-LD. Use the visible listing representation as a second parser.
-        if not parsed and query:
-            parsed=parse_visible_listing_links(html,name,url,query)
-        if query:
-            filtered=[]
-            for row in parsed:
-                if not _identity_matches_query(row,query):
-                    continue
-                actual=normalize_condition(row.get("condition_signal"))
-                wanted=normalize_condition(condition)
-                if wanted in {"used","demo"} and actual != wanted:
-                    continue
-                row["identity_confidence"]=1.0 if row.get("brand") and row.get("model") else 0.0
-                row["identity_evidence"]=["brand","model","listing_name","url"]
-                filtered.append(row)
-            parsed=filtered
-        return parsed,{
-            "source":name,"status":"live","listings_found":len(parsed),"query_url":url,
-            "source_type":planned.get("source_type"),"source_score":planned.get("score"),
+        max_pages=max(1,min(int(os.getenv("CARSCANNER_MAX_PAGES_PER_SOURCE","20")),50))
+        parsed,pages=_crawl_paginated_source(url,name,query,condition,max_pages=max_pages)
+        filtered=[]
+        for row in parsed:
+            if not _identity_matches_query(row,query):
+                continue
+            actual=normalize_condition(row.get("condition_signal"))
+            wanted=normalize_condition(condition)
+            if wanted in {"used","demo"} and actual != wanted:
+                continue
+            row["identity_confidence"]=1.0 if row.get("brand") and row.get("model") else 0.0
+            row["identity_evidence"]=["brand","model","listing_name","url"]
+            filtered.append(row)
+        # Deduplicate the same listing appearing in structured and visible parsers
+        # or on adjacent pagination pages.
+        unique={}
+        for row in filtered:
+            key=(_canonical_url(url,str(row.get("url") or "")),row.get("price_lakh"),row.get("model"),row.get("condition_signal"))
+            unique[key]=row
+        filtered=list(unique.values())
+        return filtered,{
+            "source":name,"status":"live","listings_found":len(filtered),"pages_crawled":len(pages),
+            "query_url":url,"source_type":planned.get("source_type"),"source_score":planned.get("score"),
             "query_strategy":planned.get("query_strategy"),"selection_reasons":planned.get("reasons",[]),
         }
     except Exception as exc:
         return [],{
-            "source":name,"status":"unavailable","listings_found":0,"error":str(exc)[:160],
-            "query_url":url,"source_type":planned.get("source_type"),
-            "source_score":planned.get("score"),"query_strategy":planned.get("query_strategy"),
+            "source":name,"status":"unavailable","listings_found":0,"pages_crawled":0,"error":str(exc)[:160],
+            "query_url":url,"source_type":planned.get("source_type"),"source_score":planned.get("score"),"query_strategy":planned.get("query_strategy"),
             "selection_reasons":planned.get("reasons",[]),
         }
 
