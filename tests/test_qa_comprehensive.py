@@ -271,7 +271,8 @@ class TestPureFunctions(unittest.TestCase):
             return "<html></html>"
         with patch.object(lm, "load_source_registry", return_value=registry), \
              patch("src.source_adapters.fetch_text", side_effect=fake_fetch), \
-             patch("src.source_adapters.adapter_execution_allowed", return_value=True):
+             patch("src.source_adapters.adapter_execution_allowed", return_value=True), \
+             patch("src.source_adapters.record_adapter_execution", return_value=None):
             vehicles, sources = lm.live_inventory(
                 query="BMW", condition="used", budget_min=None, budget_max=None, destination="Bengaluru")
         self.assertEqual({s["query_url"] for s in sources},
