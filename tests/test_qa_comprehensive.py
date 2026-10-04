@@ -269,7 +269,9 @@ class TestPureFunctions(unittest.TestCase):
             if url == "https://source-b.example/used/bmw/":
                 return jsonld("BMW X1", brand="BMW", model="X1", url="/x1", price="3500000")
             return "<html></html>"
-        with patch.object(lm, "load_source_registry", return_value=registry),              patch("src.source_adapters.fetch_text", side_effect=fake_fetch):
+        with patch.object(lm, "load_source_registry", return_value=registry), \
+             patch("src.source_adapters.fetch_text", side_effect=fake_fetch), \
+             patch("src.source_adapters.adapter_execution_allowed", return_value=True):
             vehicles, sources = lm.live_inventory(
                 query="BMW", condition="used", budget_min=None, budget_max=None, destination="Bengaluru")
         self.assertEqual({s["query_url"] for s in sources},
