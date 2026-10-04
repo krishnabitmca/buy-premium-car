@@ -9,9 +9,9 @@ RESULT = {
         {"source":"Cars24 Luxury Used","status":"unavailable","listings_found":0}
     ],
     "results": [
-        {"brand":"BMW","model":"X5","variant":"xDrive40i","price_lakh":49.5,"mfg_year":2024,"km":18000,"fuel":"Petrol","transmission":"Automatic","location":"Delhi","source":"CarDekho Used","url":"https://example.com/bmw-x5","live_verified":True,"data_consistent":True,"discount_pct":5.2,"comp_median":52.2,"source_count":2,"condition_signal":"used","body_type":"SUV"},
-        {"brand":"BMW","model":"X5","variant":"xDrive30d","price_lakh":55.0,"mfg_year":2023,"km":42000,"fuel":"Diesel","transmission":"Automatic","location":"Bengaluru","source":"CarWale Used","url":"https://example.com/bmw-x5-2","live_verified":True,"data_consistent":True,"discount_pct":-5.3,"comp_median":52.2,"source_count":1,"condition_signal":"used","body_type":"SUV"},
-        {"brand":"Audi","model":"Q5","variant":"Technology","price_lakh":44.0,"mfg_year":2025,"km":8000,"fuel":"Petrol","transmission":"Automatic","location":"Mumbai","source":"CarDekho Used","url":"https://example.com/audi-q5","live_verified":True,"data_consistent":True,"discount_pct":None,"comp_median":None,"source_count":1,"condition_signal":"demo","body_type":"SUV"}
+        {"brand":"BMW","model":"X5","variant":"xDrive40i","price_lakh":49.5,"mfg_year":2024,"km":18000,"fuel":"Petrol","transmission":"Automatic","location":"Delhi","source":"CarDekho Used","url":"https://example.com/bmw-x5","images":["https://example.com/images/bmw-x5.jpg"],"live_verified":True,"data_consistent":True,"discount_pct":5.2,"comp_median":52.2,"source_count":2,"condition_signal":"used","body_type":"SUV"},
+        {"brand":"BMW","model":"X5","variant":"xDrive30d","price_lakh":55.0,"mfg_year":2023,"km":42000,"fuel":"Diesel","transmission":"Automatic","location":"Bengaluru","source":"CarWale Used","url":"https://example.com/bmw-x5-2","images":["https://example.com/images/bmw-x5-2.jpg"],"live_verified":True,"data_consistent":True,"discount_pct":-5.3,"comp_median":52.2,"source_count":1,"condition_signal":"used","body_type":"SUV"},
+        {"brand":"Audi","model":"Q5","variant":"Technology","price_lakh":44.0,"mfg_year":2025,"km":8000,"fuel":"Petrol","transmission":"Automatic","location":"Mumbai","source":"CarDekho Used","url":"https://example.com/audi-q5","images":["https://example.com/images/audi-q5.jpg"],"live_verified":True,"data_consistent":True,"discount_pct":None,"comp_median":None,"source_count":1,"condition_signal":"demo","body_type":"SUV"}
     ]
 }
 
@@ -80,6 +80,7 @@ async def main():
                 f"Search did not render cards. grid={grid_text!r} responses={response_snapshot!r} errors={errors!r}; original={exc}"
             ) from exc
         assert await page.locator(".card").count() == 3
+        assert await page.locator(".card .photo img").count() == 3
         assert "LIVE" in await page.locator(".livebar").inner_text()
         assert "Bengaluru" in await page.locator("#destination").input_value()
 
