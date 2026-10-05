@@ -549,7 +549,7 @@ def _query_parts(query: str) -> tuple[str|None,str|None]:
             return brand, model or None
     return None, q or None
 
-def _targeted_source_urls(query: str, condition: str = "both") -> dict[str,str]:
+def _targeted_source_urls(query: str, condition: str = "both", registry: list[dict] | None = None) -> dict[str,str]:
     """Resolve source routes from the canonical registry.
 
     URL templates are source configuration, not application taxonomy. A source
