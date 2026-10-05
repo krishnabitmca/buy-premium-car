@@ -96,3 +96,48 @@ def test_registry_contains_query_route_configuration_for_primary_marketplaces():
     sources = {x["name"]: x for x in data["known_sources"]}
     for name in ("CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"):
         assert sources[name].get("query_url_template")
+
+
+def test_catalog_brand_resolution_uses_configured_route_when_label_join_misses(monkeypatch):
+    import src.live_marketplaces as lm
+
+    monkeypatch.delenv("CARSCANNER_CATALOG_BRANDS_JSON", raising=False)
+    monkeypatch.delenv("CARSCANNER_CATALOG_SOURCE_URL", raising=False)
+    monkeypatch.setattr(lm, "_registry_brand_records", lambda: [
+        {"name": "BMW", "slug": "bmw", "url": "", "catalog_verified": "database"},
+        {"name": "Mercedes-Benz", "slug": "mercedes-benz", "url": "", "catalog_verified": "database"},
+    ])
+    monkeypatch.setattr(lm, "load_source_registry", lambda: [
+        {
+            "name": "Configured Catalog",
+            "catalog_url": "https://catalog.example/newcars",
+            "catalog_brand_url_template": "https://catalog.example/{brand_slug}-cars",
+        }
+    ])
+    monkeypatch.setattr(lm, "fetch_text", lambda url: "<a href='/bmw/x5'>BMW X5</a><a href='/bmw/3-series'>BMW 3 Series</a>")
+
+    brands = lm.live_brands()
+    urls = {x["name"]: x["url"] for x in brands}
+    assert urls["BMW"] == "https://catalog.example/bmw-cars"
+    assert urls["Mercedes-Benz"] == "https://catalog.example/mercedes-benz-cars"
+
+
+def test_catalog_brand_resolution_identity_matches_changed_anchor_labels(monkeypatch):
+    import src.live_marketplaces as lm
+
+    monkeypatch.delenv("CARSCANNER_CATALOG_BRANDS_JSON", raising=False)
+    monkeypatch.delenv("CARSCANNER_CATALOG_SOURCE_URL", raising=False)
+    monkeypatch.setattr(lm, "_registry_brand_records", lambda: [
+        {"name": "Mercedes-Benz", "slug": "mercedes-benz", "url": "", "catalog_verified": "database"},
+    ])
+    monkeypatch.setattr(lm, "load_source_registry", lambda: [
+        {"name": "Configured Catalog", "catalog_url": "https://catalog.example/newcars"}
+    ])
+    monkeypatch.setattr(
+        lm,
+        "fetch_text",
+        lambda url: "<a href='/cars/mercedes-benz'>Mercedes Benz Cars</a>"
+    )
+
+    brands = lm.live_brands()
+    assert brands[0]["url"] == "https://catalog.example/cars/mercedes-benz"
