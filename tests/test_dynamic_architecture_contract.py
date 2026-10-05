@@ -141,3 +141,33 @@ def test_catalog_brand_resolution_identity_matches_changed_anchor_labels(monkeyp
 
     brands = lm.live_brands()
     assert brands[0]["url"] == "https://catalog.example/cars/mercedes-benz"
+
+
+def test_live_models_accepts_models_from_configured_catalog_host(monkeypatch):
+    import src.live_marketplaces as lm
+
+    monkeypatch.delenv("CARSCANNER_CATALOG_BRANDS_JSON", raising=False)
+    monkeypatch.delenv("CARSCANNER_CATALOG_SOURCE_URL", raising=False)
+    monkeypatch.setattr(lm, "_registry_brand_records", lambda: [
+        {"name": "BMW", "slug": "bmw", "url": "", "catalog_verified": "database"},
+    ])
+    monkeypatch.setattr(lm, "load_source_registry", lambda: [
+        {
+            "name": "Configured Catalog",
+            "catalog_url": "https://catalog.example/newcars",
+            "catalog_brand_url_template": "https://catalog.example/{brand_slug}-cars",
+        }
+    ])
+    def fake_fetch(url):
+        if url == "https://catalog.example/newcars":
+            return "<a href='/not-the-same-label'>BMW Cars</a>"
+        return """
+            <a href='/bmw/x5'>BMW X5</a>
+            <a href='/bmw/3-series'>BMW 3 Series</a>
+            <a href='/bmw/gallery'>Gallery</a>
+            <a href='/bmw/x5/offers'>Offers</a>
+        """
+    monkeypatch.setattr(lm, "fetch_text", fake_fetch)
+
+    models = lm.live_models("BMW")
+    assert [x["name"] for x in models] == ["3 Series", "X5"]
