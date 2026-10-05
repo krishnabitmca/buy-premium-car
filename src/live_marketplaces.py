@@ -211,10 +211,10 @@ def _clean_model_catalog_name(text: str, brand: str = "") -> str | None:
         ).strip()
         # Handle common source spelling without the hyphen in Mercedes-Benz.
         brand_tokens=_identity_tokens(canonical_brand)
+        clean_words=clean.split()
         clean_tokens=_identity_tokens(clean)
-        original_tokens=_identity_tokens(text)
-        if original_tokens[:len(brand_tokens)]==brand_tokens and len(original_tokens)>len(brand_tokens):
-            clean=" ".join(str(text).split()[len(brand_tokens):]).strip()
+        if clean_tokens[:len(brand_tokens)]==brand_tokens and len(clean_tokens)>len(brand_tokens):
+            clean=" ".join(clean_words[len(brand_tokens):]).strip()
     return clean or None
 
 def _known_brand_names() -> list[str]:
