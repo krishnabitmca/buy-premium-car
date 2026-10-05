@@ -22,6 +22,39 @@ const budgets = [
 const destinations = ["Bengaluru","Delhi NCR"];
 
 function now(){return new Date().toISOString();}
+
+async function preparePage(browser,pageErrors){
+  const page=await browser.newPage({viewport:{width:1440,height:1100}});
+  page.on("pageerror",e=>pageErrors.push("pageerror: "+e.message));
+  page.on("console",m=>{if(m.type()==="error")pageErrors.push("console: "+m.text());});
+  await page.goto(BASE+"/?qa="+Date.now(),{waitUntil:"domcontentloaded",timeout:90000});
+  await page.waitForSelector("#brand",{state:"visible",timeout:15000});
+  await page.waitForFunction(()=>document.querySelectorAll("#brand option").length>=5,null,{timeout:30000});
+  return page;
+}
+
+async function runParallelSpecs(browser,pageErrors,results,specs,category){
+  const concurrency=Math.min(4,specs.length);
+  const pages=await Promise.all(Array.from({length:concurrency},()=>preparePage(browser,pageErrors)));
+  let cursor=0;
+  async function worker(page){
+    while(true){
+      const index=cursor++;
+      if(index>=specs.length) return;
+      const spec=specs[index],t=Date.now();
+      try{
+        const detail=await runSearch(page,spec);
+        results.push({category,status:"PASS",...spec,...detail,ms:Date.now()-t});
+      }catch(e){
+        const shot=path.join(OUT,"failure-"+safe([category,spec.brand,spec.model,spec.condition,spec.budget,spec.destination].filter(Boolean).join("-"))+"-"+Date.now()+".png");
+        try{await page.screenshot({path:shot,fullPage:true});}catch(_){}
+        results.push({category,status:"FAIL",...spec,error:errText(e),screenshot:shot,ms:Date.now()-t});
+      }
+    }
+  }
+  try{ await Promise.all(pages.map(worker)); }
+  finally{ await Promise.all(pages.map(p=>p.close())); }
+}
 function safe(s){return String(s).replace(/[^a-z0-9_-]+/gi,"_").slice(0,100);}
 function errText(e){return e&&e.stack?e.stack:String(e);}
 
@@ -158,31 +191,15 @@ async function main(){
     const brandCount=await page.locator("#brand option").count();
     if(brandCount<5)throw new Error("brand dropdown has too few options: "+brandCount);
 
-    for(const [brand,model] of journeys)for(const condition of conditions){
-      const spec={brand,model,condition,min:"",max:"",destination:"Bengaluru"},t=Date.now();
-      try{
-        const detail=await runSearch(page,spec);
-        results.push({category:"journey",status:"PASS",...spec,...detail,ms:Date.now()-t});
-      }catch(e){
-        const shot=path.join(OUT,"failure-"+safe(brand+"-"+model+"-"+condition)+"-"+Date.now()+".png");
-        try{await page.screenshot({path:shot,fullPage:true});}catch(_){}
-        results.push({category:"journey",status:"FAIL",...spec,error:errText(e),screenshot:shot,ms:Date.now()-t});
-      }
-    }
+    const journeySpecs=[];
+    for(const [brand,model] of journeys)for(const condition of conditions)
+      journeySpecs.push({brand,model,condition,min:"",max:"",destination:"Bengaluru"});
+    await runParallelSpecs(browser,pageErrors,results,journeySpecs,"journey");
 
-    for(const [brand,model] of journeys.slice(0,4))for(const b of budgets)for(const destination of destinations){
-      const spec={brand,model,condition:"used",min:b.min,max:b.max,destination},t=Date.now();
-      try{
-        await page.goto(BASE+"/?qa="+Date.now(),{waitUntil:"domcontentloaded",timeout:90000});
-        await page.waitForSelector("#brand",{state:"visible",timeout:15000});
-        const detail=await runSearch(page,spec);
-        results.push({category:"budget-destination",status:"PASS",...spec,budget:b.name,...detail,ms:Date.now()-t});
-      }catch(e){
-        const shot=path.join(OUT,"failure-"+safe(brand+"-"+model+"-"+b.name+"-"+destination)+"-"+Date.now()+".png");
-        try{await page.screenshot({path:shot,fullPage:true});}catch(_){}
-        results.push({category:"budget-destination",status:"FAIL",...spec,budget:b.name,error:errText(e),screenshot:shot,ms:Date.now()-t});
-      }
-    }
+    const budgetSpecs=[];
+    for(const [brand,model] of journeys.slice(0,4))for(const b of budgets)for(const destination of destinations)
+      budgetSpecs.push({brand,model,condition:"used",min:b.min,max:b.max,destination,budget:b.name});
+    await runParallelSpecs(browser,pageErrors,results,budgetSpecs,"budget-destination");
 
     try{
       await page.goto(BASE+"/?qa=filters-"+Date.now(),{waitUntil:"domcontentloaded",timeout:90000});
