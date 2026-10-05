@@ -79,7 +79,7 @@ def test_builtin_adapter_uses_registry_resolved_target_url(monkeypatch):
 
     monkeypatch.setattr(
         "src.source_adapters.live_marketplaces._targeted_source_urls",
-        lambda query, condition="both": {
+        lambda query, condition="both", registry=None: {
             "Configured Source": "https://configured.example/search?brand=bmw&model=x5"
         },
     )
