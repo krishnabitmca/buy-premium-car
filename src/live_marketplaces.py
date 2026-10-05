@@ -177,13 +177,13 @@ def _is_current_model_link(selected: dict[str,str], href: str) -> bool:
         return True
     return False
 
-def _clean_model_catalog_name(text: str) -> str | None:
-    """Normalize source link labels before exposing them as customer model names.
+def _clean_model_catalog_name(text: str, brand: str = "") -> str | None:
+    """Normalize source labels into canonical customer-facing model names.
 
-    CarDekho reuses model landing URLs in historical/discontinued sections and
-    sometimes appends price, year-range, or status text to the same anchor.
-    Those labels are not separate current models and must not leak into the
-    customer-facing catalog.
+    Catalog pages often prefix every model link with the selected brand
+    (for example, "BMW X5"). The UI contract is brand + model as separate
+    fields, so the model value must not repeat the brand. Historical,
+    discontinued, upcoming and navigation labels are rejected here.
     """
     clean=" ".join(str(text or "").split()).strip()
     if not clean:
@@ -192,11 +192,24 @@ def _clean_model_catalog_name(text: str) -> str | None:
         return None
     if re.search(r"\b(?:expected launch|upcoming|estimated)\b",clean,re.I):
         return None
-    # Remove trailing source metadata such as prices and asterisks. Keep the
-    # actual model name, including meaningful terms such as Long Wheelbase.
     clean=re.sub(r"\s+(?:₹|Rs\.?)[^|]*$", "", clean, flags=re.I).strip()
     clean=re.sub(r"\s+\*+$", "", clean).strip()
     clean=re.sub(r"\s+(?:estimated|expected)$", "", clean, flags=re.I).strip()
+
+    canonical_brand=_canonical_brand(brand).strip()
+    if canonical_brand:
+        clean=re.sub(
+            rf"^{re.escape(canonical_brand)}(?:\s+|[-:])+",
+            "",
+            clean,
+            flags=re.I,
+        ).strip()
+        # Handle common source spelling without the hyphen in Mercedes-Benz.
+        brand_tokens=_identity_tokens(canonical_brand)
+        clean_tokens=_identity_tokens(clean)
+        original_tokens=_identity_tokens(text)
+        if original_tokens[:len(brand_tokens)]==brand_tokens and len(original_tokens)>len(brand_tokens):
+            clean=" ".join(str(text).split()[len(brand_tokens):]).strip()
     return clean or None
 
 def _known_brand_names() -> list[str]:
@@ -360,7 +373,7 @@ def live_models(brand: str) -> list[dict[str,str]]:
     parser=_LinkParser(); parser.feed(html)
     models=[]; seen_urls=set(); seen_model_keys=set()
     for text,href in parser.links:
-        clean=_clean_model_catalog_name(text)
+        clean=_clean_model_catalog_name(text, selected["name"])
         absolute=_absolute(selected["url"],href)
         if not clean or not _is_current_model_link(selected,absolute):
             continue
