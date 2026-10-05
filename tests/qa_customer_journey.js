@@ -154,6 +154,7 @@ async function main(){
     page.on("console",m=>{if(m.type()==="error")pageErrors.push("console: "+m.text());});
     await page.goto(BASE+"/?qa="+Date.now(),{waitUntil:"domcontentloaded",timeout:90000});
     await page.waitForSelector("#brand",{state:"visible",timeout:15000});
+    await page.waitForFunction(()=>document.querySelectorAll("#brand option").length>=5,null,{timeout:30000});
     const brandCount=await page.locator("#brand option").count();
     if(brandCount<5)throw new Error("brand dropdown has too few options: "+brandCount);
 
