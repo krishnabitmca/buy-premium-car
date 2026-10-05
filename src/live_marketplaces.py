@@ -254,10 +254,12 @@ def _configured_brand_records() -> list[dict[str,str]]:
     for item in values if isinstance(values,list) else []:
         if isinstance(item,str):
             name=item.strip()
-            if name:
+            if name and name.lower() != "all":
                 result.append({"name":name,"slug":_slug(name),"url":"" ,"catalog_verified":"config"})
         elif isinstance(item,dict) and str(item.get("name") or "").strip():
             name=str(item["name"]).strip()
+            if name.lower() == "all":
+                continue
             result.append({
                 "name":name,
                 "slug":str(item.get("slug") or _slug(name)),
