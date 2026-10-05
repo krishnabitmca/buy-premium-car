@@ -9,6 +9,9 @@ known_sources:
 - name: CarDekho Used
   url: https://www.cardekho.com/usedCars/
   catalog_url: https://www.cardekho.com/newcars
+  # CarDekho's canonical brand catalog route. This is source configuration,
+  # not a hardcoded application taxonomy.
+  catalog_brand_url_template: https://www.cardekho.com/{brand_slug}-cars
   catalog_exclude_paths: [compare-cars, electric-cars, new-cars, used-cars, demo-cars]
   tier: 1
   source_type: marketplace
