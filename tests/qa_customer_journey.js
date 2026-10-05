@@ -2,7 +2,8 @@ const fs = require("fs");
 const path = require("path");
 const { chromium } = require("playwright");
 
-const BASE = (process.env.CARSCANNER_BASE_URL || "https://buy-premium-car1.onrender.com").replace(/\/$/, "");
+const BASE = process.env.CARSCANNER_BASE_URL || "https://buy-premium-car1.onrender.com";
+const testUrl = key => { const u = new URL(BASE); u.searchParams.set(key, String(Date.now())); return u.toString(); };
 const OUT = process.env.QA_REPORT_DIR || "qa-reports";
 fs.mkdirSync(OUT, { recursive: true });
 
