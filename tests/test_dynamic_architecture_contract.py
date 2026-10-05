@@ -171,3 +171,20 @@ def test_live_models_accepts_models_from_configured_catalog_host(monkeypatch):
 
     models = lm.live_models("BMW")
     assert [x["name"] for x in models] == ["3 Series", "X5"]
+
+
+def test_registry_brand_catalog_excludes_all_pseudo_brand(monkeypatch):
+    import src.live_marketplaces as lm
+
+    monkeypatch.setattr(lm, "load_source_registry", lambda: [
+        {"name": "A", "brands": ["all", "BMW", "*"]},
+    ])
+    records = lm._registry_brand_records()
+    assert [x["name"] for x in records] == ["BMW"]
+
+
+def test_catalog_model_name_removes_price_ranges():
+    import src.live_marketplaces as lm
+
+    assert lm._clean_model_catalog_name("AMG E 53 ₹1.45 - 1.48 Cr*", "Mercedes-Benz") == "AMG E 53"
+    assert lm._clean_model_catalog_name("Range Rover Sport ₹1.43 - 2.35 Cr*", "Land Rover") == "Range Rover Sport"
