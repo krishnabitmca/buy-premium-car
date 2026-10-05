@@ -283,7 +283,7 @@ def _registry_brand_records() -> list[dict[str,str]]:
         for source in load_source_registry():
             for brand in source.get("brands") or []:
                 name=str(brand or "").strip()
-                if not name or name=="*":
+                if not name or name.strip().lower() in {"*","all"}:
                     continue
                 key=_canonical_brand(name).lower()
                 if key in seen:
