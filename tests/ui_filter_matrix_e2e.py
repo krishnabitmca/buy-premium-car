@@ -5,6 +5,7 @@ from playwright.async_api import async_playwright
 RESULT = {
     "ok": True,
     "mode": "live",
+    "search_scope": "india",
     "live_at": "2026-10-01T08:00:00Z",
     "sources": [{"source": "CarDekho Used", "status": "live", "listings_found": 3}],
     "results": [
@@ -78,7 +79,8 @@ async def main():
             }
             return {tested,failures};
         }""", RESULT["results"])
-        assert matrix["tested"] == 50400, matrix
+        expected_permutations = 3 * 5 * 6 * (1 + len({v["location"] for v in RESULT["results"]})) * 5 * 7 * (1 + len({v["location"] for v in RESULT["results"]}))
+        assert matrix["tested"] == expected_permutations, matrix
         assert matrix["failures"] == [], matrix
 
         await page.locator("#clear").click()
@@ -106,14 +108,14 @@ async def main():
         assert await page.locator("#year").input_value() == ""
         assert await page.locator("#city").input_value() == ""
         assert await page.locator("#condition").input_value() == "both"
-        assert await page.locator("#destination").input_value() == "Bengaluru"
+        assert await page.locator("#destination").input_value() == ""
         assert await page.locator(".fuelCheck:checked").count() == 0
         assert await page.locator(".chip.active").get_attribute("data-filter") == ""
         assert await page.locator(".card").count() == 3
 
         if errors:
             raise AssertionError("Browser console/page errors: "+repr(errors))
-        print("PASS: 50,400 sidebar filter/context permutations + interaction/reset checks")
+        print(f"PASS: {matrix['tested']:,} sidebar filter/context permutations + interaction/reset checks")
         await browser.close()
 
 asyncio.run(main())

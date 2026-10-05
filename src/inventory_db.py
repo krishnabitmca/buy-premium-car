@@ -18,23 +18,7 @@ def enabled() -> bool:
     return source_db_enabled() and os.getenv("CARSCANNER_INVENTORY_FIRST", "true").lower() not in {"0", "false", "no"}
 
 
-def _query_parts(query: str) -> tuple[str, str]:
-    tokens = [t for t in str(query or "").split() if t]
-    if not tokens:
-        return "", ""
-    from .live_marketplaces import CURRENT_BRANDS, BRAND_ALIASES
-    lowered = " ".join(tokens).lower()
-    brands = sorted(
-        list(CURRENT_BRANDS) + list(BRAND_ALIASES.keys()),
-        key=lambda x: len(x),
-        reverse=True,
-    )
-    for brand in brands:
-        b = brand.lower()
-        if lowered.startswith(b):
-            model = " ".join(tokens[len(brand.split()):])
-            return brand, model
-    return tokens[0], " ".join(tokens[1:])
+from .live_marketplaces import _query_parts
 
 
 def search_inventory(

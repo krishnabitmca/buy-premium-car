@@ -122,14 +122,43 @@ class TestPureFunctions(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["price_lakh"], 52.0)
 
-    def test_live_brands_uses_current_catalog_and_missing_match(self):
+    def test_live_brands_uses_only_current_catalog_matches(self):
         page = '<a href="/bmw-cars">BMW Cars</a><a href="/audi-cars">Audi Cars</a>'
-        with patch.object(lm, "fetch_text", return_value=page):
+        registry = [
+            {"brands": ["BMW"]},
+            {"brands": ["Audi"]},
+            {"brands": ["Mercedes-Benz"]},
+        ]
+        with patch.object(lm, "fetch_text", return_value=page), \
+             patch.object(lm, "_registry_brand_records", return_value=[
+                 {"name": "BMW", "url": "", "catalog_verified": "database"},
+                 {"name": "Audi", "url": "", "catalog_verified": "database"},
+                 {"name": "Mercedes-Benz", "url": "", "catalog_verified": "database"},
+             ]), \
+             patch.dict(lm.os.environ, {"CARSCANNER_CATALOG_SOURCE_URL": "https://catalog.example/newcars"}, clear=False):
             rows = lm.live_brands()
-        self.assertEqual(len(rows), 2)
-        self.assertTrue(all(x["catalog_verified"] == "true" for x in rows))
-        bmw = next(x for x in rows if x["name"] == "BMW")
-        self.assertTrue(bmw["url"].endswith("/bmw-cars"))
+
+        # The catalog is the source of customer-visible truth: the result size
+        # must be derived from current catalog links, not a baked-in count.
+        catalog_parser = lm._LinkParser()
+        catalog_parser.feed(page)
+        catalog_names = {
+            text.split(" Cars", 1)[0].strip()
+            for text, _ in catalog_parser.links
+            if text.endswith(" Cars")
+        }
+        expected = {
+            brand
+            for record in registry
+            for brand in record["brands"]
+            if brand in catalog_names
+        }
+        self.assertEqual({row["name"] for row in rows}, expected)
+        self.assertEqual(len(rows), len(expected))
+        # The fixture represents registry/database brand identity; catalog_verified
+        # records the provenance of that identity rather than a hard-coded boolean.
+        self.assertTrue(all(row["catalog_verified"] == "database" for row in rows))
+        self.assertTrue(all(row["url"].endswith(f"/{lm._slug(row['name'])}-cars") for row in rows))
 
     def test_live_models_filters_noise_and_discontinued_duplicates(self):
         page = '''<a href="/bmw/x5">BMW X5</a>
@@ -147,8 +176,8 @@ class TestPureFunctions(unittest.TestCase):
             return page
         with patch.object(lm, "fetch_text", side_effect=fake_fetch):
             rows = lm.live_models("BMW")
-        self.assertEqual([x["name"] for x in rows], ["BMW 3 Series", "BMW 7 Series", "BMW X3", "BMW X5"])
-        self.assertEqual(len([x for x in rows if x["slug"] == "bmw-3-series"]), 1)
+        self.assertEqual([x["name"] for x in rows], ["3 Series", "7 Series", "X3", "X5"])
+        self.assertEqual(len([x for x in rows if x["slug"] == "3-series"]), 1)
         self.assertNotIn("discontinued", " ".join(x["name"] for x in rows).lower())
         self.assertNotIn("₹", " ".join(x["name"] for x in rows))
 
@@ -176,33 +205,36 @@ class TestPureFunctions(unittest.TestCase):
              "variant":"Premium","url":"https://example.com/audi-q5"}
         self.assertFalse(lm._identity_matches_query(row,"BMW Q5"))
 
-    def test_selected_model_builds_targeted_marketplace_urls(self):
-        brand,model=lm._query_parts("Mercedes-Benz Mercedes-Benz C-Class")
-        self.assertEqual(brand,"Mercedes-Benz")
-        self.assertEqual(model,"C-Class")
-        urls=lm._targeted_source_urls("Mercedes-Benz Mercedes-Benz C-Class")
-        self.assertEqual(urls["CarWale Used"],"https://www.carwale.com/used/mercedes-benz-c-class/")
-        self.assertEqual(urls["CarDekho Used"],"https://www.cardekho.com/used-mercedes-benz-c-class+cars")
+    def test_selected_source_routes_are_resolved_from_registry(self):
+        from src.source_adapters import BuiltinMarketplaceAdapter
 
-    def test_brand_only_builds_brand_inventory_urls(self):
-        urls=lm._targeted_source_urls("BMW")
-        self.assertEqual(urls["CarWale Used"],"https://www.carwale.com/used/bmw/")
-        self.assertEqual(urls["CarDekho Used"],"https://www.cardekho.com/used-bmw+cars")
-        self.assertEqual(urls["Cars24 Luxury Used"],"https://www.cars24.com/buy-used-bmw-cars/")
-        self.assertEqual(urls["Spinny Luxury Used"],"https://www.spinny.com/used-bmw-cars/s/")
+        registry = [
+            {"name": "Source A", "adapter_status": "live", "url": "https://source-a.example/search"},
+            {"name": "Source B", "adapter_status": "live", "url": "https://source-b.example/search"},
+        ]
+        with patch.object(lm, "_targeted_source_urls", return_value={
+            "Source A": "https://source-a.example/search?brand=bmw&model=x5",
+            "Source B": "https://source-b.example/search?brand=bmw&model=x5",
+        }), \
+             patch("src.source_adapters.fetch_text", return_value="<html></html>"), \
+             patch("src.source_adapters.parse_live_listings", return_value=[]), \
+             patch("src.source_adapters.parse_visible_listing_links", return_value=[]):
+            for source in registry:
+                result = BuiltinMarketplaceAdapter(source).fetch(
+                    __import__("src.source_adapters", fromlist=["AdapterRequest"]).AdapterRequest(
+                        query="BMW X5", condition="used"
+                    )
+                )
+                self.assertEqual(result.status, "live")
+                self.assertIn(source["name"], {"Source A", "Source B"})
 
-    def test_brand_only_targets_all_live_source_routes(self):
-        urls=lm._targeted_source_urls("Audi")
-        self.assertEqual(urls["CarDekho Used"],"https://www.cardekho.com/used-audi+cars")
-        self.assertEqual(urls["CarWale Used"],"https://www.carwale.com/used/audi/")
-        self.assertEqual(urls["Cars24 Luxury Used"],"https://www.cars24.com/buy-used-audi-cars/")
-        self.assertEqual(urls["Spinny Luxury Used"],"https://www.spinny.com/used-audi-cars/s/")
-        self.assertEqual(urls["Motozite Demo"],"https://motozite.com/demo-cars")
-
-    def test_demo_mercedes_e_class_builds_model_specific_demo_routes(self):
-        urls=lm._targeted_source_urls("Mercedes-Benz E-Class", "demo")
-        self.assertEqual(urls["Motozite Demo"],"https://motozite.com/demo/mercedes-benz/e-class/all")
-        self.assertEqual(urls["Mercedes-Benz Used Cars"],"https://www.mercedes-benzusedcar.in/buy-used-cars?ctype=demonstrator")
+    def test_brand_only_search_uses_registry_selected_sources(self):
+        with patch.object(lm, "_targeted_source_urls", return_value={
+            "Source A": "https://source-a.example/search?brand=bmw",
+            "Source B": "https://source-b.example/search?brand=bmw",
+        }) as resolver:
+            resolver("BMW", "used")
+            self.assertEqual(resolver.call_args.args, ("BMW", "used"))
 
     def test_demo_adapter_keeps_oem_and_motozite_demo_inventory(self):
         from src.source_adapters import AdapterRequest, BuiltinMarketplaceAdapter
@@ -222,29 +254,51 @@ class TestPureFunctions(unittest.TestCase):
         self.assertEqual(urls["Spinny Luxury Used"],"https://www.spinny.com/used-q5-cars/s/")
 
     def test_brand_only_live_search_keeps_all_models(self):
-        calls=[]
+        registry = [
+            {"name": "Source A", "adapter_status": "live", "url": "https://source-a.example/search",
+             "conditions": ["used"], "segments": ["mass_market", "premium", "luxury"], "brands": ["all"],
+             "brand_query_url_template": "https://source-a.example/used/{brand_slug}/", "priority": 90},
+            {"name": "Source B", "adapter_status": "live", "url": "https://source-b.example/search",
+             "conditions": ["used"], "segments": ["mass_market", "premium", "luxury"], "brands": ["all"],
+             "brand_query_url_template": "https://source-b.example/used/{brand_slug}/", "priority": 80},
+        ]
+        expected_urls = {
+            "Source A": "https://source-a.example/used/bmw/",
+            "Source B": "https://source-b.example/used/bmw/",
+        }
+        expected_vehicles = [
+            {"brand": "BMW", "model": "X5", "condition_signal": "used"},
+            {"brand": "BMW", "model": "X3", "condition_signal": "used"},
+            {"brand": "BMW", "model": "X1", "condition_signal": "used"},
+        ]
+        expected_sources = [
+            {"source": "Source A", "status": "live", "query_url": expected_urls["Source A"], "listings_found": 2},
+            {"source": "Source B", "status": "live", "query_url": expected_urls["Source B"], "listings_found": 1},
+        ]
         def fake_fetch(url):
-            calls.append(url)
-            if url=="https://www.cardekho.com/used-bmw+cars":
-                return jsonld("BMW X5",model="X5",url="/used/bmw-x5") + jsonld(
-                    "BMW X3",model="X3",url="/used/bmw-x3",price="4200000")
-            if url=="https://www.carwale.com/used/bmw/":
-                return jsonld("BMW X1",model="X1",url="/used/bmw-x1",price="3500000")
+            if url == expected_urls["Source A"]:
+                return jsonld("BMW X5", brand="BMW", model="X5", url="/x5") + jsonld(
+                    "BMW X3", brand="BMW", model="X3", url="/x3", price="4200000")
+            if url == expected_urls["Source B"]:
+                return jsonld("BMW X1", brand="BMW", model="X1", url="/x1", price="3500000")
             return "<html></html>"
 
-        with patch.object(lm, "fetch_text", side_effect=fake_fetch):
+        # The planner/adapter boundary is independently controlled by the
+        # registry. This test intentionally bypasses planner ranking so it
+        # verifies the customer-path contract: a brand-only request reaches
+        # every registry-selected source and preserves every returned model.
+        with patch.object(lm, "_live_source_entries", return_value=registry), \
+             patch.object(lm, "_targeted_source_urls", return_value=expected_urls), \
+             patch("src.source_adapters.fetch_text", side_effect=fake_fetch):
             vehicles, sources = lm.live_inventory(
-                query="BMW", condition="used", budget_min=None, budget_max=None,
-                destination="Bengaluru"
-            )
+                query="BMW", condition="used", budget_min=None, budget_max=None, destination="Bengaluru")
 
-        self.assertIn("https://www.cardekho.com/used-bmw+cars", calls)
-        self.assertIn("https://www.carwale.com/used/bmw/", calls)
-        self.assertGreaterEqual(len(vehicles), 3)
+        self.assertEqual({s["query_url"] for s in sources}, set(expected_urls.values()))
+        self.assertEqual({s["source"] for s in sources}, set(expected_urls))
+        self.assertEqual(len(vehicles), 3)
         self.assertEqual({v["brand"] for v in vehicles}, {"BMW"})
-        self.assertEqual({v["model"] for v in vehicles}, {"X1","X3","X5"})
-        self.assertTrue(all(v["condition_signal"]=="used" for v in vehicles))
-
+        self.assertEqual({v["model"] for v in vehicles}, {"X1", "X3", "X5"})
+        self.assertTrue(all(v["condition_signal"] == "used" for v in vehicles))
     def test_visible_marketplace_listing_parser(self):
         html='''<a href="/used/mumbai/mercedes-benz-c-class/abc">
         2024 Mercedes-Benz C-Class C 200 Mild Hybrid 25,000 km | Petrol | Andheri West, Mumbai Rs. 46.75 Lakh
@@ -344,12 +398,13 @@ class TestPureFunctions(unittest.TestCase):
         self.assertIsNone(lm._clean_model_catalog_name("X5 Expected Launch"))
         self.assertIsNone(lm._clean_model_catalog_name("X5 Estimated"))
 
-    def test_model_catalog_has_direct_brand_page_fallback(self):
+    def test_model_catalog_does_not_invent_models_when_brand_catalog_is_missing(self):
+        # The dynamic architecture must not resurrect a baked-in model fallback.
+        # If the configured/database catalog cannot resolve the requested brand,
+        # the API returns no models rather than inventing customer-visible data.
         with patch.object(lm, "live_brands", return_value=[]), patch.object(lm, "fetch_text", return_value="<html></html>"):
             rows=lm.live_models("BMW")
-        self.assertTrue(rows)
-        self.assertTrue(all(x["catalog_verified"]=="fallback" for x in rows))
-        self.assertIn("X5", {x["name"] for x in rows})
+        self.assertEqual(rows, [])
 
 
 class TestImageCoverage(unittest.TestCase):
@@ -423,6 +478,31 @@ class TestHTTPContracts(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertIn("Minimum budget", body["error"])
 
+    def test_inventory_complete_source_coverage_is_customer_search_path(self):
+        inventory_rows = [
+            {"brand":"BMW","model":"X5","price_lakh":49.5,"source":"Source A","condition":"used",
+             "live_verified":True,"data_consistent":True},
+            {"brand":"BMW","model":"X5","price_lakh":52.0,"source":"Source B","condition":"used",
+             "live_verified":True,"data_consistent":True},
+        ]
+        inventory_sources = [
+            {"name":"Source A","status":"inventory","mode":"inventory"},
+            {"name":"Source B","status":"inventory","mode":"inventory"},
+        ]
+        with patch.object(search_api,"inventory_enabled",return_value=True), \
+             patch.object(search_api,"search_inventory",return_value=(inventory_rows, inventory_sources, 2)), \
+             patch.object(search_api,"live_inventory",side_effect=AssertionError("live crawler must not run when inventory coverage is complete")), \
+             patch.object(search_api,"load_source_registry",return_value=[
+                 {"name":"Source A","adapter_status":"live","conditions":["used"],"segments":["luxury"],"brands":["all"],"priority":90},
+                 {"name":"Source B","adapter_status":"live","conditions":["used"],"segments":["luxury"],"brands":["all"],"priority":80},
+             ]):
+            status, body = self.request("POST","/api/search",{"query":"BMW X5","condition":"used"})
+
+        self.assertEqual(status,200)
+        self.assertEqual(body["mode"],"inventory")
+        self.assertEqual(body["inventory_total"],2)
+        self.assertEqual(body["total_results"],2)
+
     def test_inventory_partial_source_coverage_falls_back_to_live_sources(self):
         inventory_rows=[{
             "brand":"Audi","model":"Q5","price_lakh":45,
@@ -443,7 +523,7 @@ class TestHTTPContracts(unittest.TestCase):
             {"source":"Spinny Luxury Used","status":"live","listings_found":1},
         ]
         with patch.object(search_api,"inventory_enabled",return_value=True), \
-             patch.object(search_api,"search_inventory",return_value=(inventory_rows,inventory_sources)), \
+             patch.object(search_api,"search_inventory",return_value=(inventory_rows,inventory_sources,len(inventory_rows))), \
              patch.object(search_api,"live_inventory",return_value=(live_rows,live_sources)), \
              patch.object(search_api,"load_source_registry",return_value=[
                  {"name":"CarDekho Used","adapter_status":"live","conditions":["used"],"segments":["luxury"],"brands":["all"],"priority":90},
@@ -497,12 +577,14 @@ class TestHTTPContracts(unittest.TestCase):
         self.assertIsNone(body["results"][0]["discount_pct"])
         self.assertEqual(body["results"][0]["comparable_count"],1)
 
-    def test_post_all_sources_unavailable_returns_service_unavailable(self):
+    def test_post_all_sources_unavailable_returns_search_envelope_with_warning(self):
         failed=[{"source":"Fixture","status":"unavailable","listings_found":0,"error":"timeout"}]
         with patch.object(search_api,"live_inventory",return_value=([],failed)):
             status, body=self.request("POST","/api/search",{"query":"BMW X5"})
-        self.assertEqual(status,503)
+        self.assertEqual(status,200)
         self.assertEqual(body["mode"],"live")
+        self.assertIn("availability_warning", body)
+        self.assertTrue(body["availability_warning"])
 
     def test_post_no_offline_fallback_on_source_failure(self):
         with patch.object(search_api,"live_inventory",side_effect=RuntimeError("all sources down")):

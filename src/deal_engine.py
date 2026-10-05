@@ -119,5 +119,3 @@ def live_listing(intent: DealIntent, listing: ListingSnapshot) -> tuple[bool, Op
         return False, "listing is not available"
     return True, None
 
-def location_match(intent: DealIntent, listing: ListingSnapshot) -> tuple[bool, Optional[str]]:
-    return True, None

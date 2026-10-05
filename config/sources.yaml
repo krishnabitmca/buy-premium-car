@@ -8,6 +8,8 @@
 known_sources:
 - name: CarDekho Used
   url: https://www.cardekho.com/usedCars/
+  catalog_url: https://www.cardekho.com/newcars
+  catalog_exclude_paths: [compare-cars, electric-cars, new-cars, used-cars, demo-cars]
   tier: 1
   source_type: marketplace
   adapter_status: live
@@ -17,6 +19,8 @@ known_sources:
   brands: [all]
   priority: 90
   query_strategy: brand_model
+  query_url_template: https://www.cardekho.com/used-{brand_slug}-{model_slug}+cars
+  brand_query_url_template: https://www.cardekho.com/used-{brand_slug}+cars
   vehicle_link_pattern: /used-car-details/[^?#]+\.htm
 
 - name: CarWale Used
@@ -30,6 +34,8 @@ known_sources:
   brands: [all]
   priority: 90
   query_strategy: brand_model
+  query_url_template: https://www.carwale.com/used/{brand_slug}-{model_slug}/
+  brand_query_url_template: https://www.carwale.com/used/{brand_slug}/
   vehicle_link_pattern: /used/[^?#]+
 
 - name: Cars24 Luxury Used
@@ -43,6 +49,8 @@ known_sources:
   brands: [BMW, Mercedes-Benz, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI]
   priority: 82
   query_strategy: luxury_model
+  query_url_template: https://www.cars24.com/buy-used-{brand_slug}-{model_slug}-cars/
+  brand_query_url_template: https://www.cars24.com/buy-used-{brand_slug}-cars/
   vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
 
 - name: Spinny Luxury Used
@@ -55,11 +63,14 @@ known_sources:
   segments: [premium, luxury]
   brands: [BMW, Mercedes-Benz, Audi, Volvo, MINI]
   priority: 82
-  query_strategy: luxury_model
+  query_url_template: https://www.spinny.com/used-{model_slug}-cars/s/
+  brand_query_url_template: https://www.spinny.com/used-{brand_slug}-cars/s/
   vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
 
 - name: Motozite Demo
   url: https://motozite.com/demo-cars
+  query_url_template: https://motozite.com/demo/{brand_slug}/{model_slug}/all
+  brand_query_url_template: https://motozite.com/demo/{brand_slug}/all
   tier: 2
   source_type: luxury_specialist
   adapter_status: live
@@ -73,6 +84,8 @@ known_sources:
 
 - name: Mercedes-Benz Used Cars
   url: https://www.mercedes-benzusedcar.in/buy-used-cars
+  demo_query_url_template: https://www.mercedes-benzusedcar.in/buy-used-cars?ctype=demonstrator
+  brand_demo_query_url_template: https://www.mercedes-benzusedcar.in/buy-used-cars?ctype=demonstrator
   tier: 1
   source_type: oem_certified
   adapter_status: live

@@ -18,7 +18,6 @@ except ImportError:
 def database_url() -> str | None:
     return os.getenv("SOURCE_INTELLIGENCE_DATABASE_URL") or os.getenv("DATABASE_URL")
 
-
 def enabled() -> bool:
     return bool(database_url())
 

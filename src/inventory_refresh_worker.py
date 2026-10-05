@@ -98,7 +98,8 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
             seller_state=v.get("seller_state"), condition_signal=v.get("condition_signal"),
             final_url=v.get("final_url"), live_verified=bool(v.get("live_verified")),
             sold_signal=bool(v.get("sold_signal")), data_consistent=bool(v.get("data_consistent", True)),
-            identity_confidence=float(v.get("identity_confidence") or 0.0),\n            image_urls=list(v.get("images") or ([v.get("image")] if v.get("image") else [])),
+            identity_confidence=float(v.get("identity_confidence") or 0.0),
+            image_urls=list(v.get("images") or ([v.get("image")] if v.get("image") else [])),
         ) for v in result.listings]
 
         ingested = ingest_vehicles(normalized)

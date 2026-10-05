@@ -7,7 +7,7 @@ the scheduled production certification workflow.
 import pytest
 
 from src import live_marketplaces as lm
-from src.source_intelligence import load_source_registry, plan_sources
+from src.source_intelligence import load_source_registry, plan_sources, normalize_condition
 
 
 BRANDS_MODELS = [
@@ -82,19 +82,38 @@ def test_search_matrix_has_valid_planning_contract(
 
 
 @pytest.mark.parametrize("brand,model", BRANDS_MODELS)
-@pytest.mark.parametrize("condition", ["used", "demo", "both"])
-def test_targeted_routes_exist_for_all_customer_conditions(brand, model, condition):
+@pytest.mark.parametrize("condition", CONDITIONS)
+def test_targeted_routes_resolve_from_registry_configuration(brand, model, condition):
     urls = lm._targeted_source_urls(q(brand, model), condition)
     assert isinstance(urls, dict)
 
-    if condition == "demo":
-        # Demo searches must never silently fall back to a generic used-car
-        # homepage for a source with a dedicated demo route.
-        if brand == "Mercedes-Benz":
-            assert "ctype=demonstrator" in urls["Mercedes-Benz Used Cars"]
-        assert urls["Motozite Demo"].endswith(
-            f"/demo/{lm._slug(brand)}/{lm._slug(model)}/all"
-        )
+    registry = load_source_registry(from_database=False)
+    by_name = {str(source.get("name")): source for source in registry}
+    for name, source in by_name.items():
+        if source.get("adapter_status") != "live":
+            continue
+        if condition not in {normalize_condition(x) for x in (source.get("conditions") or [])}:
+            continue
+        brands = {str(x).strip().lower() for x in (source.get("brands") or [])}
+        if brands and "all" not in brands and brand.lower() not in brands:
+            continue
+        assert name in urls
+
+        metadata = source.get("metadata") or {}
+        if model and condition in {"used", "demo"}:
+            template_key = f"{condition}_query_url_template"
+        else:
+            template_key = "query_url_template" if model else "brand_query_url_template"
+        template = source.get(template_key) or metadata.get(template_key)
+        if template:
+            expected = template.format(
+                brand=brand,
+                brand_slug=lm._slug(brand),
+                model=model,
+                model_slug=lm._slug(model),
+                condition=condition,
+            )
+            assert urls[name] == expected
 
 
 @pytest.mark.parametrize(

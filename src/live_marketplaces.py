@@ -21,35 +21,6 @@ FETCH_RETRIES = 2
 MAX_PARALLEL_SOURCES = 5
 RETRYABLE_STATUS = {408,425,429,500,502,503,504}
 
-CURRENT_BRANDS = [
-    "Maruti Suzuki","Tata","Kia","Toyota","Hyundai","Mahindra","Honda","MG Motor",
-    "Skoda","Jeep","Renault","Nissan","Volkswagen","Citroen","Aston Martin","Audi",
-    "Bajaj","Bentley","Blinq Mobility","BMW","BYD","Ferrari","Force","Isuzu","Jaguar",
-    "Lamborghini","Land Rover","Lexus","Lotus","Maserati","McLaren","Mercedes-Benz",
-    "Mini","PMV","Porsche","Pravaig","Rolls-Royce","Strom Motors","Tesla",
-    "Vayve Mobility","VinFast","Volvo",
-]
-
-MODEL_FALLBACKS = {
-    "BMW": ["2 Series","3 Series","5 Series","7 Series","X1","X3","X5","X7","i4","i5","i7","iX"],
-    "Audi": ["A4","A6","A8 L","Q3","Q5","Q7","Q8","e-tron","e-tron GT"],
-    "Mercedes-Benz": ["A-Class Limousine","C-Class","E-Class","S-Class","GLA","GLB","GLC","GLE","GLS"],
-    "Volvo": ["S90","XC40","XC60","XC90","C40 Recharge","EX40","EX30"],
-    "Jaguar": ["F-Pace","F-Type","I-Pace","XF"],
-    "Land Rover": ["Defender","Discovery","Discovery Sport","Range Rover","Range Rover Evoque","Range Rover Sport","Velar"],
-    "Porsche": ["Cayenne","Macan","Panamera","Taycan","911"],
-    "Lexus": ["ES","LM","LS","NX","RX","LX"],
-    "Mini": ["Cooper","Countryman","Clubman"],
-    "Jeep": ["Compass","Meridian","Wrangler","Grand Cherokee"],
-    "Toyota": ["Camry","Fortuner","Hilux","Innova Hycross","Land Cruiser 300","Vellfire"],
-    "Kia": ["Seltos","Sonet","Carnival","EV6","EV9"],
-    "Hyundai": ["Creta","Tucson","Alcazar","Ioniq 5","Ioniq 6"],
-    "Skoda": ["Kodiaq","Superb","Kushaq","Slavia"],
-    "Volkswagen": ["Tiguan","Taigun","Virtus","ID.4"],
-    "Honda": ["City","Elevate","Civic","CR-V"],
-    "Maruti Suzuki": ["Swift","Baleno","Brezza","Grand Vitara","Jimny","Invicto"],
-}
-
 BRAND_ALIASES = {
     "MG": "MG Motor",
     "Mercedes Benz": "Mercedes-Benz",
@@ -153,30 +124,19 @@ def _canonical_brand(name: str) -> str:
     n=" ".join(name.replace(" Cars","").split()).strip()
     return BRAND_ALIASES.get(n,n)
 
-def live_brands() -> list[dict[str,str]]:
-    """Return only brands actually present in the current source catalogue.
+def _catalog_exclude_paths() -> set[str]:
+    configured={x.strip().lower().strip("/") for x in os.getenv("CARSCANNER_CATALOG_EXCLUDE_PATHS","").split(",") if x.strip()}
+    if configured:
+        return configured
+    try:
+        for source in load_source_registry():
+            metadata=source.get("metadata") or {}
+            values=source.get("catalog_exclude_paths") or metadata.get("catalog_exclude_paths") or []
+            return {str(x).strip().lower().strip("/") for x in values if str(x).strip()}
+    except Exception:
+        pass
+    return set()
 
-    A hard-coded taxonomy is useful as a discovery hint, but it must never
-    become customer-visible inventory truth. Missing source links are therefore
-    excluded rather than exposed as selectable brands that cannot be resolved.
-    """
-    html=fetch_text("https://www.cardekho.com/newcars")
-    parser=_LinkParser(); parser.feed(html)
-    links=parser.links
-    result=[]
-    seen=set()
-    for brand in CURRENT_BRANDS:
-        candidates={brand,brand+" Cars",_canonical_brand(brand)+" Cars"}
-        for text,href in links:
-            absolute=_absolute("https://www.cardekho.com",href)
-            if text in candidates and "cardekho.com" in urllib.parse.urlparse(absolute).netloc.lower():
-                canonical=_canonical_brand(brand)
-                key=canonical.lower()
-                if key not in seen:
-                    result.append({"name":canonical,"slug":_slug(canonical),"url":absolute,"catalog_verified":"true"})
-                    seen.add(key)
-                break
-    return sorted(result,key=lambda x:x["name"].lower())
 
 def _brand_path_tokens(selected: dict[str,str]) -> set[str]:
     parsed=urllib.parse.urlparse(selected["url"])
@@ -217,13 +177,13 @@ def _is_current_model_link(selected: dict[str,str], href: str) -> bool:
         return True
     return False
 
-def _clean_model_catalog_name(text: str) -> str | None:
-    """Normalize source link labels before exposing them as customer model names.
+def _clean_model_catalog_name(text: str, brand: str = "") -> str | None:
+    """Normalize source labels into canonical customer-facing model names.
 
-    CarDekho reuses model landing URLs in historical/discontinued sections and
-    sometimes appends price, year-range, or status text to the same anchor.
-    Those labels are not separate current models and must not leak into the
-    customer-facing catalog.
+    Catalog pages often prefix every model link with the selected brand
+    (for example, "BMW X5"). The UI contract is brand + model as separate
+    fields, so the model value must not repeat the brand. Historical,
+    discontinued, upcoming and navigation labels are rejected here.
     """
     clean=" ".join(str(text or "").split()).strip()
     if not clean:
@@ -232,25 +192,168 @@ def _clean_model_catalog_name(text: str) -> str | None:
         return None
     if re.search(r"\b(?:expected launch|upcoming|estimated)\b",clean,re.I):
         return None
-    # Remove trailing source metadata such as prices and asterisks. Keep the
-    # actual model name, including meaningful terms such as Long Wheelbase.
-    clean=re.sub(r"\s+(?:₹|Rs\.?)[^|]*$", "", clean, flags=re.I).strip()
+    clean=re.sub(
+        r"\s+(?:₹|Rs\.?)\s*[\d.,]+(?:\s*(?:Cr|Lakh|Lakhs))?\s*\*?\s*$",
+        "",
+        clean,
+        flags=re.I,
+    ).strip()
     clean=re.sub(r"\s+\*+$", "", clean).strip()
     clean=re.sub(r"\s+(?:estimated|expected)$", "", clean, flags=re.I).strip()
+
+    canonical_brand=_canonical_brand(brand).strip()
+    if canonical_brand:
+        clean=re.sub(
+            rf"^{re.escape(canonical_brand)}(?:\s+|[-:])+",
+            "",
+            clean,
+            flags=re.I,
+        ).strip()
+        # Handle common source spelling without the hyphen in Mercedes-Benz.
+        brand_tokens=_identity_tokens(canonical_brand)
+        clean_words=clean.split()
+        clean_tokens=_identity_tokens(clean)
+        if clean_tokens[:len(brand_tokens)]==brand_tokens and len(clean_tokens)>len(brand_tokens):
+            clean=" ".join(clean_words[len(brand_tokens):]).strip()
     return clean or None
 
-def _fallback_brand_record(brand: str) -> dict[str,str] | None:
-    canonical=_canonical_brand(brand)
-    if canonical not in CURRENT_BRANDS:
-        return None
-    return {"name":canonical,"slug":_slug(canonical),
-            "url":f"https://www.cardekho.com/{_slug(canonical)}-cars",
-            "catalog_verified":"fallback"}
+def _known_brand_names() -> list[str]:
+    names=[]
+    seen=set()
+    for record in _registry_brand_records()+_configured_brand_records():
+        name=str(record.get("name") or "").strip()
+        if name and name.lower() not in seen:
+            seen.add(name.lower())
+            names.append(name)
+    return names
 
-def _fallback_models(brand: str) -> list[dict[str,str]]:
-    canonical=_canonical_brand(brand)
-    return [{"name":name,"slug":_slug(name),"url":"","catalog_verified":"fallback"}
-            for name in MODEL_FALLBACKS.get(canonical,[])]
+def _catalog_source_url() -> str:
+    configured=os.getenv("CARSCANNER_CATALOG_SOURCE_URL", "").strip()
+    if configured:
+        return configured
+    try:
+        for source in load_source_registry():
+            metadata=source.get("metadata") or {}
+            url=str(source.get("catalog_url") or metadata.get("catalog_url") or "").strip()
+            if url:
+                return url
+    except Exception:
+        pass
+    return ""
+
+def _configured_brand_records() -> list[dict[str,str]]:
+    raw=os.getenv("CARSCANNER_CATALOG_BRANDS_JSON", "").strip()
+    if not raw:
+        return []
+    try:
+        values=json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    result=[]
+    for item in values if isinstance(values,list) else []:
+        if isinstance(item,str):
+            name=item.strip()
+            if name:
+                result.append({"name":name,"slug":_slug(name),"url":"" ,"catalog_verified":"config"})
+        elif isinstance(item,dict) and str(item.get("name") or "").strip():
+            name=str(item["name"]).strip()
+            result.append({
+                "name":name,
+                "slug":str(item.get("slug") or _slug(name)),
+                "url":str(item.get("url") or ""),
+                "catalog_verified":"config",
+            })
+    return result
+
+def _registry_brand_records() -> list[dict[str,str]]:
+    """Build brand identity data from the configured registry.
+
+    PostgreSQL is preferred when enabled; the canonical YAML registry remains
+    the deterministic bootstrap/local fallback. Brand identity must not depend
+    on a database-only path because parser and catalog behavior must remain
+    functional before the control-plane DB is provisioned.
+    """
+    try:
+        from .source_intelligence import load_source_registry
+        values=[]
+        seen=set()
+        for source in load_source_registry():
+            for brand in source.get("brands") or []:
+                name=str(brand or "").strip()
+                if not name or name=="*":
+                    continue
+                key=_canonical_brand(name).lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                values.append({"name":_canonical_brand(name),"slug":_slug(_canonical_brand(name)),"url":"","catalog_verified":"database"})
+        return sorted(values,key=lambda x:x["name"].lower())
+    except Exception:
+        return []
+
+def live_brands() -> list[dict[str,str]]:
+    """Return brands from the database/configured catalog, never a baked-in taxonomy."""
+    configured=_configured_brand_records()
+    database=_registry_brand_records()
+    records=database or configured
+    catalog_url=_catalog_source_url()
+
+    # When the control-plane does not yet contain a canonical brand taxonomy,
+    # derive it from the configured catalog source itself. This is discovery,
+    # not a baked-in brand list.
+    if not records and catalog_url:
+        try:
+            html=fetch_text(catalog_url)
+            parser=_LinkParser(); parser.feed(html)
+            discovered=[]
+            seen=set()
+            excluded=_catalog_exclude_paths()
+            for label,href in parser.links:
+                name=" ".join(str(label or "").replace(" Cars","").split()).strip()
+                absolute=_absolute(catalog_url,href)
+                path=urllib.parse.urlparse(absolute).path.strip("/").lower()
+                if path in excluded:
+                    continue
+                parts=[p for p in path.split("/") if p]
+                if not name or name.lower() in {"view all brands","all brands"}:
+                    continue
+                is_brand_path=(len(parts)==2 and parts[0]=="cars") or (len(parts)==1 and parts[0].endswith("-cars"))
+                if not is_brand_path:
+                    continue
+                key=_canonical_brand(name).lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                discovered.append({"name":_canonical_brand(name),"slug":_slug(_canonical_brand(name)),
+                                   "url":absolute,"catalog_verified":"discovered"})
+            return sorted(discovered,key=lambda x:x["name"].lower())
+        except Exception:
+            return []
+
+    # If a catalog source is configured, enrich the DB/config records with its
+    # current canonical links. The source itself is configuration, not code data.
+    catalog_url=_catalog_source_url()
+    if not catalog_url:
+        return records
+
+    try:
+        html=fetch_text(catalog_url)
+        parser=_LinkParser(); parser.feed(html)
+        links=parser.links
+        enriched=[]
+        for record in records:
+            wanted={record["name"],record["name"]+" Cars",_canonical_brand(record["name"])+" Cars"}
+            match=None
+            for text,href in links:
+                if text in wanted:
+                    absolute=_absolute(catalog_url,href)
+                    if urllib.parse.urlparse(absolute).netloc:
+                        match=absolute
+                        break
+            enriched.append({**record,"url":match or record.get("url") or ""})
+        return [x for x in enriched if x.get("url")]
+    except Exception:
+        return records
 
 def live_models(brand: str) -> list[dict[str,str]]:
     wanted=_canonical_brand(brand).lower()
@@ -261,17 +364,21 @@ def live_models(brand: str) -> list[dict[str,str]]:
     except Exception:
         selected=None
     if not selected:
-        selected=_fallback_brand_record(brand)
-    if not selected or not selected["url"]:
+        return []
+    if not selected.get("url"):
+        template=os.getenv("CARSCANNER_MODEL_CATALOG_URL_TEMPLATE","").strip()
+        if template:
+            selected={**selected,"url":template.format(brand=_slug(selected["name"]),name=urllib.parse.quote(selected["name"]),slug=_slug(selected["name"]))}
+    if not selected.get("url"):
         return []
     try:
         html=fetch_text(selected["url"])
     except Exception:
-        return _fallback_models(brand)
+        return []
     parser=_LinkParser(); parser.feed(html)
     models=[]; seen_urls=set(); seen_model_keys=set()
     for text,href in parser.links:
-        clean=_clean_model_catalog_name(text)
+        clean=_clean_model_catalog_name(text, selected["name"])
         absolute=_absolute(selected["url"],href)
         if not clean or not _is_current_model_link(selected,absolute):
             continue
@@ -285,7 +392,7 @@ def live_models(brand: str) -> list[dict[str,str]]:
             continue
         seen_urls.add(canonical); seen_model_keys.add(model_key)
         models.append({"name":clean,"slug":model_key,"url":canonical,"catalog_verified":"true"})
-    return sorted(models,key=lambda x:x["name"].lower()) or _fallback_models(brand)
+    return sorted(models,key=lambda x:x["name"].lower())
 
 def _identity_tokens(value: Any) -> list[str]:
     return re.findall(r"[a-z0-9]+",str(value or "").lower())
@@ -442,7 +549,7 @@ def _infer_brand_model(name: str, brand: Any, model: Any) -> tuple[str|None,str]
     m=str(model).strip() if model else ""
     if b and m: return b,m
     clean=" ".join(str(name or "").split())
-    for candidate in sorted(CURRENT_BRANDS,key=len,reverse=True):
+    for candidate in sorted(_known_brand_names(),key=len,reverse=True):
         if clean.lower().startswith(candidate.lower()+" "):
             return candidate,clean[len(candidate):].strip()
     parts=clean.split(" ",1)
@@ -451,7 +558,7 @@ def _infer_brand_model(name: str, brand: Any, model: Any) -> tuple[str|None,str]
 def _query_parts(query: str) -> tuple[str|None,str|None]:
     q=" ".join(str(query or "").split()).strip()
     low=q.lower()
-    for brand in sorted(CURRENT_BRANDS,key=len,reverse=True):
+    for brand in sorted(_known_brand_names(),key=len,reverse=True):
         if brand.lower() in low:
             model=q[:low.find(brand.lower())]+q[low.find(brand.lower())+len(brand):]
             model=re.sub(r"\\s+"," ",model).strip()
@@ -460,51 +567,75 @@ def _query_parts(query: str) -> tuple[str|None,str|None]:
             return brand, model or None
     return None, q or None
 
-def _targeted_source_urls(query: str, condition: str = "both") -> dict[str,str]:
-    """Build a source-specific India-wide inventory URL for the requested intent.
+def _targeted_source_urls(query: str, condition: str = "both", registry: list[dict] | None = None) -> dict[str,str]:
+    """Resolve source routes from the canonical registry.
 
-    Generic marketplace homepages are not valid search endpoints: they often
-    expose only a subset of inventory or require client-side filters. Every
-    live adapter therefore gets a deterministic brand/model route where the
-    marketplace supports one.
+    URL templates are source configuration, not application taxonomy. A source
+    without a query template falls back to its configured base URL and is still
+    eligible for adapter-side identity filtering.
     """
     brand, model = _query_parts(query)
     if not brand:
         return {}
 
-    brand_slug = _slug(_canonical_brand(brand))
-    model_slug = _slug(model) if model else ""
-
-    urls = {
-        "CarDekho Used": (
-            f"https://www.cardekho.com/used-{brand_slug}-{model_slug}+cars"
-            if model_slug else f"https://www.cardekho.com/used-{brand_slug}+cars"
-        ),
-        "CarWale Used": (
-            f"https://www.carwale.com/used/{brand_slug}-{model_slug}/"
-            if model_slug else f"https://www.carwale.com/used/{brand_slug}/"
-        ),
-        "Cars24 Luxury Used": (
-            f"https://www.cars24.com/buy-used-{brand_slug}-{model_slug}-cars/"
-            if model_slug else f"https://www.cars24.com/buy-used-{brand_slug}-cars/"
-        ),
-        "Spinny Luxury Used": (
-            f"https://www.spinny.com/used-{model_slug or brand_slug}-cars/s/"
-        ),
-    }
-
-    # Motozite's demo catalogue is a filterable catalogue rather than a
-    # brand/model-specific route. Its adapter still receives the catalogue and
-    # applies strict identity + condition filtering after extraction.
+    brand_name = _canonical_brand(brand)
+    values = {}
     wanted_condition = normalize_condition(condition)
-    if wanted_condition == "demo" and model_slug:
-        urls["Motozite Demo"] = f"https://motozite.com/demo/{brand_slug}/{model_slug}/all"
-        if brand_slug == "mercedes-benz":
-            urls["Mercedes-Benz Used Cars"] = "https://www.mercedes-benzusedcar.in/buy-used-cars?ctype=demonstrator"
-    elif not model_slug:
-        urls["Motozite Demo"] = "https://motozite.com/demo-cars"
+    if registry is None:
+        try:
+            registry = load_source_registry()
+        except Exception:
+            registry = []
 
-    return urls
+    for source in registry:
+        name = str(source.get("name") or "").strip()
+        if not name or source.get("adapter_status") != "live":
+            continue
+        conditions = {normalize_condition(x) for x in (source.get("conditions") or [])}
+        if wanted_condition in {"used", "demo"} and conditions and wanted_condition not in conditions:
+            continue
+        brands = {str(x).strip().lower() for x in (source.get("brands") or [])}
+        if brands and "all" not in brands and brand_name.lower() not in brands:
+            continue
+
+        metadata = source.get("metadata") or {}
+        if wanted_condition in {"used", "demo"}:
+            condition_template_key = (
+                f"{wanted_condition}_query_url_template" if model
+                else f"brand_{wanted_condition}_query_url_template"
+            )
+        else:
+            condition_template_key = ""
+        template_key = "query_url_template" if model else "brand_query_url_template"
+        condition_template = (
+            source.get(condition_template_key) or metadata.get(condition_template_key)
+            if condition_template_key else None
+        )
+        template = str(condition_template).strip() if condition_template else ""
+        if not template:
+            template = str(
+                source.get(template_key)
+                or metadata.get(template_key)
+                or source.get("query_url_template")
+                or metadata.get("query_url_template")
+                or ""
+            ).strip()
+        base_url = str(source.get("url") or "").strip()
+        if template:
+            try:
+                values[name] = template.format(
+                    brand=urllib.parse.quote(brand_name),
+                    brand_slug=_slug(brand_name),
+                    model=urllib.parse.quote(model or ""),
+                    model_slug=_slug(model or ""),
+                    condition=wanted_condition,
+                )
+            except (KeyError, ValueError):
+                values[name] = base_url
+        elif base_url:
+            values[name] = base_url
+
+    return values
 
 def _canonical_url(base_url: str, href: Any) -> str:
     absolute=_absolute(base_url,str(href or "")).split("#",1)[0]
@@ -522,7 +653,7 @@ def _canonical_url(base_url: str, href: Any) -> str:
 def _listing_identity_from_text(text: str, href: str) -> tuple[str|None,str|None]:
     blob=f"{text} {urllib.parse.urlsplit(href).path.replace('-',' ')}"
     brand=None
-    for candidate in sorted(CURRENT_BRANDS,key=len,reverse=True):
+    for candidate in sorted(_known_brand_names(),key=len,reverse=True):
         if re.search(r"\b"+re.escape(candidate)+r"\b",blob,re.I):
             brand=_canonical_brand(candidate); break
     if not brand:
@@ -604,8 +735,35 @@ def parse_visible_listing_links(html: str, source: str, base_url: str, query: st
         if key in seen: continue
         seen.add(key);out.append(row)
     return out
+class _NextPageParser(HTMLParser):
+    """Extract an explicitly advertised next-results link without guessing page parameters."""
+    def __init__(self):
+        super().__init__()
+        self.next_href = None
+
+    def handle_starttag(self, tag, attrs):
+        if self.next_href or tag.lower() not in {"a", "link"}:
+            return
+        attrs = {str(k).lower(): str(v or "") for k, v in attrs}
+        rel = set(str(attrs.get("rel") or "").lower().split())
+        label = " ".join(v for v in (attrs.get("aria-label"), attrs.get("title"), attrs.get("data-testid")) if v).lower()
+        if "next" in rel or re.search(r"\\bnext\\b", label):
+            href = attrs.get("href")
+            if href:
+                self.next_href = href
+
+
 def _next_page_url(html: str, base_url: str) -> str | None:
-    """Find a marketplace's canonical next-results URL without guessing pagination semantics."""
+    """Find an explicitly advertised next-results URL and canonicalize it."""
+    parser = _NextPageParser()
+    parser.feed(html)
+    if parser.next_href:
+        url = _canonical_url(base_url, parser.next_href)
+        if url != _canonical_url(base_url, base_url):
+            return url
+
+    # Compatibility fallback for malformed markup that the HTML parser cannot
+    # interpret cleanly. Still require an explicit rel/aria/title next marker.
     patterns = [
         r'<a[^>]+rel=["\\\'][^"\\\']*\\bnext\\b[^"\\\']*["\\\'][^>]+href=["\\\']([^"\\\']+)',
         r'<a[^>]+href=["\\\']([^"\\\']+)["\\\'][^>]+[^>]*(?:aria-label|title)=["\\\'][^"\\\']*\\bnext\\b',
@@ -706,41 +864,6 @@ def _live_source_entries() -> list[dict]:
     """Return only registry sources whose adapters are verified for live search."""
     return [s for s in load_source_registry() if s.get("adapter_status") == "live"]
 
-
-def _execute_source(planned: dict, source: dict, url: str, query: str, condition: str) -> tuple[list[dict],dict]:
-    name=str(planned["name"])
-    try:
-        max_pages=max(1,min(int(os.getenv("CARSCANNER_MAX_PAGES_PER_SOURCE","20")),50))
-        parsed,pages=_crawl_paginated_source(url,name,query,condition,max_pages=max_pages)
-        filtered=[]
-        for row in parsed:
-            if not _identity_matches_query(row,query):
-                continue
-            actual=normalize_condition(row.get("condition_signal"))
-            wanted=normalize_condition(condition)
-            if wanted in {"used","demo"} and actual != wanted:
-                continue
-            row["identity_confidence"]=1.0 if row.get("brand") and row.get("model") else 0.0
-            row["identity_evidence"]=["brand","model","listing_name","url"]
-            filtered.append(row)
-        # Deduplicate the same listing appearing in structured and visible parsers
-        # or on adjacent pagination pages.
-        unique={}
-        for row in filtered:
-            key=(_canonical_url(url,str(row.get("url") or "")),row.get("price_lakh"),row.get("model"),row.get("condition_signal"))
-            unique[key]=row
-        filtered=list(unique.values())
-        return filtered,{
-            "source":name,"status":"live","listings_found":len(filtered),"pages_crawled":len(pages),
-            "query_url":url,"source_type":planned.get("source_type"),"source_score":planned.get("score"),
-            "query_strategy":planned.get("query_strategy"),"selection_reasons":planned.get("reasons",[]),
-        }
-    except Exception as exc:
-        return [],{
-            "source":name,"status":"unavailable","listings_found":0,"pages_crawled":0,"error":str(exc)[:160],
-            "query_url":url,"source_type":planned.get("source_type"),"source_score":planned.get("score"),"query_strategy":planned.get("query_strategy"),
-            "selection_reasons":planned.get("reasons",[]),
-        }
 
 def live_inventory(
     query: str = "",

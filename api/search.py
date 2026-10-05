@@ -75,6 +75,25 @@ def _match(v,query,budget_min,budget_max,max_age,destination,condition="both"):
         return True
     return True
 
+def _planned_live_sources_unavailable(source_plan, sources):
+    """Return true only when configured live sources exist but none responded live.
+
+    A condition such as demo/Jaguar can legitimately have no live source
+    configured. That should be a successful empty search, not an HTTP 503.
+    A configured live source set that all failed is a real availability error.
+    """
+    planned_live = {
+        str(p.get("name"))
+        for p in source_plan
+        if p.get("adapter_status") == "live" and p.get("name")
+    }
+    observed_live = {
+        str(s.get("name") or s.get("source"))
+        for s in sources
+        if s.get("status") == "live" and (s.get("name") or s.get("source"))
+    }
+    return bool(planned_live) and not planned_live.intersection(observed_live)
+
 def _score(v):
     # Transparent ordering: deal evidence first, then identity and trust signals.
     deal=float(v.get("discount_pct") or 0)
@@ -180,8 +199,9 @@ class handler(BaseHTTPRequestHandler):
                     inventory_hit_count=len(vehicles),
                     source_count=len(sources),
                 )
-            if not vehicles and sources and not any(s.get("status") == "live" for s in sources):
-                return _response(self,503,{"error":"Live marketplace sources are currently unavailable","mode":"live","sources":sources})
+            availability_warning = None
+            if not vehicles and sources and _planned_live_sources_unavailable(source_plan, sources):
+                availability_warning = "No configured live source responded for this search; zero results are not an inventory guarantee."
             results=[]
             for v in vehicles:
                 if not _match(v,query,budget_min,budget_max,max_age,destination,body.get("condition") or "both"): continue
@@ -230,6 +250,7 @@ class handler(BaseHTTPRequestHandler):
                 "has_more": ((page * page_size) < int(inventory_total)) if search_mode == "inventory" and inventory_total is not None else False,
                 "inventory_total": int(inventory_total) if inventory_total is not None else None,
                 "sources_found":len({s for v in results for s in [v.get("source")] if s}),
+                "availability_warning": availability_warning,
                 "results":results
             })
         except ValueError as exc:

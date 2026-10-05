@@ -34,7 +34,7 @@ class TestCatalogSanitization(unittest.TestCase):
             {"name":"BMW","slug":"bmw","url":"https://www.cardekho.com/bmw-cars","catalog_verified":"true"}
         ]), patch.object(lm, "fetch_text", return_value=html):
             models=lm.live_models("BMW")
-        self.assertEqual([m["name"] for m in models], ["BMW X1","BMW X5"])
+        self.assertEqual([m["name"] for m in models], ["X1","X5"])
 
     def test_live_models_deduplicates_model_links(self):
         html="""
@@ -47,7 +47,7 @@ class TestCatalogSanitization(unittest.TestCase):
         ]), patch.object(lm, "fetch_text", return_value=html):
             models=lm.live_models("BMW")
         self.assertEqual(len(models), 1)
-        self.assertEqual(models[0]["name"], "BMW X5")
+        self.assertEqual(models[0]["name"], "X5")
 
 
 if __name__ == "__main__":

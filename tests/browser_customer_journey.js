@@ -1,6 +1,7 @@
 const { chromium } = require("playwright");
 
-const base = (process.env.CARSCANNER_BASE_URL || "https://buy-premium-car1.onrender.com").replace(/\/$/, "");
+const base = process.env.CARSCANNER_BASE_URL || "https://buy-premium-car1.onrender.com";
+const testUrl = key => { const u = new URL(base); u.searchParams.set(key, String(Date.now())); return u.toString(); };
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
@@ -10,8 +11,9 @@ const base = (process.env.CARSCANNER_BASE_URL || "https://buy-premium-car1.onren
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
 
   try {
-    await page.goto(base + "/?e2e=" + Date.now(), { waitUntil: "networkidle", timeout: 90000 });
+    await page.goto(testUrl("e2e"), { waitUntil: "networkidle", timeout: 90000 });
     await page.waitForSelector("#brand", { state: "visible", timeout: 15000 });
+    await page.waitForFunction(() => document.querySelectorAll("#brand option").length >= 5, null, { timeout: 30000 });
 
     const brandCount = await page.locator("#brand option").count();
     if (brandCount < 5) throw new Error("brand dropdown has too few options: " + brandCount);
@@ -25,7 +27,9 @@ const base = (process.env.CARSCANNER_BASE_URL || "https://buy-premium-car1.onren
     const modelNames = await page.locator("#model option").allTextContents();
     if (!modelNames.some(x => /X5/i.test(x))) throw new Error("BMW X5 missing from model dropdown");
 
-    await page.selectOption("#model", { label: /BMW X5/i });
+    const x5Label = modelNames.find(x => /X5/i.test(x));
+    if (!x5Label) throw new Error("BMW X5 option was discovered but could not be selected");
+    await page.selectOption("#model", { label: x5Label });
     await page.click("#search");
     await page.waitForFunction(() => {
       const grid = document.querySelector("#grid");

@@ -46,3 +46,11 @@ def test_paginated_source_follows_canonical_next_pages(monkeypatch):
     assert len(rows) == 3
     assert len(crawled) == 3
     assert calls == ["https://example.com/cars", "https://example.com/cars?page=2", "https://example.com/cars?page=3"]
+
+
+def test_catalog_model_names_strip_selected_brand_prefix():
+    from src import live_marketplaces as lm
+    assert lm._clean_model_catalog_name("BMW X5", "BMW") == "X5"
+    assert lm._clean_model_catalog_name("BMW 3 Series", "BMW") == "3 Series"
+    assert lm._clean_model_catalog_name("Mercedes-Benz E-Class", "Mercedes-Benz") == "E-Class"
+    assert lm._clean_model_catalog_name("BMW X5 2019-2023 Discontinued", "BMW") is None

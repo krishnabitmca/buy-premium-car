@@ -37,7 +37,7 @@ def test_current_search_first_journey(dashboard_url):
         assert page.locator("#brand").count() == 1
         assert page.locator("#model").count() == 1
         assert page.locator("#condition").count() == 1
-        assert page.locator("#destination").input_value() == "Bengaluru"
+        assert page.locator("#destination").input_value() == ""
         assert page.locator(".hero h1").inner_text() == "Find the right car at the right price"
         assert page.locator(".card").count() == 0
         assert not errors
@@ -60,7 +60,7 @@ def test_current_evidence_action_is_wired(dashboard_url):
         browser = p.chromium.launch()
         page = browser.new_page()
         page.route("**/api/catalog*", lambda route: route.fulfill(status=200,content_type="application/json",body='{"ok":true,"mode":"live","brands":[{"name":"BMW"}]}'))
-        page.route("**/api/search*", lambda route: route.fulfill(status=200,content_type="application/json",body='{"ok":true,"mode":"live","live_at":"2026-10-01T08:00:00Z","sources":[{"source":"Test","status":"live"}],"results":[{"brand":"BMW","model":"X5","variant":"xDrive40i","price_lakh":49.5,"mfg_year":2024,"km":18000,"fuel":"Petrol","transmission":"Automatic","location":"Delhi","source":"Test","url":"https://example.com/x5","live_verified":true,"data_consistent":true,"condition_signal":"used"}]}'))
+        page.route("**/api/search*", lambda route: route.fulfill(status=200,content_type="application/json",body='{"ok":true,"mode":"live","search_scope":"india","live_at":"2026-10-01T08:00:00Z","sources":[{"source":"Test","status":"live"}],"results":[{"brand":"BMW","model":"X5","variant":"xDrive40i","price_lakh":49.5,"mfg_year":2024,"km":18000,"fuel":"Petrol","transmission":"Automatic","location":"Delhi","source":"Test","url":"https://example.com/x5","live_verified":true,"data_consistent":true,"condition_signal":"used"}]}'))
         page.goto(dashboard_url, wait_until="domcontentloaded")
         page.locator("#search").click()
         page.locator(".card").first.wait_for()

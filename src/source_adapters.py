@@ -62,8 +62,12 @@ class BuiltinMarketplaceAdapter:
         self.source_name = str(source.get("name") or "")
 
     def _url(self, request: AdapterRequest) -> str:
-        targeted = live_marketplaces._targeted_source_urls(request.query, request.condition)
-        return targeted.get(self.source_name, str(self.source.get("url") or ""))
+        targeted = live_marketplaces._targeted_source_urls(
+            request.query, request.condition, registry=[self.source]
+        )
+        # A registry route may be absent or unresolved while the source still
+        # has a valid canonical base URL. Never pass None into the fetch layer.
+        return targeted.get(self.source_name) or str(self.source.get("url") or "")
 
     def fetch(self, request: AdapterRequest) -> AdapterResult:
         started = time.monotonic()
@@ -85,7 +89,13 @@ class BuiltinMarketplaceAdapter:
         try:
             html = fetch_text(url)
             parsed = parse_live_listings(html, self.source_name, url)
-            # Marketplace landing pages often expose most inventory as visible listing cards rather than JSON-LD.\n            # This fallback must also run for unscoped searches (All Brands + All Models), otherwise\n            # the empty query returns only the handful of structured-data records and severely undercounts inventory.\n            if not parsed:\n                parsed = parse_visible_listing_links(\n                    html, self.source_name, url, request.query\n                )
+            # Marketplace landing pages often expose most inventory as visible listing cards rather than JSON-LD.
+            # This fallback must also run for unscoped searches (All Brands + All Models), otherwise
+            # the empty query returns only the handful of structured-data records and severely undercounts inventory.
+            if not parsed:
+                parsed = parse_visible_listing_links(
+                    html, self.source_name, url, request.query
+                )
 
             wanted_condition = normalize_condition(request.condition)
             demo_route = wanted_condition == "demo" and (

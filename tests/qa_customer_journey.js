@@ -2,7 +2,8 @@ const fs = require("fs");
 const path = require("path");
 const { chromium } = require("playwright");
 
-const BASE = (process.env.CARSCANNER_BASE_URL || "https://buy-premium-car1.onrender.com").replace(/\/$/, "");
+const BASE = process.env.CARSCANNER_BASE_URL || "https://buy-premium-car1.onrender.com";
+const testUrl = key => { const u = new URL(BASE); u.searchParams.set(key, String(Date.now())); return u.toString(); };
 const OUT = process.env.QA_REPORT_DIR || "qa-reports";
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -21,6 +22,47 @@ const budgets = [
 const destinations = ["Bengaluru","Delhi NCR"];
 
 function now(){return new Date().toISOString();}
+
+async function preparePage(browser,pageErrors){
+  const page=await browser.newPage({viewport:{width:1440,height:1100}});
+  page.on("pageerror",e=>pageErrors.push("pageerror: "+e.message));
+  page.on("console",m=>{
+    if(m.type()!=="error")return;
+    const message=m.text();
+    // Marketplace/image/CDN resources can legitimately return 503 while the
+    // search contract itself succeeds. Do not classify that third-party
+    // resource failure as an application/page failure; real JS errors still fail.
+    if(/Failed to load resource: the server responded with a status of 503/i.test(message))return;
+    pageErrors.push("console: "+message);
+  });
+  await page.goto(BASE+"/?qa="+Date.now(),{waitUntil:"domcontentloaded",timeout:90000});
+  await page.waitForSelector("#brand",{state:"visible",timeout:15000});
+  await page.waitForFunction(()=>document.querySelectorAll("#brand option").length>=5,null,{timeout:30000});
+  return page;
+}
+
+async function runParallelSpecs(browser,pageErrors,results,specs,category){
+  const concurrency=Math.min(4,specs.length);
+  const pages=await Promise.all(Array.from({length:concurrency},()=>preparePage(browser,pageErrors)));
+  let cursor=0;
+  async function worker(page){
+    while(true){
+      const index=cursor++;
+      if(index>=specs.length) return;
+      const spec=specs[index],t=Date.now();
+      try{
+        const detail=await runSearch(page,spec);
+        results.push({category,status:"PASS",...spec,...detail,ms:Date.now()-t});
+      }catch(e){
+        const shot=path.join(OUT,"failure-"+safe([category,spec.brand,spec.model,spec.condition,spec.budget,spec.destination].filter(Boolean).join("-"))+"-"+Date.now()+".png");
+        try{await page.screenshot({path:shot,fullPage:true});}catch(_){}
+        results.push({category,status:"FAIL",...spec,error:errText(e),screenshot:shot,ms:Date.now()-t});
+      }
+    }
+  }
+  try{ await Promise.all(pages.map(worker)); }
+  finally{ await Promise.all(pages.map(p=>p.close())); }
+}
 function safe(s){return String(s).replace(/[^a-z0-9_-]+/gi,"_").slice(0,100);}
 function errText(e){return e&&e.stack?e.stack:String(e);}
 
@@ -48,6 +90,7 @@ async function runSearch(page,spec){
     }
   };
   page.on("response",handler);
+  await page.click("#clear");
   await page.selectOption("#condition",{label:spec.condition==="used"?"Used only":spec.condition==="demo"?"Demo only":"Used + Demo"});
   await selectBrandModel(page,spec.brand,spec.model);
   await page.fill("#min",spec.min||"");
@@ -67,9 +110,14 @@ async function runSearch(page,spec){
     throw new Error("invalid search contract: "+JSON.stringify({ok:searchResponse.ok,scope:searchResponse.search_scope,mode:searchResponse.mode}));
 
   const results=Array.isArray(searchResponse.results)?searchResponse.results:[];
+  const identityTokens=value=>String(value||"").toLowerCase().match(/[a-z0-9]+/g)||[];
+  const containsIdentity=(haystack,needle)=>{
+    const h=identityTokens(haystack), n=identityTokens(needle);
+    return n.length>0&&h.some((_,i)=>n.every((token,j)=>h[i+j]===token));
+  };
   const badIdentity=results.filter(v=>{
-    const actual=((v.brand||"")+" "+(v.model||"")).toLowerCase();
-    return !actual.includes(spec.brand.toLowerCase())||!actual.includes(spec.model.toLowerCase());
+    const actual=[v.brand,v.model,v.listing_name,v.variant].filter(Boolean).join(" ");
+    return !containsIdentity(actual,spec.brand)||!containsIdentity(actual,spec.model);
   });
   if(badIdentity.length)throw new Error("identity leakage: "+badIdentity.slice(0,3).map(v=>(v.brand||"")+" "+(v.model||"")).join(", "));
 
@@ -139,7 +187,7 @@ async function testRefinementFilters(page){
     destination:document.querySelector("#destination").value,
     fuelChecked:[...document.querySelectorAll(".fuelCheck:checked")].length
   }));
-  if(clearState.condition!=="both"||clearState.fmin||clearState.fmax||clearState.city||clearState.year||clearState.destination!=="Bengaluru"||clearState.fuelChecked)
+  if(clearState.condition!=="both"||clearState.fmin||clearState.fmax||clearState.city||clearState.year||clearState.destination||clearState.fuelChecked)
     throw new Error("Clear all did not restore defaults: "+JSON.stringify(clearState));
   return {before,checks,clearState};
 }
@@ -150,41 +198,24 @@ async function main(){
     const page=await browser.newPage({viewport:{width:1440,height:1100}});
     page.on("pageerror",e=>pageErrors.push("pageerror: "+e.message));
     page.on("console",m=>{if(m.type()==="error")pageErrors.push("console: "+m.text());});
-    await page.goto(BASE+"/?qa="+Date.now(),{waitUntil:"networkidle",timeout:90000});
+    await page.goto(BASE+"/?qa="+Date.now(),{waitUntil:"domcontentloaded",timeout:90000});
     await page.waitForSelector("#brand",{state:"visible",timeout:15000});
+    await page.waitForFunction(()=>document.querySelectorAll("#brand option").length>=5,null,{timeout:30000});
     const brandCount=await page.locator("#brand option").count();
     if(brandCount<5)throw new Error("brand dropdown has too few options: "+brandCount);
 
-    for(const [brand,model] of journeys)for(const condition of conditions){
-      const spec={brand,model,condition,min:"",max:"",destination:"Bengaluru"},t=Date.now();
-      try{
-        await page.goto(BASE+"/?qa="+Date.now(),{waitUntil:"networkidle",timeout:90000});
-        await page.waitForSelector("#brand",{state:"visible",timeout:15000});
-        const detail=await runSearch(page,spec);
-        results.push({category:"journey",status:"PASS",...spec,...detail,ms:Date.now()-t});
-      }catch(e){
-        const shot=path.join(OUT,"failure-"+safe(brand+"-"+model+"-"+condition)+"-"+Date.now()+".png");
-        try{await page.screenshot({path:shot,fullPage:true});}catch(_){}
-        results.push({category:"journey",status:"FAIL",...spec,error:errText(e),screenshot:shot,ms:Date.now()-t});
-      }
-    }
+    const journeySpecs=[];
+    for(const [brand,model] of journeys)for(const condition of conditions)
+      journeySpecs.push({brand,model,condition,min:"",max:"",destination:"Bengaluru"});
+    await runParallelSpecs(browser,pageErrors,results,journeySpecs,"journey");
 
-    for(const [brand,model] of journeys.slice(0,4))for(const b of budgets)for(const destination of destinations){
-      const spec={brand,model,condition:"used",min:b.min,max:b.max,destination},t=Date.now();
-      try{
-        await page.goto(BASE+"/?qa="+Date.now(),{waitUntil:"networkidle",timeout:90000});
-        await page.waitForSelector("#brand",{state:"visible",timeout:15000});
-        const detail=await runSearch(page,spec);
-        results.push({category:"budget-destination",status:"PASS",...spec,budget:b.name,...detail,ms:Date.now()-t});
-      }catch(e){
-        const shot=path.join(OUT,"failure-"+safe(brand+"-"+model+"-"+b.name+"-"+destination)+"-"+Date.now()+".png");
-        try{await page.screenshot({path:shot,fullPage:true});}catch(_){}
-        results.push({category:"budget-destination",status:"FAIL",...spec,budget:b.name,error:errText(e),screenshot:shot,ms:Date.now()-t});
-      }
-    }
+    const budgetSpecs=[];
+    for(const [brand,model] of journeys.slice(0,4))for(const b of budgets)for(const destination of destinations)
+      budgetSpecs.push({brand,model,condition:"used",min:b.min,max:b.max,destination,budget:b.name});
+    await runParallelSpecs(browser,pageErrors,results,budgetSpecs,"budget-destination");
 
     try{
-      await page.goto(BASE+"/?qa=filters-"+Date.now(),{waitUntil:"networkidle",timeout:90000});
+      await page.goto(BASE+"/?qa=filters-"+Date.now(),{waitUntil:"domcontentloaded",timeout:90000});
       await page.waitForSelector("#brand",{state:"visible",timeout:15000});
       results.push({category:"left-panel-filters",status:"PASS",...await testRefinementFilters(page)});
     }catch(e){

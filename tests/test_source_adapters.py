@@ -36,8 +36,6 @@ def test_adapter_failure_isolated_from_other_sources(monkeypatch):
                 }],
             )
 
-    # Exercise the executor's defensive isolation path by replacing the
-    # adapter fetch implementation. The good source must still return data.
     monkeypatch.setattr(BuiltinMarketplaceAdapter, "fetch", fake_fetch)
     vehicles, statuses = execute_adapters(
         AdapterRequest(query="BMW X5", condition="used"),
@@ -70,34 +68,32 @@ def test_adapter_failure_returns_source_specific_status(monkeypatch):
     assert statuses[0]["status"] == "unavailable"
 
 
-def test_builtin_adapter_uses_source_specific_target_url(monkeypatch):
+def test_builtin_adapter_uses_registry_resolved_target_url(monkeypatch):
     source = {
-        "name": "CarDekho Used",
+        "name": "Configured Source",
         "adapter_status": "live",
-        "url": "https://www.cardekho.com/used-cars",
+        "url": "https://configured.example/search",
     }
     adapter = BuiltinMarketplaceAdapter(source)
-
     seen = {}
 
     monkeypatch.setattr(
+        "src.source_adapters.live_marketplaces._targeted_source_urls",
+        lambda query, condition="both", registry=None: {
+            "Configured Source": "https://configured.example/search?brand=bmw&model=x5"
+        },
+    )
+    monkeypatch.setattr(
         "src.source_adapters.fetch_text",
-        lambda url: seen.setdefault("url", url) or "<html></html>",
+        lambda url: seen.__setitem__("url", url) or "<html></html>",
     )
-    monkeypatch.setattr(
-        "src.source_adapters.parse_live_listings",
-        lambda html, source_name, url: [],
-    )
-    monkeypatch.setattr(
-        "src.source_adapters.parse_visible_listing_links",
-        lambda html, source_name, url, query: [],
-    )
+    monkeypatch.setattr("src.source_adapters.parse_live_listings", lambda *args: [])
+    monkeypatch.setattr("src.source_adapters.parse_visible_listing_links", lambda *args: [])
 
-    adapter.fetch(AdapterRequest(query="BMW X5", condition="used"))
+    result = adapter.fetch(AdapterRequest(query="BMW X5", condition="used"))
 
-    assert seen["url"] == "https://www.cardekho.com/used-bmw-x5+cars"
-
-
+    assert result.status == "live"
+    assert seen["url"] == "https://configured.example/search?brand=bmw&model=x5"
 
 def test_open_circuit_is_not_executed(monkeypatch):
     source = {
@@ -136,9 +132,7 @@ def test_success_resets_adapter_health(monkeypatch):
     monkeypatch.setattr("src.source_adapters.registry_db_enabled", lambda: True)
     monkeypatch.setattr("src.source_adapters.registry_connect", lambda: Conn())
 
-    record_adapter_execution(
-        "Good", success=True, latency_ms=120
-    )
+    record_adapter_execution("Good", success=True, latency_ms=120)
 
     assert "circuit_state='closed'" in calls["sql"]
     assert calls["committed"] is True
@@ -152,6 +146,9 @@ def test_builtin_adapter_falls_back_to_visible_cards_for_unscoped_search(monkeyp
     }
     adapter = BuiltinMarketplaceAdapter(source)
 
+    # Isolate this test to the fallback/parser contract; circuit-breaker state
+    # belongs to a separate test and must not make this fixture environment-dependent.
+    monkeypatch.setattr("src.source_adapters.adapter_execution_allowed", lambda name: True)
     monkeypatch.setattr("src.source_adapters.fetch_text", lambda url: "<html>listing cards</html>")
     monkeypatch.setattr("src.source_adapters.parse_live_listings", lambda html, source_name, url: [])
     monkeypatch.setattr(

@@ -20,13 +20,13 @@ async def main():
                         body='{"ok":true,"mode":"live","brands":[{"name":"BMW"}]}')
             elif "/api/search" in url:
                 await route.fulfill(status=200, content_type="application/json", body='''{
-                    "ok":true,"mode":"live","live_at":"2026-09-29T08:00:00Z",
+                    "ok":true,"mode":"live","search_scope":"india","live_at":"2026-09-29T08:00:00Z",
                     "sources":[{"source":"Fixture","status":"live","listings_found":1}],
                     "results":[{
                       "brand":"BMW","model":"X5","variant":"xDrive40i M Sport",
                       "price_lakh":49.5,"mfg_year":2024,"km":18000,
                       "fuel":"Petrol","transmission":"Automatic","location":"Delhi",
-                      "source":"Fixture","url":"https://example.com/bmw-x5",
+                      "source":"Fixture","url":"https://example.com/bmw-x5","images":["https://example.com/images/bmw-x5.jpg"],
                       "live_verified":true,"data_consistent":true,
                       "discount_pct":5.2,"comp_median":52.2,"source_count":1
                     }]

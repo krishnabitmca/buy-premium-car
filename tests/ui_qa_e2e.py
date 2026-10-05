@@ -2,16 +2,16 @@ import asyncio
 from playwright.async_api import async_playwright
 
 RESULT = {
-    "ok": True, "mode": "live", "live_at": "2026-10-01T08:00:00Z",
+    "ok": True, "mode": "live", "search_scope": "india", "live_at": "2026-10-01T08:00:00Z",
     "sources": [
         {"source":"CarDekho Used","status":"live","listings_found":3},
         {"source":"CarWale Used","status":"live","listings_found":1},
         {"source":"Cars24 Luxury Used","status":"unavailable","listings_found":0}
     ],
     "results": [
-        {"brand":"BMW","model":"X5","variant":"xDrive40i","price_lakh":49.5,"mfg_year":2024,"km":18000,"fuel":"Petrol","transmission":"Automatic","location":"Delhi","source":"CarDekho Used","url":"https://example.com/bmw-x5","live_verified":True,"data_consistent":True,"discount_pct":5.2,"comp_median":52.2,"source_count":2,"condition_signal":"used","body_type":"SUV"},
-        {"brand":"BMW","model":"X5","variant":"xDrive30d","price_lakh":55.0,"mfg_year":2023,"km":42000,"fuel":"Diesel","transmission":"Automatic","location":"Bengaluru","source":"CarWale Used","url":"https://example.com/bmw-x5-2","live_verified":True,"data_consistent":True,"discount_pct":-5.3,"comp_median":52.2,"source_count":1,"condition_signal":"used","body_type":"SUV"},
-        {"brand":"Audi","model":"Q5","variant":"Technology","price_lakh":44.0,"mfg_year":2025,"km":8000,"fuel":"Petrol","transmission":"Automatic","location":"Mumbai","source":"CarDekho Used","url":"https://example.com/audi-q5","live_verified":True,"data_consistent":True,"discount_pct":None,"comp_median":None,"source_count":1,"condition_signal":"demo","body_type":"SUV"}
+        {"brand":"BMW","model":"X5","variant":"xDrive40i","price_lakh":49.5,"mfg_year":2024,"km":18000,"fuel":"Petrol","transmission":"Automatic","location":"Delhi","source":"CarDekho Used","url":"https://example.com/bmw-x5","images":["https://example.com/images/bmw-x5.jpg"],"live_verified":True,"data_consistent":True,"discount_pct":5.2,"comp_median":52.2,"source_count":2,"condition_signal":"used","body_type":"SUV"},
+        {"brand":"BMW","model":"X5","variant":"xDrive30d","price_lakh":55.0,"mfg_year":2023,"km":42000,"fuel":"Diesel","transmission":"Automatic","location":"Bengaluru","source":"CarWale Used","url":"https://example.com/bmw-x5-2","images":["https://example.com/images/bmw-x5-2.jpg"],"live_verified":True,"data_consistent":True,"discount_pct":-5.3,"comp_median":52.2,"source_count":1,"condition_signal":"used","body_type":"SUV"},
+        {"brand":"Audi","model":"Q5","variant":"Technology","price_lakh":44.0,"mfg_year":2025,"km":8000,"fuel":"Petrol","transmission":"Automatic","location":"Mumbai","source":"CarDekho Used","url":"https://example.com/audi-q5","images":["https://example.com/images/audi-q5.jpg"],"live_verified":True,"data_consistent":True,"discount_pct":None,"comp_median":None,"source_count":1,"condition_signal":"demo","body_type":"SUV"}
     ]
 }
 
@@ -20,24 +20,36 @@ async def main():
         browser = await p.chromium.launch()
         page = await browser.new_page()
         errors=[]
+        responses=[]
         page.on("console", lambda msg: errors.append(msg.text) if msg.type=="error" else None)
         page.on("pageerror", lambda exc: errors.append(str(exc)))
+        page.on("response", lambda response: responses.append((response.status, response.url)) if "/api/" in response.url else None)
 
-        async def route(route):
-            u=route.request.url
-            if "/api/catalog" in u:
-                if "brand=" in u:
-                    await route.fulfill(status=200,content_type="application/json",
-                        body='{"ok":true,"mode":"live","models":[{"name":"X5"},{"name":"X3"}]}')
-                else:
-                    await route.fulfill(status=200,content_type="application/json",
-                        body='{"ok":true,"mode":"live","brands":[{"name":"BMW"},{"name":"Audi"}]}')
-            elif "/api/search" in u:
-                await route.fulfill(status=200,content_type="application/json",body=__import__("json").dumps(RESULT))
+        async def catalog_route(route):
+            u = route.request.url
+            if "brand=" in u:
+                await route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body='{"ok":true,"mode":"live","models":[{"name":"X5"},{"name":"X3"}]}'
+                )
             else:
-                await route.continue_()
+                await route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body='{"ok":true,"mode":"live","brands":[{"name":"BMW"},{"name":"Audi"}]}'
+                )
 
-        await page.route("**/api/**",route)
+        async def search_route(route):
+            await route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=__import__("json").dumps(RESULT)
+            )
+
+        await page.route("**/api/catalog*", catalog_route)
+        await page.route("**/api/search*", search_route)
+
         await page.goto("http://127.0.0.1:4173/index.html")
         await page.wait_for_load_state("domcontentloaded")
 
@@ -50,9 +62,25 @@ async def main():
         # Core E2E search.
         await page.locator("#max").fill("55")
         await page.locator("#destination").fill("Bengaluru")
-        await page.locator("#search").click()
-        await page.locator(".card").first.wait_for()
+        async with page.expect_response("**/api/search*") as search_response_info:
+            await page.locator("#search").click()
+        search_response = await search_response_info.value
+        search_payload = await search_response.json()
+        assert search_response.status == 200
+        assert search_payload["ok"] is True
+        assert search_payload["mode"] == "live"
+        assert search_payload["search_scope"] == "india"
+        assert len(search_payload["results"]) == 3
+        try:
+            await page.locator(".card").first.wait_for(timeout=10000)
+        except Exception as exc:
+            grid_text = await page.locator("#grid").inner_text()
+            response_snapshot = responses[-10:]
+            raise AssertionError(
+                f"Search did not render cards. grid={grid_text!r} responses={response_snapshot!r} errors={errors!r}; original={exc}"
+            ) from exc
         assert await page.locator(".card").count() == 3
+        assert await page.locator(".card .photo img").count() == 3
         assert "LIVE" in await page.locator(".livebar").inner_text()
         assert "Bengaluru" in await page.locator("#destination").input_value()
 
@@ -112,7 +140,7 @@ async def main():
         # Clear all.
         await page.locator("#clear").click()
         assert await page.locator(".card").count() == 3
-        assert await page.locator("#destination").input_value() == "Bengaluru"
+        assert await page.locator("#destination").input_value() == ""
 
         # Sort lowest price.
         await page.locator("#sort").select_option("price")
