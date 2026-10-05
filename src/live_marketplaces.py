@@ -192,7 +192,12 @@ def _clean_model_catalog_name(text: str, brand: str = "") -> str | None:
         return None
     if re.search(r"\b(?:expected launch|upcoming|estimated)\b",clean,re.I):
         return None
-    clean=re.sub(r"\s+(?:₹|Rs\.?)[^|]*$", "", clean, flags=re.I).strip()
+    clean=re.sub(
+        r"\s+(?:₹|Rs\.?)\s*[\d.,]+(?:\s*(?:Cr|Lakh|Lakhs))?\s*\*?\s*$",
+        "",
+        clean,
+        flags=re.I,
+    ).strip()
     clean=re.sub(r"\s+\*+$", "", clean).strip()
     clean=re.sub(r"\s+(?:estimated|expected)$", "", clean, flags=re.I).strip()
 
