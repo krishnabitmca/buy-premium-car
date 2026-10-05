@@ -1,6 +1,7 @@
 const { chromium } = require("playwright");
 
-const base = (process.env.CARSCANNER_BASE_URL || "https://buy-premium-car1.onrender.com").replace(/\/$/, "");
+const base = process.env.CARSCANNER_BASE_URL || "https://buy-premium-car1.onrender.com";
+const testUrl = key => { const u = new URL(base); u.searchParams.set(key, String(Date.now())); return u.toString(); };
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
@@ -10,7 +11,7 @@ const base = (process.env.CARSCANNER_BASE_URL || "https://buy-premium-car1.onren
   page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
 
   try {
-    await page.goto(base + "/?e2e=" + Date.now(), { waitUntil: "networkidle", timeout: 90000 });
+    await page.goto(testUrl("e2e"), { waitUntil: "networkidle", timeout: 90000 });
     await page.waitForSelector("#brand", { state: "visible", timeout: 15000 });
 
     const brandCount = await page.locator("#brand option").count();
