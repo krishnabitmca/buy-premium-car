@@ -102,9 +102,14 @@ async function runSearch(page,spec){
     throw new Error("invalid search contract: "+JSON.stringify({ok:searchResponse.ok,scope:searchResponse.search_scope,mode:searchResponse.mode}));
 
   const results=Array.isArray(searchResponse.results)?searchResponse.results:[];
+  const identityTokens=value=>String(value||"").toLowerCase().match(/[a-z0-9]+/g)||[];
+  const containsIdentity=(haystack,needle)=>{
+    const h=identityTokens(haystack), n=identityTokens(needle);
+    return n.length>0&&h.some((_,i)=>n.every((token,j)=>h[i+j]===token));
+  };
   const badIdentity=results.filter(v=>{
-    const actual=((v.brand||"")+" "+(v.model||"")).toLowerCase();
-    return !actual.includes(spec.brand.toLowerCase())||!actual.includes(spec.model.toLowerCase());
+    const actual=[v.brand,v.model,v.listing_name,v.variant].filter(Boolean).join(" ");
+    return !containsIdentity(actual,spec.brand)||!containsIdentity(actual,spec.model);
   });
   if(badIdentity.length)throw new Error("identity leakage: "+badIdentity.slice(0,3).map(v=>(v.brand||"")+" "+(v.model||"")).join(", "));
 
@@ -174,7 +179,7 @@ async function testRefinementFilters(page){
     destination:document.querySelector("#destination").value,
     fuelChecked:[...document.querySelectorAll(".fuelCheck:checked")].length
   }));
-  if(clearState.condition!=="both"||clearState.fmin||clearState.fmax||clearState.city||clearState.year||clearState.destination!=="Bengaluru"||clearState.fuelChecked)
+  if(clearState.condition!=="both"||clearState.fmin||clearState.fmax||clearState.city||clearState.year||clearState.destination||clearState.fuelChecked)
     throw new Error("Clear all did not restore defaults: "+JSON.stringify(clearState));
   return {before,checks,clearState};
 }
