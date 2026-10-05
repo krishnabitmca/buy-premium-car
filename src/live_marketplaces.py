@@ -148,11 +148,12 @@ def _brand_path_tokens(selected: dict[str,str]) -> set[str]:
     return {t for t in tokens if t}
 
 def _is_current_model_link(selected: dict[str,str], href: str) -> bool:
-    """Accept only canonical CarDekho model landing pages, never variants/dealers/offers."""
+    """Accept canonical model landing pages from the configured catalog host."""
     parsed=urllib.parse.urlparse(href)
     host=parsed.netloc.lower()
+    selected_host=urllib.parse.urlparse(str(selected.get("url") or "")).netloc.lower()
     path=parsed.path.rstrip("/").lower()
-    if host and "cardekho.com" not in host:
+    if host and selected_host and host != selected_host:
         return False
     parts=[p for p in path.split("/") if p]
     brand_tokens=_brand_path_tokens(selected)
