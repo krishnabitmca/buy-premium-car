@@ -13,6 +13,7 @@ const testUrl = key => { const u = new URL(base); u.searchParams.set(key, String
   try {
     await page.goto(testUrl("e2e"), { waitUntil: "networkidle", timeout: 90000 });
     await page.waitForSelector("#brand", { state: "visible", timeout: 15000 });
+    await page.waitForFunction(() => document.querySelectorAll("#brand option").length >= 5, null, { timeout: 30000 });
 
     const brandCount = await page.locator("#brand option").count();
     if (brandCount < 5) throw new Error("brand dropdown has too few options: " + brandCount);
