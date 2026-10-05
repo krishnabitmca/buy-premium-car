@@ -341,15 +341,55 @@ def live_brands() -> list[dict[str,str]]:
         parser=_LinkParser(); parser.feed(html)
         links=parser.links
         enriched=[]
+        # Prefer an explicit source-configured brand route. Marketplace
+        # navigation labels are not stable enough to use as the only join key.
+        catalog_template=""
+        try:
+            for source in load_source_registry():
+                metadata=source.get("metadata") or {}
+                candidate=source.get("catalog_brand_url_template") or metadata.get("catalog_brand_url_template")
+                if candidate:
+                    catalog_template=str(candidate).strip()
+                    break
+        except Exception:
+            catalog_template=""
         for record in records:
-            wanted={record["name"],record["name"]+" Cars",_canonical_brand(record["name"])+" Cars"}
             match=None
+            wanted={record["name"],record["name"]+" Cars",_canonical_brand(record["name"])+" Cars"}
+            # First use the exact source label/link when available.
             for text,href in links:
                 if text in wanted:
                     absolute=_absolute(catalog_url,href)
                     if urllib.parse.urlparse(absolute).netloc:
                         match=absolute
                         break
+            # Then fall back to the configured brand route. This keeps the
+            # source URL structure in configuration rather than baking a
+            # marketplace-specific taxonomy into application code.
+            if not match and catalog_template:
+                try:
+                    match=catalog_template.format(
+                        brand=urllib.parse.quote(_canonical_brand(record["name"])),
+                        brand_slug=_slug(_canonical_brand(record["name"])),
+                        name=urllib.parse.quote(_canonical_brand(record["name"])),
+                        slug=_slug(_canonical_brand(record["name"])),
+                    )
+                except (KeyError, ValueError):
+                    match=None
+            # Finally, use identity-token matching against the catalog URL/text
+            # so harmless labels such as "Land Rover Cars" or "Mercedes Benz"
+            # still resolve when the exact anchor text changes.
+            if not match:
+                wanted_tokens=set(_identity_tokens(_canonical_brand(record["name"])))
+                for text,href in links:
+                    absolute=_absolute(catalog_url,href)
+                    parsed=urllib.parse.urlparse(absolute)
+                    path_tokens=_identity_tokens(parsed.path.replace("/", " "))
+                    label_tokens=_identity_tokens(text)
+                    if wanted_tokens and (wanted_tokens.issubset(path_tokens) or wanted_tokens.issubset(label_tokens)):
+                        if parsed.netloc:
+                            match=absolute
+                            break
             enriched.append({**record,"url":match or record.get("url") or ""})
         return [x for x in enriched if x.get("url")]
     except Exception:
