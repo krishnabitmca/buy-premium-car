@@ -27,7 +27,7 @@ const testUrl = key => { const u = new URL(base); u.searchParams.set(key, String
     const modelNames = await page.locator("#model option").allTextContents();
     if (!modelNames.some(x => /X5/i.test(x))) throw new Error("BMW X5 missing from model dropdown");
 
-    const x5Label = modelNames.find(x => /BMW X5/i.test(x));
+    const x5Label = modelNames.find(x => /X5/i.test(x));
     if (!x5Label) throw new Error("BMW X5 option was discovered but could not be selected");
     await page.selectOption("#model", { label: x5Label });
     await page.click("#search");
