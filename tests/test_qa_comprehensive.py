@@ -577,12 +577,14 @@ class TestHTTPContracts(unittest.TestCase):
         self.assertIsNone(body["results"][0]["discount_pct"])
         self.assertEqual(body["results"][0]["comparable_count"],1)
 
-    def test_post_all_sources_unavailable_returns_service_unavailable(self):
+    def test_post_all_sources_unavailable_returns_search_envelope_with_warning(self):
         failed=[{"source":"Fixture","status":"unavailable","listings_found":0,"error":"timeout"}]
         with patch.object(search_api,"live_inventory",return_value=([],failed)):
             status, body=self.request("POST","/api/search",{"query":"BMW X5"})
-        self.assertEqual(status,503)
+        self.assertEqual(status,200)
         self.assertEqual(body["mode"],"live")
+        self.assertIn("availability_warning", body)
+        self.assertTrue(body["availability_warning"])
 
     def test_post_no_offline_fallback_on_source_failure(self):
         with patch.object(search_api,"live_inventory",side_effect=RuntimeError("all sources down")):
