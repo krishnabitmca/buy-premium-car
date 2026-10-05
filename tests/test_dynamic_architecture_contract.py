@@ -175,8 +175,9 @@ def test_live_models_accepts_models_from_configured_catalog_host(monkeypatch):
 
 def test_registry_brand_catalog_excludes_all_pseudo_brand(monkeypatch):
     import src.live_marketplaces as lm
+    import src.source_intelligence as si
 
-    monkeypatch.setattr(lm, "load_source_registry", lambda: [
+    monkeypatch.setattr(si, "load_source_registry", lambda: [
         {"name": "A", "brands": ["all", "BMW", "*"]},
     ])
     records = lm._registry_brand_records()
