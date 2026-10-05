@@ -135,6 +135,9 @@ class TestPureFunctions(unittest.TestCase):
                  {"name": "Audi", "url": "", "catalog_verified": "database"},
                  {"name": "Mercedes-Benz", "url": "", "catalog_verified": "database"},
              ]), \
+             patch.object(lm, "load_source_registry", return_value=[
+                 {"name": "Fixture Catalog", "catalog_url": "https://catalog.example/newcars"}
+             ]), \
              patch.dict(lm.os.environ, {"CARSCANNER_CATALOG_SOURCE_URL": "https://catalog.example/newcars"}, clear=False):
             rows = lm.live_brands()
 
