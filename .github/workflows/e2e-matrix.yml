@@ -32,7 +32,7 @@ jobs:
           pytest -q tests/test_e2e_matrix.py
       - name: Run customer journey browser contract
         env:
-          CARSCANNER_BASE_URL: https://buy-premium-car-git-qa-inventory-6a19a6-premium-car-deal-radar.vercel.app/
+          CARSCANNER_BASE_URL: https://buy-premium-car-git-qa-inventory-6a19a6-premium-car-deal-radar.vercel.app/?_vercel_share=HzxNCfbeyWbQwYwlGvIZKtVCUMLpUwRV
         run: |
           npm init -y >/dev/null 2>&1
           npm install --no-save playwright >/dev/null 2>&1
