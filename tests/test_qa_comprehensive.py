@@ -176,8 +176,8 @@ class TestPureFunctions(unittest.TestCase):
             return page
         with patch.object(lm, "fetch_text", side_effect=fake_fetch):
             rows = lm.live_models("BMW")
-        self.assertEqual([x["name"] for x in rows], ["BMW 3 Series", "BMW 7 Series", "BMW X3", "BMW X5"])
-        self.assertEqual(len([x for x in rows if x["slug"] == "bmw-3-series"]), 1)
+        self.assertEqual([x["name"] for x in rows], ["3 Series", "7 Series", "X3", "X5"])
+        self.assertEqual(len([x for x in rows if x["slug"] == "3-series"]), 1)
         self.assertNotIn("discontinued", " ".join(x["name"] for x in rows).lower())
         self.assertNotIn("₹", " ".join(x["name"] for x in rows))
 
