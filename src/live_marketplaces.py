@@ -194,7 +194,7 @@ def _clean_model_catalog_name(text: str, brand: str = "") -> str | None:
     if re.search(r"\b(?:expected launch|upcoming|estimated)\b",clean,re.I):
         return None
     clean=re.sub(
-        r"\s+(?:₹|Rs\.?)\s*[\d.,]+(?:\s*(?:Cr|Lakh|Lakhs))?\s*\*?\s*$",
+        r"\s+(?:₹|Rs\.?)\s*[\d.,]+(?:\s*-\s*[\d.,]+)?(?:\s*(?:Cr|Crore|Crores|Lakh|Lakhs))?\s*\*?\s*$",
         "",
         clean,
         flags=re.I,
