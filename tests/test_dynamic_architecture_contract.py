@@ -188,3 +188,15 @@ def test_catalog_model_name_removes_price_ranges():
 
     assert lm._clean_model_catalog_name("AMG E 53 ₹1.45 - 1.48 Cr*", "Mercedes-Benz") == "AMG E 53"
     assert lm._clean_model_catalog_name("Range Rover Sport ₹1.43 - 2.35 Cr*", "Land Rover") == "Range Rover Sport"
+
+
+def test_configured_catalog_excludes_all_pseudo_brand(monkeypatch):
+    import json
+    import src.live_marketplaces as lm
+
+    monkeypatch.setenv(
+        "CARSCANNER_CATALOG_BRANDS_JSON",
+        json.dumps(["all", {"name": "BMW"}, {"name": "Audi"}]),
+    )
+    records = lm._configured_brand_records()
+    assert [x["name"] for x in records] == ["BMW", "Audi"]
