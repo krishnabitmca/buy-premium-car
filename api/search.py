@@ -199,8 +199,9 @@ class handler(BaseHTTPRequestHandler):
                     inventory_hit_count=len(vehicles),
                     source_count=len(sources),
                 )
+            availability_warning = None
             if not vehicles and sources and _planned_live_sources_unavailable(source_plan, sources):
-                return _response(self,503,{"error":"Live marketplace sources are currently unavailable","mode":"live","sources":sources})
+                availability_warning = "No configured live source responded for this search; zero results are not an inventory guarantee."
             results=[]
             for v in vehicles:
                 if not _match(v,query,budget_min,budget_max,max_age,destination,body.get("condition") or "both"): continue
@@ -249,6 +250,7 @@ class handler(BaseHTTPRequestHandler):
                 "has_more": ((page * page_size) < int(inventory_total)) if search_mode == "inventory" and inventory_total is not None else False,
                 "inventory_total": int(inventory_total) if inventory_total is not None else None,
                 "sources_found":len({s for v in results for s in [v.get("source")] if s}),
+                "availability_warning": availability_warning,
                 "results":results
             })
         except ValueError as exc:
