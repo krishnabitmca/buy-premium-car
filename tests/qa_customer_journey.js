@@ -171,7 +171,7 @@ async function main(){
     for(const [brand,model] of journeys.slice(0,4))for(const b of budgets)for(const destination of destinations){
       const spec={brand,model,condition:"used",min:b.min,max:b.max,destination},t=Date.now();
       try{
-        await page.goto(BASE+"/?qa="+Date.now(),{waitUntil:"networkidle",timeout:90000});
+        await page.goto(BASE+"/?qa="+Date.now(),{waitUntil:"domcontentloaded",timeout:90000});
         await page.waitForSelector("#brand",{state:"visible",timeout:15000});
         const detail=await runSearch(page,spec);
         results.push({category:"budget-destination",status:"PASS",...spec,budget:b.name,...detail,ms:Date.now()-t});
@@ -183,7 +183,7 @@ async function main(){
     }
 
     try{
-      await page.goto(BASE+"/?qa=filters-"+Date.now(),{waitUntil:"networkidle",timeout:90000});
+      await page.goto(BASE+"/?qa=filters-"+Date.now(),{waitUntil:"domcontentloaded",timeout:90000});
       await page.waitForSelector("#brand",{state:"visible",timeout:15000});
       results.push({category:"left-panel-filters",status:"PASS",...await testRefinementFilters(page)});
     }catch(e){
