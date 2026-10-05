@@ -563,10 +563,11 @@ def _targeted_source_urls(query: str, condition: str = "both", registry: list[di
     brand_name = _canonical_brand(brand)
     values = {}
     wanted_condition = normalize_condition(condition)
-    try:
-        registry = load_source_registry()
-    except Exception:
-        registry = []
+    if registry is None:
+        try:
+            registry = load_source_registry()
+        except Exception:
+            registry = []
 
     for source in registry:
         name = str(source.get("name") or "").strip()
