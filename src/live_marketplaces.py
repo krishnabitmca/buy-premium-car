@@ -712,84 +712,120 @@ def _listing_identity_from_text(text: str, href: str) -> tuple[str|None,str|None
     return brand, " ".join(remainder[:5]) if remainder else None
 
 
-class _BMWCardParser(HTMLParser):
-    """Parse BMW Premium Selection's server-rendered car cards.
 
-    BMW exposes inventory as .carlistblk cards with structured data-* attributes,
-    not JSON-LD. Keep this parser source-specific so generic marketplace parsing
-    remains conservative.
+def _embedded_json_scripts(html: str) -> list[Any]:
+    """Extract JSON application state embedded by React/Next.js marketplaces."""
+    values: list[Any] = []
+    pattern = r'<script[^>]*(?:type=["\']application/json["\']|id=["\']__NEXT_DATA__["\'])[^>]*>(.*?)</script>'
+    for match in re.finditer(pattern, html, re.I | re.S):
+        raw = match.group(1).strip()
+        if not raw:
+            continue
+        try:
+            values.append(json.loads(raw))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+    return values
+
+
+def _embedded_value(obj: dict[str, Any], *keys: str) -> Any:
+    wanted={k.lower() for k in keys}
+    for key,value in obj.items():
+        if str(key).lower() in wanted and value not in (None,"",[],{}):
+            return value
+    return None
+
+
+def parse_embedded_marketplace_listings(
+    html: str, source: str, base_url: str, query: str = ""
+) -> list[dict]:
+    """Parse serialized listing state without depending on unstable CSS classes.
+
+    This adapter is deliberately conservative: a candidate must have a listing
+    URL, a vehicle identity, and a numeric price. It is used only for sources
+    explicitly configured with the embedded_json strategy.
     """
-    def __init__(self):
-        super().__init__()
-        self.depth = 0
-        self.card_depth = None
-        self.current = None
-        self.tag_stack = []
-        self.rows = []
-        self.data_records = []
-
-    def handle_starttag(self, tag, attrs):
-        attrs_dict = {str(k).lower(): v for k, v in attrs}
-        self.depth += 1
-        self.tag_stack.append(tag.lower())
-        if attrs_dict.get("data-price") not in (None, ""):
-            self.data_records.append({
-                "title": str(attrs_dict.get("data-title") or ""),
-                "price": str(attrs_dict.get("data-price") or ""),
-                "year": str(attrs_dict.get("data-mfgyear") or ""),
-                "listing_id": str(attrs_dict.get("data-listingid") or ""),
-                "brand": str(attrs_dict.get("data-make") or ""),
-                "model": str(attrs_dict.get("data-model") or ""),
-                "city": str(attrs_dict.get("data-city") or ""),
-            })
-        classes = str(attrs_dict.get("class") or "")
-        if self.card_depth is None and tag.lower() == "div" and "carlistblk" in classes:
-            self.card_depth = self.depth
-            self.current = {
-                "href": None, "image": None, "title": None,
-                "price": None, "year": None, "listing_id": None,
-                "brand": None, "model": None, "city": None,
-                "text": [],
+    rows=[]
+    for root in _embedded_json_scripts(html):
+        for obj in _walk(root):
+            if not isinstance(obj,dict):
+                continue
+            raw_url=_embedded_value(obj,"url","listingUrl","listing_url","detailUrl","detail_url")
+            raw_name=_embedded_value(obj,"name","title","displayName","display_name","carName","car_name")
+            raw_brand=_embedded_value(obj,"brand","make","makeName","make_name")
+            raw_model=_embedded_value(obj,"model","modelName","model_name")
+            raw_price=_embedded_value(obj,"price","sellingPrice","selling_price","amount","displayPrice","display_price")
+            raw_year=_embedded_value(obj,"year","mfgYear","mfg_year","registrationYear","registration_year")
+            raw_km=_embedded_value(obj,"km","kms","kilometers","kilometres","odometer")
+            raw_image=_embedded_value(obj,"image","imageUrl","image_url","thumbnail","thumbnailUrl","thumbnail_url")
+            if not raw_url or raw_price in (None,"",[],{}):
+                continue
+            url=_absolute(base_url,str(raw_url))
+            if not urllib.parse.urlsplit(url).netloc:
+                continue
+            name=" ".join(str(raw_name or "").split())
+            brand,model=_infer_brand_model(name,raw_brand,raw_model)
+            if not brand or not model:
+                continue
+            # Avoid treating arbitrary JSON objects as inventory.
+            if not re.search(r"\b(?:19\d{2}|20\d{2})\b", name) and not raw_year:
+                continue
+            price=_number(raw_price)
+            if price is None:
+                continue
+            price_lakh=price/100000 if price > 100000 else price
+            images=[]
+            if raw_image:
+                image=_absolute(base_url,str(raw_image))
+                if not image.startswith("data:"):
+                    images=[image]
+            year=None
+            ym=re.search(r"\b(19\d{2}|20\d{2})\b",str(raw_year or name))
+            if ym:
+                year=int(ym.group(1))
+            km=_number(raw_km)
+            text=" ".join(str(v) for v in (name, obj.get("variant"), obj.get("fuel"), obj.get("fuelType"), obj.get("transmission")))
+            location=_embedded_value(obj,"city","location","locationName","hub","hubName")
+            row={
+                "brand":_canonical_brand(str(brand)),
+                "model":str(model).strip(),
+                "listing_name":name or f"{brand} {model}",
+                "variant":str(_embedded_value(obj,"variant","variantName","version") or model).strip(),
+                "price_lakh":price_lakh,
+                "url":_canonical_url(base_url,url),
+                "images":images,
+                "image":images[0] if images else None,
+                "source":source,
+                "live_verified":True,
+                "data_consistent":True,
+                "condition_signal":_infer_condition(obj,source),
+                "seller_city":str(location).strip() if location else None,
+                "seller_state":None,
+                "location":str(location).strip() if location else None,
+                "location_raw":str(location).strip() if location else None,
+                "mfg_year":year,
+                "km":km,
+                "fuel":_embedded_value(obj,"fuel","fuelType","fuel_type"),
+                "transmission":_embedded_value(obj,"transmission","gearbox"),
+                "body_type":_embedded_value(obj,"bodyType","body_type"),
+                "provenance":{
+                    "source":source,
+                    "source_url":base_url,
+                    "original_url":_canonical_url(base_url,url),
+                    "extraction":"embedded_json",
+                    "raw_listing":name,
+                },
             }
-            return
-
-        if self.card_depth is not None and self.current is not None:
-            if tag.lower() == "a" and not self.current["href"] and attrs_dict.get("href"):
-                href = str(attrs_dict["href"])
-                if not href.startswith("javascript:"):
-                    self.current["href"] = href
-            for key, target in (
-                ("data-title", "title"), ("data-price", "price"),
-                ("data-mfgyear", "year"), ("data-listingid", "listing_id"),
-                ("data-make", "brand"), ("data-model", "model"),
-                ("data-city", "city"),
-            ):
-                if attrs_dict.get(key) not in (None, "") and not self.current[target]:
-                    self.current[target] = str(attrs_dict[key])
-            if tag.lower() == "img" and not self.current["image"]:
-                image = attrs_dict.get("data-src") or attrs_dict.get("src")
-                if image and not str(image).startswith("data:"):
-                    self.current["image"] = str(image)
-
-    def handle_data(self, data):
-        if self.card_depth is not None and self.current is not None:
-            if not self.tag_stack or self.tag_stack[-1] not in {"script", "style"}:
-                value = " ".join(str(data).split())
-                if value:
-                    self.current["text"].append(value)
-
-    def handle_endtag(self, tag):
-        if self.card_depth is not None and self.depth == self.card_depth and self.current is not None:
-            self.rows.append(self.current)
-            self.current = None
-            self.card_depth = None
-        if self.tag_stack:
-            self.tag_stack.pop()
-        self.depth = max(0, self.depth - 1)
-
-    rows: list[dict[str, Any]] = []
-
-
+            if query and not _identity_matches_query(row,query):
+                continue
+            rows.append(row)
+    seen=set(); out=[]
+    for row in rows:
+        key=(row["url"],row["price_lakh"],row["model"],row["condition_signal"])
+        if key in seen:
+            continue
+        seen.add(key); out.append(row)
+    return out
 
 class _MotoziteCardParser(HTMLParser):
     """Parse Motozite's server-rendered demo/used car cards.
@@ -934,6 +970,248 @@ def parse_motozite_cards(
         seen.add(key)
         out.append(row)
     return out
+
+def parse_bmw_listing_cards(html: str, source: str, base_url: str, query: str = "") -> list[dict]:
+    """Extract BMW Premium Selection cards from its server-rendered HTML."""
+    parser = _BMWCardParser()
+    parser.feed(html)
+    rows = []
+    cards = parser.rows
+    data_records = parser.data_records
+    for index, card in enumerate(cards):
+        # BMW currently renders pricing/model metadata outside the visual
+        # .carlistblk container. Merge the global data-* record back to the
+        # corresponding card by listing order, with listing-id as the stronger
+        # key when the card itself exposes it.
+        record = None
+        if card.get("listing_id"):
+            record = next((x for x in data_records if x.get("listing_id") == card.get("listing_id")), None)
+        if record is None and index < len(data_records):
+            record = data_records[index]
+        if record:
+            for key in ("title", "price", "year", "listing_id", "brand", "model", "city"):
+                if not card.get(key) and record.get(key):
+                    card[key] = record[key]
+        title = " ".join(str(card.get("title") or "").split())
+        brand = str(card.get("brand") or "BMW").strip() or "BMW"
+        model = str(card.get("model") or "").strip()
+        if not model and title:
+            _, model = _infer_brand_model(title, brand, None)
+        if not model:
+            continue
+        href = card.get("href")
+        if not href:
+            continue
+        price_raw = card.get("price")
+        try:
+            price_lakh = float(price_raw) / 100000.0 if price_raw else None
+        except (TypeError, ValueError):
+            price_lakh = _number(price_raw)
+        if price_lakh is None:
+            continue
+        text = " ".join(card.get("text") or [])
+        year = None
+        try:
+            year = int(card.get("year")) if card.get("year") else None
+        except (TypeError, ValueError):
+            pass
+        if year is None:
+            match = re.search(r"\b(19\d{2}|20\d{2})\b", title + " " + text)
+            year = int(match.group(1)) if match else None
+        km_match = re.search(r"([\d,]+(?:\.\d+)?)\s*km\b", text, re.I)
+        km = float(km_match.group(1).replace(",", "")) if km_match else None
+        fuel_match = re.search(r"\b(Petrol|Diesel|Electric|Hybrid|CNG|LPG)\b", text, re.I)
+        fuel = fuel_match.group(1) if fuel_match else None
+        image = _canonical_url(base_url, card["image"]) if card.get("image") else None
+        row = {
+            "brand": brand,
+            "model": model,
+            "listing_name": title or f"{brand} {model}",
+            "variant": title or model,
+            "price_lakh": price_lakh,
+            "url": _canonical_url(base_url, href),
+            "images": [image] if image else [],
+            "image": image,
+            "source": source,
+            "live_verified": True,
+            "data_consistent": bool(href and price_lakh and model),
+            "condition_signal": _infer_condition({}, source),
+            "seller_city": str(card.get("city") or "").strip() or None,
+            "seller_state": None,
+            "location": str(card.get("city") or "").strip() or None,
+            "location_raw": str(card.get("city") or "").strip() or None,
+            "mfg_year": year,
+            "km": km,
+            "fuel": fuel,
+            "transmission": None,
+            "body_type": None,
+            "provenance": {
+                "source": source,
+                "source_url": base_url,
+                "original_url": _canonical_url(base_url, href),
+                "extraction": "bmw_carlistblk",
+                "raw_listing": title,
+            },
+        }
+        if query and not _identity_matches_query(row, query):
+            continue
+        rows.append(row)
+
+    seen = set()
+    out = []
+    for row in rows:
+        key = (_canonical_url(base_url, row["url"]), row["price_lakh"], row["model"])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(row)
+    return out
+
+def parse_visible_listing_links(html: str, source: str, base_url: str, query: str="") -> list[dict]:
+    parser=_LinkParser()
+    parser.feed(html)
+    requested_brand,requested_model=_query_parts(query)
+    linked_images=_linked_images(html, base_url)
+    rows=[]
+    for text,href in parser.links:
+        clean=" ".join(text.split())
+        if not re.search(r"\b(?:19\d{2}|20\d{2})\b",clean):
+            continue
+        price_match=re.search(r"(?:₹|Rs\.?)[ ]*([\d,.]+)[ ]*(Lakh|Crore)",clean,re.I)
+        km_match=re.search(r"([\d,]+(?:\.\d+)?)\s*km\b",clean,re.I)
+        if not price_match or not km_match:
+            continue
+        year_match=re.search(r"\b(19\d{2}|20\d{2})\b",clean)
+        if not year_match:
+            continue
+        price=float(price_match.group(1).replace(",",""))
+        price_lakh=price*100 if price_match.group(2).lower()=="crore" else price
+        parts=[p.strip() for p in clean.split("|")]
+        fuel=parts[1] if len(parts)>1 and parts[1] else None
+        location=parts[2].strip() if len(parts)>2 else None
+        if location:
+            location=re.sub(r"\s*(?:₹|Rs\.?)[ ]*[\d,.]+[ ]*(?:Lakh|Crore)\s*$","",location,flags=re.I).strip()
+        transmission=None
+        tm=re.search(r"\b(Automatic|Manual|Clutchless Manual)\b",clean,re.I)
+        if tm: transmission=tm.group(1)
+        variant=clean[year_match.end():km_match.start()].strip(" -|•") or clean
+        listing_brand,listing_model=_listing_identity_from_text(clean,_absolute(base_url,href))
+        if not listing_brand:
+            continue
+        if requested_model and _model_identity_matches(requested_model, clean):
+            display_model=requested_model
+        else:
+            display_model=listing_model or _infer_brand_model(variant,listing_brand,None)[1]
+        rows.append({
+            "brand":listing_brand,
+            "model":display_model,
+            "listing_name":clean,
+            "variant":variant,
+            "price_lakh":price_lakh,
+            "url":_canonical_url(base_url,href),
+            "images": linked_images.get(_canonical_url(base_url,href), []),
+            "image": (linked_images.get(_canonical_url(base_url,href), []) or [None])[0],
+            "source":source,
+            "live_verified":True,
+            "data_consistent":bool(href and price_lakh and variant),
+            "condition_signal":"used" if "used" in source.lower() else _infer_condition({},source),
+            "seller_city":location,
+            "seller_state":None,
+            "location":location,
+            "location_raw":location,
+            "mfg_year":int(year_match.group(1)),
+            "km":float(km_match.group(1).replace(",","")),
+            "fuel":fuel,
+            "transmission":transmission,
+            "body_type":None,
+            "provenance":{"source":source,"source_url":base_url,"original_url":_canonical_url(base_url,href),"extraction":"visible_link","raw_listing":clean},
+        })
+    seen=set();out=[]
+    for row in rows:
+        if query and not _identity_matches_query(row,query):
+            continue
+        key=(_canonical_url(base_url,row["url"]),row["price_lakh"],row["model"],row["condition_signal"])
+        if key in seen: continue
+        seen.add(key);out.append(row)
+    return out
+
+class _BMWCardParser(HTMLParser):
+    """Parse BMW Premium Selection's server-rendered car cards.
+
+    BMW exposes inventory as .carlistblk cards with structured data-* attributes,
+    not JSON-LD. Keep this parser source-specific so generic marketplace parsing
+    remains conservative.
+    """
+    def __init__(self):
+        super().__init__()
+        self.depth = 0
+        self.card_depth = None
+        self.current = None
+        self.tag_stack = []
+        self.rows = []
+        self.data_records = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs_dict = {str(k).lower(): v for k, v in attrs}
+        self.depth += 1
+        self.tag_stack.append(tag.lower())
+        if attrs_dict.get("data-price") not in (None, ""):
+            self.data_records.append({
+                "title": str(attrs_dict.get("data-title") or ""),
+                "price": str(attrs_dict.get("data-price") or ""),
+                "year": str(attrs_dict.get("data-mfgyear") or ""),
+                "listing_id": str(attrs_dict.get("data-listingid") or ""),
+                "brand": str(attrs_dict.get("data-make") or ""),
+                "model": str(attrs_dict.get("data-model") or ""),
+                "city": str(attrs_dict.get("data-city") or ""),
+            })
+        classes = str(attrs_dict.get("class") or "")
+        if self.card_depth is None and tag.lower() == "div" and "carlistblk" in classes:
+            self.card_depth = self.depth
+            self.current = {
+                "href": None, "image": None, "title": None,
+                "price": None, "year": None, "listing_id": None,
+                "brand": None, "model": None, "city": None,
+                "text": [],
+            }
+            return
+
+        if self.card_depth is not None and self.current is not None:
+            if tag.lower() == "a" and not self.current["href"] and attrs_dict.get("href"):
+                href = str(attrs_dict["href"])
+                if not href.startswith("javascript:"):
+                    self.current["href"] = href
+            for key, target in (
+                ("data-title", "title"), ("data-price", "price"),
+                ("data-mfgyear", "year"), ("data-listingid", "listing_id"),
+                ("data-make", "brand"), ("data-model", "model"),
+                ("data-city", "city"),
+            ):
+                if attrs_dict.get(key) not in (None, "") and not self.current[target]:
+                    self.current[target] = str(attrs_dict[key])
+            if tag.lower() == "img" and not self.current["image"]:
+                image = attrs_dict.get("data-src") or attrs_dict.get("src")
+                if image and not str(image).startswith("data:"):
+                    self.current["image"] = str(image)
+
+    def handle_data(self, data):
+        if self.card_depth is not None and self.current is not None:
+            if not self.tag_stack or self.tag_stack[-1] not in {"script", "style"}:
+                value = " ".join(str(data).split())
+                if value:
+                    self.current["text"].append(value)
+
+    def handle_endtag(self, tag):
+        if self.card_depth is not None and self.depth == self.card_depth and self.current is not None:
+            self.rows.append(self.current)
+            self.current = None
+            self.card_depth = None
+        if self.tag_stack:
+            self.tag_stack.pop()
+        self.depth = max(0, self.depth - 1)
+
+    rows: list[dict[str, Any]] = []
+
 
 def parse_bmw_listing_cards(html: str, source: str, base_url: str, query: str = "") -> list[dict]:
     """Extract BMW Premium Selection cards from its server-rendered HTML."""
