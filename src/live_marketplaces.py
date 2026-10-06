@@ -528,12 +528,24 @@ def _text_blob(obj: dict) -> str:
             values.append(str(value))
     return " ".join(values)
 
-def _infer_condition(obj: dict, source: str) -> str:
+def _infer_condition(obj: dict, source: str = "") -> str:
+    """Classify each listing from listing evidence only; source/route is not evidence."""
     explicit=_first_value(obj,"itemCondition","vehicleCondition","condition_signal","condition")
-    text=f"{explicit or ''} {_text_blob(obj)} {source}".lower()
-    if any(x in text for x in ("demonstrator","demo car","demo vehicle","demo")):
+    text=f"{explicit or ''} {_text_blob(obj)} {obj.get('description') or ''}".lower()
+    demo_terms=("demonstrator","demo car","demo vehicle","dealer demo")
+    if any(term in text for term in demo_terms):
         return "demo"
-    return "used"
+    tokens=re.findall(r"[a-z0-9]+", text)
+    if "demo" in tokens:
+        return "demo"
+    used_terms=("used car","used vehicle","pre-owned","pre owned","certified pre-owned","certified pre owned")
+    if any(term in text for term in used_terms):
+        return "used"
+    if "used" in tokens:
+        return "used"
+    # Unknown is deliberately not coerced to used/demo. A demonstrator search
+    # must never admit a row merely because it came from a demo-oriented route.
+    return "unknown"
 
 def _infer_location(obj: dict) -> tuple[str|None,str|None,str|None]:
     candidates=[]
@@ -633,9 +645,6 @@ def _targeted_source_urls(query: str, condition: str = "both", registry: list[di
     for source in registry:
         name = str(source.get("name") or "").strip()
         if not name or source.get("adapter_status") != "live":
-            continue
-        conditions = {normalize_condition(x) for x in (source.get("conditions") or [])}
-        if wanted_condition in {"used", "demo"} and conditions and wanted_condition not in conditions:
             continue
         brands = {str(x).strip().lower() for x in (source.get("brands") or [])}
         if brands and "all" not in brands and brand_name.lower() not in brands:
@@ -885,7 +894,7 @@ def parse_motozite_cards(
     wanted_condition = normalize_condition(condition)
 
     for card in parser.rows:
-        text = " ".join(card.get("text") or [])
+        text = " ".join(card.get("text") or []) + " " + str(card.get("condition_text") or "")
         if not re.search(r"\b(?:demo|pre-owned|used)\b", text, re.I):
             continue
         price_match = re.search(
@@ -989,8 +998,8 @@ def parse_bmw_listing_cards(html: str, source: str, base_url: str, query: str = 
         if record is None and index < len(data_records):
             record = data_records[index]
         if record:
-            for key in ("title", "price", "year", "listing_id", "brand", "model", "city"):
-                if not card.get(key) and record.get(key):
+            for key in ("title", "price", "year", "listing_id", "brand", "model", "city", "condition_text"):
+                if (card.get(key) is None or card.get(key) == "") and record.get(key):
                     card[key] = record[key]
         title = " ".join(str(card.get("title") or "").split())
         brand = str(card.get("brand") or "BMW").strip() or "BMW"
@@ -1035,7 +1044,7 @@ def parse_bmw_listing_cards(html: str, source: str, base_url: str, query: str = 
             "source": source,
             "live_verified": True,
             "data_consistent": bool(href and price_lakh and model),
-            "condition_signal": _infer_condition({}, source),
+            "condition_signal": _infer_condition({"name": title, "description": f"{card.get('condition_text') or ''} {text}"}),
             "seller_city": str(card.get("city") or "").strip() or None,
             "seller_state": None,
             "location": str(card.get("city") or "").strip() or None,
@@ -1114,7 +1123,7 @@ def parse_visible_listing_links(html: str, source: str, base_url: str, query: st
             "source":source,
             "live_verified":True,
             "data_consistent":bool(href and price_lakh and variant),
-            "condition_signal":"used" if "used" in source.lower() else _infer_condition({},source),
+            "condition_signal":_infer_condition({"name": clean, "description": clean}),
             "seller_city":location,
             "seller_state":None,
             "location":location,
@@ -1164,14 +1173,17 @@ class _BMWCardParser(HTMLParser):
                 "brand": str(attrs_dict.get("data-make") or ""),
                 "model": str(attrs_dict.get("data-model") or ""),
                 "city": str(attrs_dict.get("data-city") or ""),
+                "condition_text": str(attrs_dict.get("data-condition") or attrs_dict.get("data-vehicle-condition") or ""),
             })
         classes = str(attrs_dict.get("class") or "")
         if self.card_depth is None and tag.lower() == "div" and "carlistblk" in classes:
             self.card_depth = self.depth
+            card_id = str(attrs_dict.get("id") or "")
+            listing_id = card_id[len("car_item_"):] if card_id.startswith("car_item_") else None
             self.current = {
                 "href": None, "image": None, "title": None,
-                "price": None, "year": None, "listing_id": None,
-                "brand": None, "model": None, "city": None,
+                "price": None, "year": None, "listing_id": listing_id,
+                "brand": None, "model": None, "city": None, "condition_text": None,
                 "text": [],
             }
             return
@@ -1185,7 +1197,8 @@ class _BMWCardParser(HTMLParser):
                 ("data-title", "title"), ("data-price", "price"),
                 ("data-mfgyear", "year"), ("data-listingid", "listing_id"),
                 ("data-make", "brand"), ("data-model", "model"),
-                ("data-city", "city"),
+                ("data-city", "city"), ("data-condition", "condition_text"),
+                ("data-vehicle-condition", "condition_text"),
             ):
                 if attrs_dict.get(key) not in (None, "") and not self.current[target]:
                     self.current[target] = str(attrs_dict[key])
@@ -1200,6 +1213,10 @@ class _BMWCardParser(HTMLParser):
                 value = " ".join(str(data).split())
                 if value:
                     self.current["text"].append(value)
+        elif self.data_records and self.tag_stack and self.tag_stack[-1] == "a":
+            value = " ".join(str(data).split())
+            if value:
+                self.data_records[-1]["condition_text"] = (self.data_records[-1].get("condition_text","") + " " + value).strip()
 
     def handle_endtag(self, tag):
         if self.card_depth is not None and self.depth == self.card_depth and self.current is not None:
@@ -1231,7 +1248,7 @@ def parse_bmw_listing_cards(html: str, source: str, base_url: str, query: str = 
         if record is None and index < len(data_records):
             record = data_records[index]
         if record:
-            for key in ("title", "price", "year", "listing_id", "brand", "model", "city"):
+            for key in ("title", "price", "year", "listing_id", "brand", "model", "city", "condition_text"):
                 if not card.get(key) and record.get(key):
                     card[key] = record[key]
         title = " ".join(str(card.get("title") or "").split())
@@ -1277,7 +1294,7 @@ def parse_bmw_listing_cards(html: str, source: str, base_url: str, query: str = 
             "source": source,
             "live_verified": True,
             "data_consistent": bool(href and price_lakh and model),
-            "condition_signal": _infer_condition({}, source),
+            "condition_signal": _infer_condition({"name": title, "description": f"{card.get('condition_text') or ''} {text}"}),
             "seller_city": str(card.get("city") or "").strip() or None,
             "seller_state": None,
             "location": str(card.get("city") or "").strip() or None,

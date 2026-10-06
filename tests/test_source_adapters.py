@@ -172,7 +172,7 @@ def test_builtin_adapter_falls_back_to_visible_cards_for_unscoped_search(monkeyp
     assert result.listings[0]["model"] == "Swift"
 
 
-def test_demo_route_with_bmw_filter_marks_listings_as_demo(monkeypatch):
+def test_demo_route_does_not_relabel_used_listing_as_demo(monkeypatch):
     source = {
         "name": "BMW Premium Selection",
         "adapter_status": "live",
@@ -205,8 +205,7 @@ def test_demo_route_with_bmw_filter_marks_listings_as_demo(monkeypatch):
     result = adapter.fetch(AdapterRequest(query="BMW X5", condition="demo"))
 
     assert result.status == "live"
-    assert result.listings
-    assert result.listings[0]["condition_signal"] == "demo"
+    assert result.listings == []
 
 
 def test_bmw_card_parser_supports_brand_only_demo_inventory(monkeypatch):
@@ -234,10 +233,10 @@ def test_bmw_card_parser_supports_brand_only_demo_inventory(monkeypatch):
     </div>
     <a class="emicta" data-title="BMW X1 sDrive20i xLine"
        data-price="4200000" data-mfgyear="2025" data-listingid="101"
-       data-make="BMW" data-model="X1" data-city="Delhi">10,152 km Petrol</a>
+       data-make="BMW" data-model="X1" data-city="Delhi" data-condition="demo">10,152 km Petrol</a>
     <a class="emicta" data-title="BMW X5 xDrive40i"
        data-price="7590000" data-mfgyear="2024" data-listingid="102"
-       data-make="BMW" data-model="X5" data-city="Gurgaon">17,141 km Petrol</a>
+       data-make="BMW" data-model="X5" data-city="Gurgaon" data-condition="demonstrator">17,141 km Petrol</a>
     """
     monkeypatch.setattr("src.source_adapters.adapter_execution_allowed", lambda name: True)
     monkeypatch.setattr(
@@ -339,7 +338,7 @@ def test_demo_route_condition_matrix_for_bmw_mercedes_and_audi(monkeypatch):
                 "price_lakh": 60,
                 "url": "https://example.test/car/1",
                 "source": source_name,
-                "condition_signal": "used",
+                "condition_signal": "demo",
                 "live_verified": True,
                 "data_consistent": True,
             }],

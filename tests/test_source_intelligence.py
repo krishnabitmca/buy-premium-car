@@ -33,8 +33,8 @@ class TestSourceIntelligence(unittest.TestCase):
         names = [p["name"] for p in plan]
         self.assertIn("BMW Premium Selection", names)
         self.assertIn("Motozite Demo", names)
-        self.assertNotIn("CarDekho Used", names)
-        self.assertNotIn("Spinny Luxury Used", names)
+        self.assertIn("CarDekho Used", names)
+        self.assertIn("Spinny Luxury Used", names)
         bmw = next(x for x in self.registry if x["name"] == "BMW Premium Selection")
         self.assertEqual(
             bmw.get("demo_query_url_template"),
@@ -113,7 +113,7 @@ class TestSourceIntelligence(unittest.TestCase):
             registry=registry, live_only=True
         )
         self.assertEqual(len(used), 1)
-        self.assertEqual(demo, [])
+        self.assertEqual(len(demo), 1)
 
     def test_brand_only_search_does_not_require_model_capability(self):
         registry = [

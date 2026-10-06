@@ -242,7 +242,7 @@ class TestPureFunctions(unittest.TestCase):
     def test_demo_adapter_keeps_oem_and_motozite_demo_inventory(self):
         from src.source_adapters import AdapterRequest, BuiltinMarketplaceAdapter
         moto={"name":"Motozite Demo","adapter_status":"live","url":"https://motozite.com/demo-cars"}
-        html=jsonld("Mercedes-Benz E-Class LWB E200",brand="Mercedes-Benz",model="E-Class LWB E200",price="7500000",url="/demo/mercedes-benz/e-class/1")
+        html='''<script type="application/ld+json">{"@type":"Product","name":"Mercedes-Benz E-Class LWB E200","brand":{"name":"Mercedes-Benz"},"model":"E-Class LWB E200","itemCondition":"Demonstrator","offers":{"price":"7500000","url":"/demo/mercedes-benz/e-class/1"}}</script>'''
         with patch.object(lm,"fetch_text",return_value=html):
             result=BuiltinMarketplaceAdapter(moto).fetch(AdapterRequest(query="Mercedes-Benz E-Class",condition="demo"))
         self.assertEqual(result.status,"live")
@@ -301,7 +301,8 @@ class TestPureFunctions(unittest.TestCase):
         self.assertEqual(len(vehicles), 3)
         self.assertEqual({v["brand"] for v in vehicles}, {"BMW"})
         self.assertEqual({v["model"] for v in vehicles}, {"X1", "X3", "X5"})
-        self.assertTrue(all(v["condition_signal"] == "used" for v in vehicles))
+        self.assertTrue(all(v["condition_signal"] in {"used", "unknown"} for v in vehicles))
+        self.assertTrue(all(v["condition_signal"] != "demo" for v in vehicles))
     def test_visible_marketplace_listing_parser(self):
         html='''<a href="/used/mumbai/mercedes-benz-c-class/abc">
         2024 Mercedes-Benz C-Class C 200 Mild Hybrid 25,000 km | Petrol | Andheri West, Mumbai Rs. 46.75 Lakh
