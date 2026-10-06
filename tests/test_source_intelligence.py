@@ -195,7 +195,7 @@ class TestSourceIntelligence(unittest.TestCase):
             "Spinny Luxury Used", "CarTrade", "Droom", "OLX Cars",
             "Quikr Cars", "Mahindra First Choice", "Big Boy Toyz",
             "AutoBest Emperio", "AutoHangar Used Cars", "9th Gear",
-            "Luxury Ride", "Motozite", "CarLelo Used", "AutoPortal Used",
+            "Luxury Ride", "Motozite", "CarLelo Used", "AutoPortal Used", "Truebil Used", "CredR Used", "GaadiBazaar", "Shriram Automall",
         }
         names = {source.get("name") for source in self.registry}
         self.assertTrue(required_marketplaces.issubset(names))
