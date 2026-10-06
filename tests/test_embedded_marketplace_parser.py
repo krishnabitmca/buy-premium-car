@@ -32,7 +32,7 @@ class TestEmbeddedMarketplaceParser(unittest.TestCase):
         self.assertEqual(row["km"], 32000)
         self.assertEqual(row["location"], "Bengaluru")
         self.assertEqual(row["image"], "https://cdn.example.com/x1.jpg")
-        self.assertEqual(row["condition_signal"], "used")
+        self.assertEqual(row["condition_signal"], "unknown")
 
     def test_embedded_parser_rejects_non_listing_json(self):
         payload = {"props": {"pageProps": {"seo": {
