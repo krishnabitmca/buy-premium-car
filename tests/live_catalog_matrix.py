@@ -43,8 +43,8 @@ def main() -> int:
         t=time.time()
         try:
             vehicles,sources=live_inventory(f"{brand} {model}")
-            matched=[v for v in vehicles if str(v.get("brand") or "").lower()==brand.lower()
-                     and model.lower() in str(v.get("listing_name") or v.get("model") or "").lower()]
+            query=f"{brand} {model}".strip()
+            matched=[v for v in vehicles if __import__("src.live_marketplaces", fromlist=["_identity_matches_query"])._identity_matches_query(v, query)]
             return {
                 "brand":brand,"model":model,"status":"ok",
                 "vehicles":len(vehicles),"matched":len(matched),
