@@ -171,11 +171,9 @@ def plan_sources(
     for source in registry:
         if live_only and source.get("adapter_status") != "live":
             continue
-        if not _condition_matches(source, condition):
-            continue
         if not _brand_matches(source, brand):
             continue
-        if not _model_matches(source, brand, model, condition):
+        if not _model_matches(source, brand, model, "both"):
             continue
         if not _segment_matches(source, segments):
             continue
