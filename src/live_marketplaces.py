@@ -538,7 +538,14 @@ def _infer_condition(obj: dict, source: str = "") -> str:
     tokens=re.findall(r"[a-z0-9]+", text)
     if "demo" in tokens:
         return "demo"
-    return "used"
+    used_terms=("used car","used vehicle","pre-owned","pre owned","certified pre-owned","certified pre owned")
+    if any(term in text for term in used_terms):
+        return "used"
+    if "used" in tokens:
+        return "used"
+    # Unknown is deliberately not coerced to used/demo. A demonstrator search
+    # must never admit a row merely because it came from a demo-oriented route.
+    return "unknown"
 
 def _infer_location(obj: dict) -> tuple[str|None,str|None,str|None]:
     candidates=[]
