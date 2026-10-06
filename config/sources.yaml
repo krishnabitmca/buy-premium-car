@@ -259,15 +259,6 @@ known_sources:
   demo_query_url_template: https://www.mercedes-benzusedcar.in/buy-used-cars?ctype=demonstrator
   brand_demo_query_url_template: https://www.mercedes-benzusedcar.in/buy-used-cars?ctype=demonstrator
   vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
-  source_type: oem_certified
-  adapter_status: live
-  geography: india
-  conditions: [used, demo]
-  segments: [luxury, super_luxury]
-  brands: [Mercedes-Benz]
-  priority: 100
-  query_strategy: oem_brand_model
-  vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
 
 - name: BMW Premium Selection
   url: https://www.bmwusedcars.in/buy-used-cars
