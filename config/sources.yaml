@@ -337,6 +337,138 @@ known_sources:
   query_strategy: luxury_model
   vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
 
+# OEM program coverage tracked explicitly. A source remains candidate/discovery_only
+# until its live adapter, condition semantics, and image extraction are verified.
+- name: Kia Certified Pre-Owned
+  url: https://www.kia.com/in/buy/kia-certified-pre-owned/buy.html
+  tier: 1
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium]
+  brands: [Kia]
+  priority: 100
+  query_strategy: oem_brand_model
+  vehicle_link_pattern: /(?:certified-pre-owned|pre-owned|used)[^?#]*
+
+- name: Renault Selection
+  url: https://www.selection.renault.co.in/find-your-car.html
+  tier: 1
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium]
+  brands: [Renault]
+  priority: 96
+  query_strategy: oem_brand_model
+  vehicle_link_pattern: /(?:selection|used|pre-owned)[^?#]*
+
+- name: Skoda Certified Pre-Owned
+  url: https://www.skodapreowned.in/buy
+  tier: 1
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium]
+  brands: [Skoda, Škoda]
+  priority: 100
+  query_strategy: oem_brand_model
+  vehicle_link_pattern: /(?:buy|used|pre-owned)[^?#]*
+
+- name: Volkswagen Certified Pre-Owned
+  url: https://www.skodapreowned.in/buy
+  tier: 1
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium]
+  brands: [Volkswagen]
+  priority: 100
+  query_strategy: oem_brand_model
+  vehicle_link_pattern: /(?:buy|used|pre-owned)[^?#]*
+
+- name: Lexus Certified Used
+  url: https://www.lexusindia.co.in/en/ownership/certified-pre-owned.html
+  tier: 1
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [luxury]
+  brands: [Lexus]
+  priority: 100
+  query_strategy: oem_brand_model
+  vehicle_link_pattern: /(?:certified|pre-owned|used)[^?#]*
+
+- name: Jaguar Approved Used
+  url: https://www.jaguar.com/en-in/jdx/approved-used/index.html
+  tier: 1
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [luxury, super_luxury]
+  brands: [Jaguar]
+  priority: 100
+  query_strategy: oem_brand_model
+  vehicle_link_pattern: /(?:approved-used|used|approved)[^?#]*
+
+- name: Land Rover Approved Used
+  url: https://www.landrover.in/ownership/approved-used/index.html
+  tier: 1
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [luxury, super_luxury]
+  brands: [Land Rover]
+  priority: 100
+  query_strategy: oem_brand_model
+  vehicle_link_pattern: /(?:approved-used|used|approved)[^?#]*
+
+- name: Porsche Approved
+  url: https://www.porsche.com/india/accessoriesandservice/porscheapproved/
+  tier: 1
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [luxury, super_luxury]
+  brands: [Porsche]
+  priority: 100
+  query_strategy: oem_brand_model
+  vehicle_link_pattern: /(?:approved|pre-owned|used)[^?#]*
+
+- name: Tata Assured
+  url: https://www.tatamotors.com/
+  tier: 1
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium]
+  brands: [Tata]
+  priority: 92
+  query_strategy: oem_brand_model
+  vehicle_link_pattern: /(?:used|assured|pre-owned)[^?#]*
+
+- name: Kia / Hyundai / Toyota / Honda / Mahindra / Maruti Demo Discovery
+  url: https://www.skodapreowned.in/buy
+  tier: 2
+  source_type: oem_demo_discovery
+  adapter_status: discovery_only
+  geography: india
+  conditions: [demo]
+  segments: [mass_market, premium]
+  brands: [Kia, Hyundai, Toyota, Honda, Mahindra, Maruti Suzuki]
+  priority: 60
+  query_strategy: dealer_demo_discovery
+  vehicle_link_pattern: /(?:demo|demonstrator|test-drive)[^?#]*
+
 - name: Tata Assured
   url: https://www.tatamotors.com/
   tier: 2
