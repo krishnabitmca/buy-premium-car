@@ -1166,7 +1166,7 @@ class _BMWCardParser(HTMLParser):
                 "brand": str(attrs_dict.get("data-make") or ""),
                 "model": str(attrs_dict.get("data-model") or ""),
                 "city": str(attrs_dict.get("data-city") or ""),
-                "condition_text": str(attrs_dict.get("data-condition") or attrs_dict.get("data-vehicle-condition") or ""),
+                "condition_text": "",
             })
         classes = str(attrs_dict.get("class") or "")
         if self.card_depth is None and tag.lower() == "div" and "carlistblk" in classes:
