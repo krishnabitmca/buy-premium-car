@@ -189,6 +189,36 @@ class TestSourceIntelligence(unittest.TestCase):
         )
         self.assertEqual(live_plan, [])
 
+    def test_major_marketplace_used_and_demo_coverage_is_explicitly_tracked(self):
+        required_marketplaces = {
+            "CarDekho Used", "CarWale Used", "Cars24 Luxury Used",
+            "Spinny Luxury Used", "CarTrade", "Droom", "OLX Cars",
+            "Quikr Cars", "Mahindra First Choice", "Big Boy Toyz",
+            "AutoBest Emperio", "AutoHangar Used Cars", "9th Gear",
+            "Luxury Ride", "Motozite", "CarLelo Used", "AutoPortal Used",
+        }
+        names = {source.get("name") for source in self.registry}
+        self.assertTrue(required_marketplaces.issubset(names))
+
+        demo_marketplaces = {
+            "CarDekho Demo Discovery", "CarWale Demo Discovery",
+            "Cars24 Demo Discovery", "Spinny Demo Discovery",
+            "Big Boy Toyz Demo Discovery", "CarLelo Demo Discovery",
+            "AutoPortal Demo Discovery", "Motozite Demo",
+        }
+        demo_names = {
+            source.get("name") for source in self.registry
+            if "demo" in (source.get("conditions") or [])
+            and source.get("source_type") in {"marketplace_demo_discovery", "luxury_specialist"}
+        }
+        self.assertTrue(demo_marketplaces.issubset(demo_names))
+
+    def test_marketplace_discovery_sources_are_not_executed_as_live(self):
+        discovery_types = {"marketplace_demo_discovery"}
+        for source in self.registry:
+            if source.get("source_type") in discovery_types:
+                self.assertIn(source.get("adapter_status"), {"candidate", "discovery_only"})
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
