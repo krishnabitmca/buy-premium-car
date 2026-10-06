@@ -100,6 +100,7 @@ class BuiltinMarketplaceAdapter:
             wanted_condition = normalize_condition(request.condition)
             demo_route = wanted_condition == "demo" and (
                 "ctype=demonstrator" in url.lower()
+                or "models=demo_dealer_cars" in url.lower()
                 or "/demo/" in url.lower()
                 or "/demo-cars" in url.lower()
             )
