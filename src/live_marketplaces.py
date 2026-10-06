@@ -531,7 +531,7 @@ def _text_blob(obj: dict) -> str:
 def _infer_condition(obj: dict, source: str = "") -> str:
     """Classify each listing from listing evidence only; source/route is not evidence."""
     explicit=_first_value(obj,"itemCondition","vehicleCondition","condition_signal","condition")
-    text=f"{explicit or ''} {_text_blob(obj)}".lower()
+    text=f"{explicit or ''} {_text_blob(obj)} {obj.get('description') or ''}".lower()
     demo_terms=("demonstrator","demo car","demo vehicle","dealer demo")
     if any(term in text for term in demo_terms):
         return "demo"
