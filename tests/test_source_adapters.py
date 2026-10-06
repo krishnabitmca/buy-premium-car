@@ -233,10 +233,10 @@ def test_bmw_card_parser_supports_brand_only_demo_inventory(monkeypatch):
     </div>
     <a class="emicta" data-title="BMW X1 sDrive20i xLine"
        data-price="4200000" data-mfgyear="2025" data-listingid="101"
-       data-make="BMW" data-model="X1" data-city="Delhi"data-condition="demo">10,152 km Petrol</a>
+       data-make="BMW" data-model="X1" data-city="Delhi" data-condition="demo">10,152 km Petrol</a>
     <a class="emicta" data-title="BMW X5 xDrive40i"
        data-price="7590000" data-mfgyear="2024" data-listingid="102"
-       data-make="BMW" data-model="X5" data-city="Gurgaon"data-condition="demonstrator">17,141 km Petrol</a>
+       data-make="BMW" data-model="X5" data-city="Gurgaon" data-condition="demonstrator">17,141 km Petrol</a>
     """
     monkeypatch.setattr("src.source_adapters.adapter_execution_allowed", lambda name: True)
     monkeypatch.setattr(
