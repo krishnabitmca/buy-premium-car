@@ -93,6 +93,10 @@ class BuiltinMarketplaceAdapter:
                 parsed = live_marketplaces.parse_bmw_listing_cards(
                     html, self.source_name, url, request.query
                 )
+            elif parser_strategy == "motozite_cards":
+                parsed = live_marketplaces.parse_motozite_cards(
+                    html, self.source_name, url, request.query, request.condition
+                )
             else:
                 parsed = parse_live_listings(html, self.source_name, url)
             # Marketplace landing pages often expose most inventory as visible listing cards rather than JSON-LD.

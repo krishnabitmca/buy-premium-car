@@ -257,6 +257,65 @@ def test_bmw_card_parser_supports_brand_only_demo_inventory(monkeypatch):
     assert all(row["image"] for row in result.listings)
 
 
+def test_motozite_demo_card_parser_supports_real_card_shape(monkeypatch):
+    source = {
+        "name": "Motozite Demo",
+        "adapter_status": "live",
+        "url": "https://motozite.com/demo-cars",
+        "parser_strategy": "motozite_cards",
+    }
+    adapter = BuiltinMarketplaceAdapter(source)
+    demo_url = "https://motozite.com/demo/mercedes-benz/e-class/all"
+    html = """
+    <section>
+      <article class="MuiBox-root">
+        <div class="MuiCard-root">
+          <img alt="Mercedes-Benz E-Class LWB E200"
+               src="https://cdn.example/e200.jpg"
+               srcset="https://cdn.example/e200.jpg 640w" />
+          <div>Mercedes-Benz E-Class LWB E200</div>
+          <div>Demo</div>
+          <div>₹75.00 L*</div>
+          <div>Ex-Showroom Price</div>
+          <div>01/2026</div>
+          <div>Unregistered</div>
+          <div>Petrol</div>
+          <div>2500kms</div>
+        </div>
+      </article>
+      <article class="MuiBox-root">
+        <div class="MuiCard-root">
+          <img alt="Mercedes-Benz E-Class LWB E220d"
+               src="https://cdn.example/e220d.jpg" />
+          <div>Mercedes-Benz E-Class LWB E220d</div>
+          <div>Demo</div>
+          <div>₹77.00 L*</div>
+          <div>Ex-Showroom Price</div>
+          <div>07/2025</div>
+          <div>Unregistered</div>
+          <div>Diesel</div>
+          <div>6100kms</div>
+        </div>
+      </article>
+    </section>
+    """
+    monkeypatch.setattr("src.source_adapters.adapter_execution_allowed", lambda name: True)
+    monkeypatch.setattr(
+        "src.source_adapters.live_marketplaces._targeted_source_urls",
+        lambda query, condition="both", registry=None: {"Motozite Demo": demo_url},
+    )
+    monkeypatch.setattr("src.source_adapters.fetch_text", lambda url: html)
+
+    result = adapter.fetch(AdapterRequest(query="Mercedes-Benz E-Class", condition="demo"))
+
+    assert result.status == "live"
+    assert len(result.listings) == 2
+    assert {row["model"] for row in result.listings} == {"E-Class LWB E200", "E-Class LWB E220d"}
+    assert {row["price_lakh"] for row in result.listings} == {75.0, 77.0}
+    assert {row["condition_signal"] for row in result.listings} == {"demo"}
+    assert all(row["image"] for row in result.listings)
+
+
 def test_demo_route_condition_matrix_for_bmw_mercedes_and_audi(monkeypatch):
     cases = [
         ("BMW Premium Selection", "https://www.bmwusedcars.in/buy-used-cars?models=demo_dealer_cars", "BMW X5"),
