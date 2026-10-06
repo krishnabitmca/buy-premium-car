@@ -148,11 +148,12 @@ def _brand_path_tokens(selected: dict[str,str]) -> set[str]:
     return {t for t in tokens if t}
 
 def _is_current_model_link(selected: dict[str,str], href: str) -> bool:
-    """Accept only canonical CarDekho model landing pages, never variants/dealers/offers."""
+    """Accept canonical model landing pages from the configured catalog host."""
     parsed=urllib.parse.urlparse(href)
     host=parsed.netloc.lower()
+    selected_host=urllib.parse.urlparse(str(selected.get("url") or "")).netloc.lower()
     path=parsed.path.rstrip("/").lower()
-    if host and "cardekho.com" not in host:
+    if host and selected_host and host != selected_host:
         return False
     parts=[p for p in path.split("/") if p]
     brand_tokens=_brand_path_tokens(selected)
@@ -193,7 +194,7 @@ def _clean_model_catalog_name(text: str, brand: str = "") -> str | None:
     if re.search(r"\b(?:expected launch|upcoming|estimated)\b",clean,re.I):
         return None
     clean=re.sub(
-        r"\s+(?:₹|Rs\.?)\s*[\d.,]+(?:\s*(?:Cr|Lakh|Lakhs))?\s*\*?\s*$",
+        r"\s+(?:₹|Rs\.?)\s*[\d.,]+(?:\s*-\s*[\d.,]+)?(?:\s*(?:Cr|Crore|Crores|Lakh|Lakhs))?\s*\*?\s*$",
         "",
         clean,
         flags=re.I,
@@ -253,10 +254,12 @@ def _configured_brand_records() -> list[dict[str,str]]:
     for item in values if isinstance(values,list) else []:
         if isinstance(item,str):
             name=item.strip()
-            if name:
+            if name and name.lower() != "all":
                 result.append({"name":name,"slug":_slug(name),"url":"" ,"catalog_verified":"config"})
         elif isinstance(item,dict) and str(item.get("name") or "").strip():
             name=str(item["name"]).strip()
+            if name.lower() == "all":
+                continue
             result.append({
                 "name":name,
                 "slug":str(item.get("slug") or _slug(name)),
@@ -280,7 +283,7 @@ def _registry_brand_records() -> list[dict[str,str]]:
         for source in load_source_registry():
             for brand in source.get("brands") or []:
                 name=str(brand or "").strip()
-                if not name or name=="*":
+                if not name or name.strip().lower() in {"*","all"}:
                     continue
                 key=_canonical_brand(name).lower()
                 if key in seen:
@@ -341,15 +344,55 @@ def live_brands() -> list[dict[str,str]]:
         parser=_LinkParser(); parser.feed(html)
         links=parser.links
         enriched=[]
+        # Prefer an explicit source-configured brand route. Marketplace
+        # navigation labels are not stable enough to use as the only join key.
+        catalog_template=""
+        try:
+            for source in load_source_registry():
+                metadata=source.get("metadata") or {}
+                candidate=source.get("catalog_brand_url_template") or metadata.get("catalog_brand_url_template")
+                if candidate:
+                    catalog_template=str(candidate).strip()
+                    break
+        except Exception:
+            catalog_template=""
         for record in records:
-            wanted={record["name"],record["name"]+" Cars",_canonical_brand(record["name"])+" Cars"}
             match=None
+            wanted={record["name"],record["name"]+" Cars",_canonical_brand(record["name"])+" Cars"}
+            # First use the exact source label/link when available.
             for text,href in links:
                 if text in wanted:
                     absolute=_absolute(catalog_url,href)
                     if urllib.parse.urlparse(absolute).netloc:
                         match=absolute
                         break
+            # Then fall back to the configured brand route. This keeps the
+            # source URL structure in configuration rather than baking a
+            # marketplace-specific taxonomy into application code.
+            if not match and catalog_template:
+                try:
+                    match=catalog_template.format(
+                        brand=urllib.parse.quote(_canonical_brand(record["name"])),
+                        brand_slug=_slug(_canonical_brand(record["name"])),
+                        name=urllib.parse.quote(_canonical_brand(record["name"])),
+                        slug=_slug(_canonical_brand(record["name"])),
+                    )
+                except (KeyError, ValueError):
+                    match=None
+            # Finally, use identity-token matching against the catalog URL/text
+            # so harmless labels such as "Land Rover Cars" or "Mercedes Benz"
+            # still resolve when the exact anchor text changes.
+            if not match:
+                wanted_tokens=set(_identity_tokens(_canonical_brand(record["name"])))
+                for text,href in links:
+                    absolute=_absolute(catalog_url,href)
+                    parsed=urllib.parse.urlparse(absolute)
+                    path_tokens=_identity_tokens(parsed.path.replace("/", " "))
+                    label_tokens=_identity_tokens(text)
+                    if wanted_tokens and (wanted_tokens.issubset(path_tokens) or wanted_tokens.issubset(label_tokens)):
+                        if parsed.netloc:
+                            match=absolute
+                            break
             enriched.append({**record,"url":match or record.get("url") or ""})
         return [x for x in enriched if x.get("url")]
     except Exception:

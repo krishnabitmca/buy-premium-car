@@ -32,7 +32,7 @@ jobs:
           pytest -q tests/test_e2e_matrix.py
       - name: Run customer journey browser contract
         env:
-          CARSCANNER_BASE_URL: https://buy-premium-car-git-qa-inventory-6a19a6-premium-car-deal-radar.vercel.app/
+          CARSCANNER_BASE_URL: https://buy-premium-car-git-fix-catalog-b-45e935-premium-car-deal-radar.vercel.app/
         run: |
           npm init -y >/dev/null 2>&1
           npm install --no-save playwright >/dev/null 2>&1
@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run production synthetic journeys
         env:
-          CARSCANNER_BASE_URL: https://buy-premium-car-git-qa-inventory-6a19a6-premium-car-deal-radar.vercel.app/
+          CARSCANNER_BASE_URL: https://buy-premium-car-git-fix-catalog-b-45e935-premium-car-deal-radar.vercel.app/
         run: python scripts/production_e2e.py
 
   qa-agent:
@@ -66,7 +66,7 @@ jobs:
           npx playwright install --with-deps chromium >/dev/null 2>&1
       - name: Run comprehensive customer journey QA
         env:
-          CARSCANNER_BASE_URL: https://buy-premium-car-git-qa-inventory-6a19a6-premium-car-deal-radar.vercel.app/
+          CARSCANNER_BASE_URL: https://buy-premium-car-git-fix-catalog-b-45e935-premium-car-deal-radar.vercel.app/
           QA_REPORT_DIR: qa-reports
         run: node tests/qa_customer_journey.js
       - name: Upload QA report and failure evidence
