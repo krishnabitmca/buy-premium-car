@@ -89,13 +89,17 @@ class BuiltinMarketplaceAdapter:
         try:
             html = fetch_text(url)
             parser_strategy = str(self.source.get("parser_strategy") or "").strip().lower()
-            if parser_strategy == "bmw_cards":
+            if parser_strategy == "motozite_cards":
+                parsed = live_marketplaces.parse_motozite_cards(
+                    html, self.source_name, url, request.query
+                )
+            elif parser_strategy == "bmw_cards":
                 parsed = live_marketplaces.parse_bmw_listing_cards(
                     html, self.source_name, url, request.query
                 )
-            elif parser_strategy == "motozite_cards":
-                parsed = live_marketplaces.parse_motozite_cards(
-                    html, self.source_name, url, request.query, request.condition
+            elif parser_strategy in {"embedded_json", "spinny_embedded"}:
+                parsed = live_marketplaces.parse_embedded_marketplace_listings(
+                    html, self.source_name, url, request.query
                 )
             else:
                 parsed = parse_live_listings(html, self.source_name, url)

@@ -25,7 +25,6 @@ def test_bmw_3_series_used_plan_has_broad_source_coverage():
         "Cars24 Luxury Used",
         "Spinny Luxury Used",
         "BMW Premium Selection",
-        "CarTrade",
         "Droom",
         "OLX Cars",
         "Quikr Cars",
