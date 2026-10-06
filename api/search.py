@@ -50,10 +50,13 @@ def _budget_band(budget_min, budget_max):
     return "100+"
 
 def _vehicle_condition(v):
+    """Return listing-level condition only; source identity is never evidence."""
     explicit=str(v.get("condition_signal") or "").strip().lower()
-    if explicit in {"used","demo","demonstrator"}:
-        return "demo" if explicit=="demonstrator" else explicit
-    return "demo" if "demo" in (str(v.get("variant",""))+" "+str(v.get("source",""))).lower() else "used"
+    if explicit in {"demo","demonstrator"}:
+        return "demo"
+    if explicit=="used":
+        return "used"
+    return "unknown"
 
 def _match(v,query,budget_min,budget_max,max_age,destination,condition="both"):
     wanted_condition=str(condition or "both").strip().lower()
