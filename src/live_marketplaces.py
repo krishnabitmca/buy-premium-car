@@ -790,6 +790,149 @@ class _BMWCardParser(HTMLParser):
     rows: list[dict[str, Any]] = []
 
 
+
+class _MotoziteCardParser(HTMLParser):
+    """Parse Motozite's server-rendered demo/used car cards.
+
+    Motozite currently renders inventory as Material-UI article cards rather
+    than JSON-LD. The parser intentionally uses semantic card boundaries and
+    visible attributes instead of generated CSS class names.
+    """
+    def __init__(self):
+        super().__init__()
+        self.depth = 0
+        self.card_depth = None
+        self.current = None
+        self.rows = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs_dict = {str(k).lower(): v for k, v in attrs}
+        self.depth += 1
+        if self.card_depth is None and tag.lower() == "article":
+            self.card_depth = self.depth
+            self.current = {"href": None, "image": None, "text": []}
+            return
+        if self.card_depth is not None and self.current is not None:
+            if tag.lower() == "a" and not self.current["href"] and attrs_dict.get("href"):
+                self.current["href"] = str(attrs_dict["href"])
+            if tag.lower() == "img" and not self.current["image"]:
+                srcset = str(attrs_dict.get("srcset") or "")
+                src = attrs_dict.get("src") or attrs_dict.get("data-src")
+                if srcset:
+                    candidates = re.findall(r"(?:^|,)\\s*([^\\s,]+)", srcset)
+                    src = candidates[-1] if candidates else src
+                if src and not str(src).startswith("data:"):
+                    self.current["image"] = str(src)
+
+    def handle_data(self, data):
+        if self.card_depth is not None and self.current is not None:
+            value = " ".join(str(data).split())
+            if value:
+                self.current["text"].append(value)
+
+    def handle_endtag(self, tag):
+        if self.card_depth is not None and self.depth == self.card_depth and self.current is not None:
+            self.rows.append(self.current)
+            self.current = None
+            self.card_depth = None
+        self.depth = max(0, self.depth - 1)
+
+
+def parse_motozite_cards(
+    html: str, source: str, base_url: str, query: str = "", condition: str = "demo"
+) -> list[dict]:
+    parser = _MotoziteCardParser()
+    parser.feed(html)
+    rows = []
+    wanted_condition = normalize_condition(condition)
+
+    for card in parser.rows:
+        text = " ".join(card.get("text") or [])
+        if not re.search(r"\\b(?:demo|pre-owned|used)\\b", text, re.I):
+            continue
+        price_match = re.search(
+            r"(?:₹|Rs\\.?)[ ]*([\\d,.]+)[ ]*(L|Lakh|Lakhs|Cr|Crore|Crores)\\b",
+            text,
+            re.I,
+        )
+        km_match = re.search(r"([\\d,]+(?:\\.\\d+)?)\\s*kms?\\b", text, re.I)
+        year_match = re.search(r"\\b(19\\d{2}|20\\d{2})\\b", text)
+        if not price_match or not year_match:
+            continue
+        amount = float(price_match.group(1).replace(",", ""))
+        unit = price_match.group(2).lower()
+        price_lakh = amount * 100 if unit in {"cr", "crore", "crores"} else amount
+        fuel_match = re.search(
+            r"\\b(Petrol|Diesel|Electric|Hybrid|PHEV|CNG|LPG)\\b", text, re.I
+        )
+        fuel = fuel_match.group(1) if fuel_match else None
+
+        # The card's accessible image alt is the strongest model/title signal.
+        title = None
+        for value in card.get("text") or []:
+            if len(value) >= 8 and not re.search(
+                r"^(?:Demo|Used|Unregistered|Ex-Showroom Price|Petrol|Diesel|Electric|Hybrid|PHEV)$",
+                value,
+                re.I,
+            ) and not re.fullmatch(r"[\\d,.]+\\s*kms?", value, re.I):
+                if "₹" not in value and not re.search(r"^\\d{2}/\\d{4}$", value):
+                    title = value
+                    break
+        if not title:
+            continue
+
+        brand, model = _infer_brand_model(title, None, None)
+        if query and not _identity_matches_query(
+            {"brand": brand, "model": model, "listing_name": title, "variant": title, "url": base_url},
+            query,
+        ):
+            continue
+
+        image = _canonical_url(base_url, card["image"]) if card.get("image") else None
+        row = {
+            "brand": brand,
+            "model": model,
+            "listing_name": title,
+            "variant": title,
+            "price_lakh": price_lakh,
+            "url": _canonical_url(base_url, card.get("href") or base_url),
+            "images": [image] if image else [],
+            "image": image,
+            "source": source,
+            "live_verified": True,
+            "data_consistent": bool(title and price_lakh),
+            "condition_signal": "demo" if re.search(r"\\bdemo\\b", text, re.I) else "used",
+            "seller_city": None,
+            "seller_state": None,
+            "location": None,
+            "location_raw": None,
+            "mfg_year": int(year_match.group(1)),
+            "km": float(km_match.group(1).replace(",", "")) if km_match else None,
+            "fuel": fuel,
+            "transmission": None,
+            "body_type": None,
+            "provenance": {
+                "source": source,
+                "source_url": base_url,
+                "original_url": _canonical_url(base_url, card.get("href") or base_url),
+                "extraction": "motozite_article_card",
+                "raw_listing": title,
+            },
+        }
+        if wanted_condition in {"demo", "used"} and row["condition_signal"] != wanted_condition:
+            continue
+        rows.append(row)
+
+    seen = set()
+    out = []
+    for row in rows:
+        key = (row["listing_name"].lower(), row["price_lakh"], row["mfg_year"], row["km"])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(row)
+    return out
+
 def parse_bmw_listing_cards(html: str, source: str, base_url: str, query: str = "") -> list[dict]:
     """Extract BMW Premium Selection cards from its server-rendered HTML."""
     parser = _BMWCardParser()
