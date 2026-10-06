@@ -1188,7 +1188,8 @@ class _BMWCardParser(HTMLParser):
                 ("data-title", "title"), ("data-price", "price"),
                 ("data-mfgyear", "year"), ("data-listingid", "listing_id"),
                 ("data-make", "brand"), ("data-model", "model"),
-                ("data-city", "city"),
+                ("data-city", "city"), ("data-condition", "condition_text"),
+                ("data-vehicle-condition", "condition_text"),
             ):
                 if attrs_dict.get(key) not in (None, "") and not self.current[target]:
                     self.current[target] = str(attrs_dict[key])
