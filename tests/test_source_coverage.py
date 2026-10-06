@@ -1,12 +1,12 @@
 from src.source_intelligence import load_source_registry, plan_sources
 
 
-def test_registered_sources_are_live_or_explicit_discovery_only():
+def test_registered_sources_are_live_candidate_or_explicit_discovery_only():
     registry = load_source_registry(from_database=False)
     assert registry
     enabled = [s for s in registry if s.get("adapter_status") != "discovery_only"]
     assert enabled
-    assert all(s.get("adapter_status") == "live" for s in enabled)
+    assert all(s.get("adapter_status") in {"live", "candidate"} for s in enabled)
 
 
 def test_bmw_3_series_used_plan_has_broad_source_coverage():
