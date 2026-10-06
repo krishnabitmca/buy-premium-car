@@ -88,7 +88,13 @@ class BuiltinMarketplaceAdapter:
 
         try:
             html = fetch_text(url)
-            parsed = parse_live_listings(html, self.source_name, url)
+            parser_strategy = str(self.source.get("parser_strategy") or "").strip().lower()
+            if parser_strategy == "bmw_cards":
+                parsed = live_marketplaces.parse_bmw_listing_cards(
+                    html, self.source_name, url, request.query
+                )
+            else:
+                parsed = parse_live_listings(html, self.source_name, url)
             # Marketplace landing pages often expose most inventory as visible listing cards rather than JSON-LD.
             # This fallback must also run for unscoped searches (All Brands + All Models), otherwise
             # the empty query returns only the handful of structured-data records and severely undercounts inventory.
