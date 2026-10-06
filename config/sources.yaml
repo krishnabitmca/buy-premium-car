@@ -70,6 +70,165 @@ known_sources:
   brand_query_url_template: https://www.spinny.com/used-{brand_slug}-cars/s/
   vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
 
+# Marketplace/dealer ecosystem coverage. New sources remain candidate/discovery_only
+# until listing extraction, condition semantics, model matching, pricing and images
+# pass the same production verification gate as existing live adapters.
+- name: CarLelo Used
+  url: https://www.carlelo.com/used-cars
+  tier: 2
+  source_type: marketplace
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium, luxury]
+  brands: [all]
+  priority: 78
+  query_strategy: brand_model
+
+- name: AutoPortal Used
+  url: https://autoportal.com/usedcars.html
+  tier: 2
+  source_type: marketplace
+  adapter_status: candidate
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium, luxury]
+  brands: [all]
+  priority: 74
+  query_strategy: brand_model
+
+- name: CarDekho Demo Discovery
+  url: https://www.cardekho.com/usedCars/
+  tier: 2
+  source_type: marketplace_demo_discovery
+  adapter_status: discovery_only
+  geography: india
+  conditions: [demo]
+  segments: [mass_market, premium, luxury]
+  brands: [all]
+  priority: 65
+  query_strategy: demo_discovery
+
+- name: CarWale Demo Discovery
+  url: https://www.carwale.com/used/
+  tier: 2
+  source_type: marketplace_demo_discovery
+  adapter_status: discovery_only
+  geography: india
+  conditions: [demo]
+  segments: [mass_market, premium, luxury]
+  brands: [all]
+  priority: 65
+  query_strategy: demo_discovery
+
+- name: Cars24 Demo Discovery
+  url: https://www.cars24.com/buy-used-cars/
+  tier: 2
+  source_type: marketplace_demo_discovery
+  adapter_status: discovery_only
+  geography: india
+  conditions: [demo]
+  segments: [mass_market, premium, luxury]
+  brands: [all]
+  priority: 72
+  query_strategy: demo_discovery
+
+- name: Spinny Demo Discovery
+  url: https://www.spinny.com/used-cars/
+  tier: 2
+  source_type: marketplace_demo_discovery
+  adapter_status: discovery_only
+  geography: india
+  conditions: [demo]
+  segments: [mass_market, premium, luxury]
+  brands: [all]
+  priority: 72
+  query_strategy: demo_discovery
+
+- name: Big Boy Toyz Demo Discovery
+  url: https://www.bigboytoyz.com/
+  tier: 2
+  source_type: marketplace_demo_discovery
+  adapter_status: discovery_only
+  geography: india
+  conditions: [demo]
+  segments: [luxury, super_luxury]
+  brands: [all]
+  priority: 70
+  query_strategy: demo_discovery
+
+- name: CarLelo Demo Discovery
+  url: https://www.carlelo.com/
+  tier: 2
+  source_type: marketplace_demo_discovery
+  adapter_status: discovery_only
+  geography: india
+  conditions: [demo]
+  segments: [mass_market, premium, luxury]
+  brands: [all]
+  priority: 60
+  query_strategy: demo_discovery
+
+- name: AutoPortal Demo Discovery
+  url: https://autoportal.com/usedcars.html
+  tier: 2
+  source_type: marketplace_demo_discovery
+  adapter_status: discovery_only
+  geography: india
+  conditions: [demo]
+  segments: [mass_market, premium, luxury]
+  brands: [all]
+  priority: 60
+  query_strategy: demo_discovery
+
+- name: Truebil Used
+  url: https://www.truebil.com/
+  tier: 2
+  source_type: used_retailer
+  adapter_status: discovery_only
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium]
+  brands: [all]
+  priority: 65
+  query_strategy: brand_model
+
+- name: CredR Used
+  url: https://www.credr.com/
+  tier: 2
+  source_type: used_retailer
+  adapter_status: discovery_only
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium]
+  brands: [all]
+  priority: 65
+  query_strategy: brand_model
+
+- name: GaadiBazaar
+  url: https://www.gaadibazaar.in/
+  tier: 2
+  source_type: marketplace
+  adapter_status: discovery_only
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium]
+  brands: [all]
+  priority: 60
+  query_strategy: brand_model
+
+- name: Shriram Automall
+  url: https://www.shriramautomall.com/
+  tier: 2
+  source_type: auction_marketplace
+  adapter_status: discovery_only
+  geography: india
+  conditions: [used]
+  segments: [mass_market, premium, luxury]
+  brands: [all]
+  priority: 58
+  query_strategy: auction_brand_model
+
 - name: Motozite Demo
   url: https://motozite.com/demo-cars
   query_url_template: https://motozite.com/demo/{brand_slug}/{model_slug}/all
