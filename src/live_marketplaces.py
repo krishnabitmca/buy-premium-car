@@ -1040,7 +1040,7 @@ def parse_bmw_listing_cards(html: str, source: str, base_url: str, query: str = 
             "source": source,
             "live_verified": True,
             "data_consistent": bool(href and price_lakh and model),
-            "condition_signal": _infer_condition({"name": title, "description": text}),
+            "condition_signal": _infer_condition({"name": title, "description": f"{card.get('condition_text') or ''} {text}"}),
             "seller_city": str(card.get("city") or "").strip() or None,
             "seller_state": None,
             "location": str(card.get("city") or "").strip() or None,
