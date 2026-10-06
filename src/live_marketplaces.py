@@ -711,6 +711,154 @@ def _listing_identity_from_text(text: str, href: str) -> tuple[str|None,str|None
         remainder.append(tokens[i]); i+=1
     return brand, " ".join(remainder[:5]) if remainder else None
 
+
+class _BMWCardParser(HTMLParser):
+    """Parse BMW Premium Selection's server-rendered car cards.
+
+    BMW exposes inventory as .carlistblk cards with structured data-* attributes,
+    not JSON-LD. Keep this parser source-specific so generic marketplace parsing
+    remains conservative.
+    """
+    def __init__(self):
+        super().__init__()
+        self.depth = 0
+        self.card_depth = None
+        self.current = None
+        self.tag_stack = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs_dict = {str(k).lower(): v for k, v in attrs}
+        self.depth += 1
+        self.tag_stack.append(tag.lower())
+        classes = str(attrs_dict.get("class") or "")
+        if self.card_depth is None and tag.lower() == "div" and "carlistblk" in classes:
+            self.card_depth = self.depth
+            self.current = {
+                "href": None, "image": None, "title": None,
+                "price": None, "year": None, "listing_id": None,
+                "brand": None, "model": None, "city": None,
+                "text": [],
+            }
+            return
+
+        if self.card_depth is not None and self.current is not None:
+            if tag.lower() == "a" and not self.current["href"] and attrs_dict.get("href"):
+                href = str(attrs_dict["href"])
+                if not href.startswith("javascript:"):
+                    self.current["href"] = href
+            for key, target in (
+                ("data-title", "title"), ("data-price", "price"),
+                ("data-mfgyear", "year"), ("data-listingid", "listing_id"),
+                ("data-make", "brand"), ("data-model", "model"),
+                ("data-city", "city"),
+            ):
+                if attrs_dict.get(key) not in (None, "") and not self.current[target]:
+                    self.current[target] = str(attrs_dict[key])
+            if tag.lower() == "img" and not self.current["image"]:
+                image = attrs_dict.get("data-src") or attrs_dict.get("src")
+                if image and not str(image).startswith("data:"):
+                    self.current["image"] = str(image)
+
+    def handle_data(self, data):
+        if self.card_depth is not None and self.current is not None:
+            if not self.tag_stack or self.tag_stack[-1] not in {"script", "style"}:
+                value = " ".join(str(data).split())
+                if value:
+                    self.current["text"].append(value)
+
+    def handle_endtag(self, tag):
+        if self.card_depth is not None and self.depth == self.card_depth and self.current is not None:
+            self.rows.append(self.current)
+            self.current = None
+            self.card_depth = None
+        if self.tag_stack:
+            self.tag_stack.pop()
+        self.depth = max(0, self.depth - 1)
+
+    rows: list[dict[str, Any]] = []
+
+
+def parse_bmw_listing_cards(html: str, source: str, base_url: str, query: str = "") -> list[dict]:
+    """Extract BMW Premium Selection cards from its server-rendered HTML."""
+    parser = _BMWCardParser()
+    parser.feed(html)
+    rows = []
+    for card in parser.rows:
+        title = " ".join(str(card.get("title") or "").split())
+        brand = str(card.get("brand") or "BMW").strip() or "BMW"
+        model = str(card.get("model") or "").strip()
+        if not model and title:
+            _, model = _infer_brand_model(title, brand, None)
+        if not model:
+            continue
+        href = card.get("href")
+        if not href:
+            continue
+        price_raw = card.get("price")
+        try:
+            price_lakh = float(price_raw) / 100000.0 if price_raw else None
+        except (TypeError, ValueError):
+            price_lakh = _number(price_raw)
+        if price_lakh is None:
+            continue
+        text = " ".join(card.get("text") or [])
+        year = None
+        try:
+            year = int(card.get("year")) if card.get("year") else None
+        except (TypeError, ValueError):
+            pass
+        if year is None:
+            match = re.search(r"\b(19\d{2}|20\d{2})\b", title + " " + text)
+            year = int(match.group(1)) if match else None
+        km_match = re.search(r"([\d,]+(?:\.\d+)?)\s*km\b", text, re.I)
+        km = float(km_match.group(1).replace(",", "")) if km_match else None
+        fuel_match = re.search(r"\b(Petrol|Diesel|Electric|Hybrid|CNG|LPG)\b", text, re.I)
+        fuel = fuel_match.group(1) if fuel_match else None
+        image = _canonical_url(base_url, card["image"]) if card.get("image") else None
+        row = {
+            "brand": brand,
+            "model": model,
+            "listing_name": title or f"{brand} {model}",
+            "variant": title or model,
+            "price_lakh": price_lakh,
+            "url": _canonical_url(base_url, href),
+            "images": [image] if image else [],
+            "image": image,
+            "source": source,
+            "live_verified": True,
+            "data_consistent": bool(href and price_lakh and model),
+            "condition_signal": _infer_condition({}, source),
+            "seller_city": str(card.get("city") or "").strip() or None,
+            "seller_state": None,
+            "location": str(card.get("city") or "").strip() or None,
+            "location_raw": str(card.get("city") or "").strip() or None,
+            "mfg_year": year,
+            "km": km,
+            "fuel": fuel,
+            "transmission": None,
+            "body_type": None,
+            "provenance": {
+                "source": source,
+                "source_url": base_url,
+                "original_url": _canonical_url(base_url, href),
+                "extraction": "bmw_carlistblk",
+                "raw_listing": title,
+            },
+        }
+        if query and not _identity_matches_query(row, query):
+            continue
+        rows.append(row)
+
+    seen = set()
+    out = []
+    for row in rows:
+        key = (_canonical_url(base_url, row["url"]), row["price_lakh"], row["model"])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(row)
+    return out
+
 def parse_visible_listing_links(html: str, source: str, base_url: str, query: str="") -> list[dict]:
     parser=_LinkParser()
     parser.feed(html)
