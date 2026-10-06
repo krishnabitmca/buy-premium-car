@@ -22,4 +22,9 @@ def test_demo_words_in_source_name_are_not_listing_evidence():
     html = '<a href="/car/1">2023 BMW X5 | Diesel | Bengaluru ₹ 65 Lakh | 12000 km Automatic</a>'
     rows = parse_visible_listing_links(html, "OEM Demo Inventory", "https://example.com", "BMW X5")
     assert rows
-    assert rows[0]["condition_signal"] == "used"
+    assert rows[0]["condition_signal"] == "unknown"
+
+
+def test_unlabelled_listing_is_unknown_not_used_or_demo():
+    row = {"name": "2025 BMW X1 xLine", "description": "4,500 km, automatic, Bengaluru"}
+    assert _infer_condition(row, "BMW Premium Selection Demo") == "unknown"
