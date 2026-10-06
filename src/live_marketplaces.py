@@ -532,7 +532,8 @@ def _infer_condition(obj: dict, source: str = "") -> str:
     """Classify the listing itself; source/OEM identity is never condition evidence."""
     explicit=_first_value(obj,"itemCondition","vehicleCondition","condition_signal","condition")
     text=f"{explicit or ''} {_text_blob(obj)}".lower()
-    if re.search(r"\\b(demonstrator|demo car|demo vehicle|dealer demo|demo)\\b", text):
+    demo_terms=("demonstrator","demo car","demo vehicle","dealer demo")
+    if any(term in text for term in demo_terms) or re.search("(^|[^a-z0-9])demo([^a-z0-9]|$)", text):
         return "demo"
     return "used"
 
