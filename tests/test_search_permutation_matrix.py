@@ -21,10 +21,6 @@ LIVE_REGISTRY = [
      "source_type": "oem_certified", "conditions": ["used", "demo"], "segments": ["luxury", "super_luxury"],
      "brands": ["BMW", "MINI"], "priority": 100,
      "demo_query_url_template": "https://bmw.example/buy-used-cars?models=demo_dealer_cars"},
-    {"name": "BMW Premium Selection", "url": "https://bmw.example/buy-used-cars", "adapter_status": "live",
-     "source_type": "oem_certified", "conditions": ["used", "demo"], "segments": ["luxury", "super_luxury"],
-     "brands": ["BMW", "MINI"], "priority": 100,
-     "demo_query_url_template": "https://bmw.example/buy-used-cars?models=demo_dealer_cars"},
     {"name": "Motozite Demo", "url": "https://motozite.example/demo-cars", "adapter_status": "live",
      "source_type": "luxury_specialist", "conditions": ["demo"],
      "segments": ["premium", "luxury", "super_luxury"],
@@ -67,13 +63,6 @@ class TestSearchPermutationMatrix(unittest.TestCase):
         urls = lm._targeted_source_urls("BMW", "demo", registry=LIVE_REGISTRY)
         self.assertEqual(urls["BMW Premium Selection"], "https://bmw.example/buy-used-cars?models=demo_dealer_cars")
 
-    def test_demo_brand_only_bmw_includes_bmw_premium_selection(self):
-        self.assertEqual(self._selected_sources("BMW", "demo"), ["BMW Premium Selection", "Motozite Demo"])
-
-    def test_bmw_demo_uses_explicit_demo_route(self):
-        urls = lm._targeted_source_urls("BMW", "demo", registry=LIVE_REGISTRY)
-        self.assertEqual(urls["BMW Premium Selection"], "https://bmw.example/buy-used-cars?models=demo_dealer_cars")
-
     def test_both_brand_only_audi_includes_used_and_demo(self):
         self.assertEqual(set(self._selected_sources("Audi", "both")), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used", "Motozite Demo"})
 
@@ -93,7 +82,7 @@ class TestSearchPermutationMatrix(unittest.TestCase):
         )
 
     def test_premium_budget_includes_luxury_retailers(self):
-        self.assertEqual(set(self._selected_sources("BMW", "used", budget_min=30, budget_max=40)), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"})
+        self.assertEqual(set(self._selected_sources("BMW", "used", budget_min=30, budget_max=40)), {"BMW Premium Selection", "CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"})
 
     def test_open_ended_budget_does_not_drop_luxury_sources(self):
         self.assertEqual(set(self._selected_sources("Audi", "used", budget_min=30, budget_max=None)), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"})
