@@ -726,11 +726,22 @@ class _BMWCardParser(HTMLParser):
         self.current = None
         self.tag_stack = []
         self.rows = []
+        self.data_records = []
 
     def handle_starttag(self, tag, attrs):
         attrs_dict = {str(k).lower(): v for k, v in attrs}
         self.depth += 1
         self.tag_stack.append(tag.lower())
+        if attrs_dict.get("data-price") not in (None, ""):
+            self.data_records.append({
+                "title": str(attrs_dict.get("data-title") or ""),
+                "price": str(attrs_dict.get("data-price") or ""),
+                "year": str(attrs_dict.get("data-mfgyear") or ""),
+                "listing_id": str(attrs_dict.get("data-listingid") or ""),
+                "brand": str(attrs_dict.get("data-make") or ""),
+                "model": str(attrs_dict.get("data-model") or ""),
+                "city": str(attrs_dict.get("data-city") or ""),
+            })
         classes = str(attrs_dict.get("class") or "")
         if self.card_depth is None and tag.lower() == "div" and "carlistblk" in classes:
             self.card_depth = self.depth
@@ -784,7 +795,22 @@ def parse_bmw_listing_cards(html: str, source: str, base_url: str, query: str = 
     parser = _BMWCardParser()
     parser.feed(html)
     rows = []
-    for card in parser.rows:
+    cards = parser.rows
+    data_records = parser.data_records
+    for index, card in enumerate(cards):
+        # BMW currently renders pricing/model metadata outside the visual
+        # .carlistblk container. Merge the global data-* record back to the
+        # corresponding card by listing order, with listing-id as the stronger
+        # key when the card itself exposes it.
+        record = None
+        if card.get("listing_id"):
+            record = next((x for x in data_records if x.get("listing_id") == card.get("listing_id")), None)
+        if record is None and index < len(data_records):
+            record = data_records[index]
+        if record:
+            for key in ("title", "price", "year", "listing_id", "brand", "model", "city"):
+                if not card.get(key) and record.get(key):
+                    card[key] = record[key]
         title = " ".join(str(card.get("title") or "").split())
         brand = str(card.get("brand") or "BMW").strip() or "BMW"
         model = str(card.get("model") or "").strip()
