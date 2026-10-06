@@ -810,12 +810,14 @@ class _MotoziteCardParser(HTMLParser):
         self.depth += 1
         if self.card_depth is None and tag.lower() == "article":
             self.card_depth = self.depth
-            self.current = {"href": None, "image": None, "text": []}
+            self.current = {"href": None, "image": None, "alt": None, "text": []}
             return
         if self.card_depth is not None and self.current is not None:
             if tag.lower() == "a" and not self.current["href"] and attrs_dict.get("href"):
                 self.current["href"] = str(attrs_dict["href"])
             if tag.lower() == "img" and not self.current["image"]:
+                if attrs_dict.get("alt"):
+                    self.current["alt"] = str(attrs_dict["alt"])
                 srcset = str(attrs_dict.get("srcset") or "")
                 src = attrs_dict.get("src") or attrs_dict.get("data-src")
                 if srcset:
@@ -868,7 +870,7 @@ def parse_motozite_cards(
         fuel = fuel_match.group(1) if fuel_match else None
 
         # The card's accessible image alt is the strongest model/title signal.
-        title = None
+        title = str(card.get("alt") or "").strip() or None
         for value in card.get("text") or []:
             if len(value) >= 8 and not re.search(
                 r"^(?:Demo|Used|Unregistered|Ex-Showroom Price|Petrol|Diesel|Electric|Hybrid|PHEV)$",
