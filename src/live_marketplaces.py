@@ -995,7 +995,7 @@ def parse_bmw_listing_cards(html: str, source: str, base_url: str, query: str = 
             record = data_records[index]
         if record:
             for key in ("title", "price", "year", "listing_id", "brand", "model", "city", "condition_text"):
-                if not card.get(key) and record.get(key):
+                if (card.get(key) is None or card.get(key) == "") and record.get(key):
                     card[key] = record[key]
         title = " ".join(str(card.get("title") or "").split())
         brand = str(card.get("brand") or "BMW").strip() or "BMW"
