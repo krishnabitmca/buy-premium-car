@@ -28,3 +28,13 @@ def test_demo_words_in_source_name_are_not_listing_evidence():
 def test_unlabelled_listing_is_unknown_not_used_or_demo():
     row = {"name": "2025 BMW X1 xLine", "description": "4,500 km, automatic, Bengaluru"}
     assert _infer_condition(row, "BMW Premium Selection Demo") == "unknown"
+
+
+def test_unregistered_alone_is_not_demonstrator_evidence():
+    row = {"name": "2026 BMW X1 xLine", "description": "Unregistered vehicle, 50 km"}
+    assert _infer_condition(row, "BMW Premium Selection") == "unknown"
+
+
+def test_unregistered_with_explicit_demonstrator_evidence_is_demo():
+    row = {"name": "2026 BMW X1 xLine", "description": "Unregistered dealer demonstrator vehicle, 1,200 km"}
+    assert _infer_condition(row, "BMW Premium Selection") == "demo"
