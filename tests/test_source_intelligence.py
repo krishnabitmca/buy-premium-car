@@ -189,6 +189,32 @@ class TestSourceIntelligence(unittest.TestCase):
         )
         self.assertEqual(live_plan, [])
 
+    def test_major_oem_used_and_demo_coverage_is_explicitly_tracked(self):
+        required_oems = {
+            "Maruti Suzuki", "Hyundai", "Tata", "Mahindra", "Toyota", "Honda",
+            "Kia", "Renault", "Volkswagen", "Skoda", "BMW", "Mercedes-Benz",
+            "Audi", "Volvo", "Lexus", "Jaguar", "Land Rover", "Porsche",
+            "MINI", "MG", "Jeep", "Nissan", "BYD", "Citroen",
+        }
+        tracked = set()
+        for source in self.registry:
+            tracked.update(source.get("brands") or [])
+        self.assertTrue(required_oems.issubset(tracked))
+
+        demo_oems = {"BMW", "Mercedes-Benz", "Audi", "Volvo", "Lexus", "Jaguar",
+                     "Land Rover", "Porsche", "Kia", "Hyundai", "Toyota", "Honda",
+                     "Mahindra", "Maruti Suzuki"}
+        tracked_demo = set()
+        for source in self.registry:
+            if "demo" in (source.get("conditions") or []):
+                tracked_demo.update(source.get("brands") or [])
+        self.assertTrue(demo_oems.issubset(tracked_demo))
+
+    def test_oem_demo_sources_are_not_promoted_without_verified_adapter(self):
+        for source in self.registry:
+            if source.get("source_type") in {"oem_demo_discovery", "oem_discovery"}:
+                self.assertIn(source.get("adapter_status"), {"candidate", "discovery_only"})
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
