@@ -261,6 +261,7 @@ known_sources:
 
 - name: BMW Premium Selection
   url: https://www.bmwusedcars.in/buy-used-cars
+  parser_strategy: bmw_cards
   # BMW exposes dealer/demo inventory through an explicit filter on the same catalog.
   demo_query_url_template: https://www.bmwusedcars.in/buy-used-cars?models=demo_dealer_cars
   brand_demo_query_url_template: https://www.bmwusedcars.in/buy-used-cars?models=demo_dealer_cars
