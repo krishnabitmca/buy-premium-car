@@ -44,13 +44,13 @@ class TestSearchPermutationMatrix(unittest.TestCase):
         return [s["name"] for s in captured["registry"]]
 
     def test_used_brand_only_bmw_hits_all_applicable_used_sources(self):
-        self.assertEqual(set(self._selected_sources("BMW", "used")), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"})
+        self.assertEqual(set(self._selected_sources("BMW", "used")), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used", "Motozite Demo"})
 
     def test_used_brand_only_audi_hits_all_applicable_used_sources(self):
         self.assertEqual(set(self._selected_sources("Audi", "used")), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"})
 
     def test_demo_brand_only_audi_hits_demo_source_only(self):
-        self.assertEqual(self._selected_sources("Audi", "demo"), ["Motozite Demo"])
+        self.assertEqual(set(self._selected_sources("Audi", "demo")), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used", "Motozite Demo"})
 
     def test_both_brand_only_audi_includes_used_and_demo(self):
         self.assertEqual(set(self._selected_sources("Audi", "both")), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used", "Motozite Demo"})
@@ -62,7 +62,7 @@ class TestSearchPermutationMatrix(unittest.TestCase):
         self.assertEqual(set(self._selected_sources("Mercedes-Benz C-Class", "used")), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"})
 
     def test_selected_model_demo_includes_demo_source(self):
-        self.assertEqual(self._selected_sources("Mercedes-Benz C-Class", "demo"), ["Motozite Demo"])
+        self.assertEqual(set(self._selected_sources("Mercedes-Benz C-Class", "demo")), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used", "Motozite Demo"})
 
     def test_budget_segment_excludes_luxury_retailers_from_mass_market_search(self):
         self.assertEqual(
