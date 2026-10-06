@@ -19,7 +19,9 @@ jobs:
           python-version: "3.12"
       - name: Run all-brand all-model live matrix
         run: |
+          set -o pipefail
           python tests/live_catalog_matrix.py | tee live-catalog-matrix.json
+          test -s live-catalog-matrix.json
       - name: Upload matrix report
         uses: actions/upload-artifact@v4
         with:
