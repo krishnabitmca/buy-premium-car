@@ -1533,6 +1533,21 @@ def live_inventory(
     """Search selected live sources concurrently; destination never restricts inventory."""
     brand,model=_query_parts(query)
     registry=_live_source_entries()
+    # A concrete brand/model search expands beyond the cached registry by
+    # discovering and validating relevant inventory sources on the open web.
+    # Registry entries remain the fast path/cache, not the boundary of search.
+    if brand and model:
+        try:
+            from .query_discovery import discover_for_intent, merge_source_universe
+            discovered=discover_for_intent(
+                brand=brand, model=model, condition=condition,
+                known_registry=registry,
+            )
+            registry=merge_source_universe(registry, discovered)
+        except Exception:
+            # Existing verified sources remain available if web discovery itself
+            # is temporarily unavailable.
+            pass
     plan=plan_sources(
         brand=brand,model=model,condition=condition,budget_min=budget_min,
         budget_max=budget_max,destination=destination,registry=registry,live_only=True,
