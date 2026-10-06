@@ -871,7 +871,7 @@ def parse_motozite_cards(
 
         # The card's accessible image alt is the strongest model/title signal.
         title = str(card.get("alt") or "").strip() or None
-        for value in card.get("text") or []:
+        for value in ([] if title else card.get("text") or []):
             if len(value) >= 8 and not re.search(
                 r"^(?:Demo|Used|Unregistered|Ex-Showroom Price|Petrol|Diesel|Electric|Hybrid|PHEV)$",
                 value,
