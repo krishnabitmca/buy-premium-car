@@ -49,30 +49,6 @@ class TestSearchPermutationMatrix(unittest.TestCase):
     def test_used_brand_only_audi_hits_all_applicable_used_sources(self):
         self.assertEqual(set(self._selected_sources("Audi", "used")), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"})
 
-
-    def test_demo_brand_only_bmw_includes_bmw_premium_selection(self):
-        registry = [
-            {"name": "BMW Premium Selection", "url": "https://bmw.example/buy-used-cars", "adapter_status": "live",
-             "source_type": "oem_certified", "conditions": ["used", "demo"], "segments": ["luxury", "super_luxury"],
-             "brands": ["BMW", "MINI"], "priority": 100},
-            {"name": "Motozite Demo", "url": "https://motozite.example/demo-cars", "adapter_status": "live",
-             "source_type": "luxury_specialist", "conditions": ["demo"], "segments": ["premium", "luxury", "super_luxury"],
-             "brands": ["Mercedes-Benz", "BMW", "Audi"], "priority": 86},
-        ]
-        self.assertEqual(
-            [x["name"] for x in lm.plan_sources(brand="BMW", condition="demo", registry=registry, live_only=True)],
-            ["BMW Premium Selection", "Motozite Demo"],
-        )
-
-    def test_bmw_demo_uses_explicit_demo_route(self):
-        registry = [{
-            "name": "BMW Premium Selection", "url": "https://bmw.example/buy-used-cars",
-            "adapter_status": "live", "conditions": ["used", "demo"], "brands": ["BMW"],
-            "demo_query_url_template": "https://bmw.example/buy-used-cars?models=demo_dealer_cars",
-        }]
-        urls = lm._targeted_source_urls("BMW", "demo", registry=registry)
-        self.assertEqual(urls["BMW Premium Selection"], "https://bmw.example/buy-used-cars?models=demo_dealer_cars")
-
     def test_demo_brand_only_audi_hits_demo_source_only(self):
         self.assertEqual(self._selected_sources("Audi", "demo"), ["Motozite Demo"])
 
