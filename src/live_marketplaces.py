@@ -528,10 +528,11 @@ def _text_blob(obj: dict) -> str:
             values.append(str(value))
     return " ".join(values)
 
-def _infer_condition(obj: dict, source: str) -> str:
+def _infer_condition(obj: dict, source: str = "") -> str:
+    """Classify the listing itself; source/OEM identity is never condition evidence."""
     explicit=_first_value(obj,"itemCondition","vehicleCondition","condition_signal","condition")
-    text=f"{explicit or ''} {_text_blob(obj)} {source}".lower()
-    if any(x in text for x in ("demonstrator","demo car","demo vehicle","demo")):
+    text=f"{explicit or ''} {_text_blob(obj)}".lower()
+    if re.search(r"\\b(demonstrator|demo car|demo vehicle|dealer demo|demo)\\b", text):
         return "demo"
     return "used"
 
@@ -1114,7 +1115,7 @@ def parse_visible_listing_links(html: str, source: str, base_url: str, query: st
             "source":source,
             "live_verified":True,
             "data_consistent":bool(href and price_lakh and variant),
-            "condition_signal":"used" if "used" in source.lower() else _infer_condition({},source),
+            "condition_signal":_infer_condition({"name": clean, "description": clean}),
             "seller_city":location,
             "seller_state":None,
             "location":location,
