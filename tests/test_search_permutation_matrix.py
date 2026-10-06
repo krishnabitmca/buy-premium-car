@@ -17,6 +17,10 @@ LIVE_REGISTRY = [
     {"name": "Spinny Luxury Used", "url": "https://spinny.example", "adapter_status": "live",
      "source_type": "used_retailer", "conditions": ["used"], "segments": ["premium", "luxury"],
      "brands": ["BMW", "Mercedes-Benz", "Audi"], "priority": 82},
+    {"name": "BMW Premium Selection", "url": "https://bmw.example/buy-used-cars", "adapter_status": "live",
+     "source_type": "oem_certified", "conditions": ["used", "demo"], "segments": ["luxury", "super_luxury"],
+     "brands": ["BMW", "MINI"], "priority": 100,
+     "demo_query_url_template": "https://bmw.example/buy-used-cars?models=demo_dealer_cars"},
     {"name": "Motozite Demo", "url": "https://motozite.example/demo-cars", "adapter_status": "live",
      "source_type": "luxury_specialist", "conditions": ["demo"],
      "segments": ["premium", "luxury", "super_luxury"],
@@ -51,6 +55,13 @@ class TestSearchPermutationMatrix(unittest.TestCase):
 
     def test_demo_brand_only_audi_hits_demo_source_only(self):
         self.assertEqual(self._selected_sources("Audi", "demo"), ["Motozite Demo"])
+
+    def test_demo_brand_only_bmw_includes_bmw_premium_selection(self):
+        self.assertEqual(self._selected_sources("BMW", "demo"), ["BMW Premium Selection", "Motozite Demo"])
+
+    def test_bmw_demo_uses_explicit_demo_route(self):
+        urls = lm._targeted_source_urls("BMW", "demo", registry=LIVE_REGISTRY)
+        self.assertEqual(urls["BMW Premium Selection"], "https://bmw.example/buy-used-cars?models=demo_dealer_cars")
 
     def test_both_brand_only_audi_includes_used_and_demo(self):
         self.assertEqual(set(self._selected_sources("Audi", "both")), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used", "Motozite Demo"})
