@@ -61,6 +61,11 @@ def main() -> int:
 
     zero=[r for r in results if r["status"]=="ok" and r["matched"]==0]
     errors=[r for r in results if r["status"]=="error"]
+    # A zero match is a hard failure only when the selected live sources
+    # actually reported live inventory. Empty inventory is valid for a model
+    # with no current listings; live inventory that fails identity matching is
+    # the correctness defect this matrix is intended to catch.
+    actionable_zero=[r for r in zero if r["live_sources"] > 0]
     report={
         "generated_at":time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime()),
         "brands":len(brands),
@@ -68,9 +73,11 @@ def main() -> int:
         "models":len(pairs),
         "probes":len(results),
         "zero_match_models":len(zero),
+        "actionable_zero_match_models":len(actionable_zero),
         "probe_errors":len(errors),
         "elapsed_seconds":round(time.time()-started,1),
         "zero_matches":zero[:200],
+        "actionable_zero_matches":actionable_zero[:200],
         "errors":errors[:200],
         "brand_model_counts":{brand:len(models) for brand,models in catalog},
     }
@@ -78,7 +85,7 @@ def main() -> int:
     # A source outage is not itself a model defect. Fail only on catalog errors
     # or probe errors; zero matches are reported for investigation because some
     # models legitimately have no current used inventory.
-    return 1 if catalog_errors or errors else 0
+    return 1 if catalog_errors or errors or actionable_zero else 0
 
 
 if __name__=="__main__":
