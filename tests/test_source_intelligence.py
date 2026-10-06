@@ -34,7 +34,7 @@ class TestSourceIntelligence(unittest.TestCase):
         self.assertIn("BMW Premium Selection", names)
         self.assertIn("Motozite Demo", names)
         self.assertIn("CarDekho Used", names)
-        self.assertNotIn("Spinny Luxury Used", names)
+        self.assertIn("Spinny Luxury Used", names)
         bmw = next(x for x in self.registry if x["name"] == "BMW Premium Selection")
         self.assertEqual(
             bmw.get("demo_query_url_template"),
