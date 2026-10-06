@@ -170,3 +170,40 @@ def test_builtin_adapter_falls_back_to_visible_cards_for_unscoped_search(monkeyp
     assert result.status == "live"
     assert len(result.listings) == 1
     assert result.listings[0]["model"] == "Swift"
+
+
+def test_demo_route_with_bmw_filter_marks_listings_as_demo(monkeypatch):
+    source = {
+        "name": "BMW Premium Selection",
+        "adapter_status": "live",
+        "url": "https://www.bmwusedcars.in/buy-used-cars",
+    }
+    adapter = BuiltinMarketplaceAdapter(source)
+
+    monkeypatch.setattr("src.source_adapters.adapter_execution_allowed", lambda name: True)
+    demo_url = "https://www.bmwusedcars.in/buy-used-cars?models=demo_dealer_cars"
+    monkeypatch.setattr(
+        "src.source_adapters.live_marketplaces._targeted_source_urls",
+        lambda query, condition="both", registry=None: {"BMW Premium Selection": demo_url},
+    )
+    monkeypatch.setattr("src.source_adapters.fetch_text", lambda url: "<html>demo inventory</html>")
+    monkeypatch.setattr(
+        "src.source_adapters.parse_live_listings",
+        lambda *args: [{
+            "brand": "BMW",
+            "model": "X5",
+            "price_lakh": 65,
+            "url": "https://www.bmwusedcars.in/car/x5-1",
+            "source": "BMW Premium Selection",
+            "condition_signal": "used",
+            "live_verified": True,
+            "data_consistent": True,
+        }],
+    )
+    monkeypatch.setattr("src.source_adapters.parse_visible_listing_links", lambda *args: [])
+
+    result = adapter.fetch(AdapterRequest(query="BMW X5", condition="demo"))
+
+    assert result.status == "live"
+    assert result.listings
+    assert result.listings[0]["condition_signal"] == "demo"
