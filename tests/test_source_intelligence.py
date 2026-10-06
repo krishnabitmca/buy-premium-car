@@ -33,7 +33,7 @@ class TestSourceIntelligence(unittest.TestCase):
         names = [p["name"] for p in plan]
         self.assertIn("BMW Premium Selection", names)
         self.assertIn("Motozite Demo", names)
-        self.assertNotIn("CarDekho Used", names)
+        self.assertIn("CarDekho Used", names)
         self.assertNotIn("Spinny Luxury Used", names)
         bmw = next(x for x in self.registry if x["name"] == "BMW Premium Selection")
         self.assertEqual(
