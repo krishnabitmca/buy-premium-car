@@ -144,10 +144,11 @@ def _model_matches(source: dict[str, Any], brand: str | None, model: str | None,
             continue
         cap_brand = str(cap.get("brand") or "").strip().lower()
         cap_model = str(cap.get("model") or "").strip().lower()
-        cap_condition = normalize_condition(cap.get("condition"))
+        # Capability proves the source can expose this brand/model. The
+        # listing's condition is classified after extraction, so capability
+        # condition must not suppress a potentially valid source.
         if (cap_brand in {"*", wanted_brand}
-                and cap_model in {"*", wanted_model}
-                and cap_condition in {"both", wanted_condition}):
+                and cap_model in {"*", wanted_model}):
             return True
     return False
 
