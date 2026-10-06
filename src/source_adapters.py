@@ -117,7 +117,12 @@ class BuiltinMarketplaceAdapter:
                 if request.query and not live_marketplaces._identity_matches_query(row, request.query):
                     continue
                 actual = normalize_condition(row.get("condition_signal"))
-                if wanted_condition in {"used", "demo"} and actual != wanted_condition:
+                # Demonstrator searches are fail-closed: only explicit per-listing
+                # demonstrator evidence may enter the response. Used searches may
+                # retain unknown rows from ordinary used inventory pages.
+                if wanted_condition == "demo" and actual != "demo":
+                    continue
+                if wanted_condition == "used" and actual == "demo":
                     continue
                 if request.budget_min is not None and (
                     row.get("price_lakh") is None
