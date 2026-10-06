@@ -35,6 +35,11 @@ class TestSourceIntelligence(unittest.TestCase):
         self.assertIn("Motozite Demo", names)
         self.assertNotIn("CarDekho Used", names)
         self.assertNotIn("Spinny Luxury Used", names)
+        bmw = next(x for x in self.registry if x["name"] == "BMW Premium Selection")
+        self.assertEqual(
+            bmw.get("demo_query_url_template"),
+            "https://www.bmwusedcars.in/buy-used-cars?models=demo_dealer_cars",
+        )
 
     def test_destination_does_not_filter_inventory_universe(self):
         india = plan_sources(brand="Toyota", model="Fortuner", condition="used",
