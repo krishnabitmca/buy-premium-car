@@ -819,7 +819,7 @@ class _MotoziteCardParser(HTMLParser):
                 srcset = str(attrs_dict.get("srcset") or "")
                 src = attrs_dict.get("src") or attrs_dict.get("data-src")
                 if srcset:
-                    candidates = re.findall(r"(?:^|,)\\s*([^\\s,]+)", srcset)
+                    candidates = re.findall(r"(?:^|,)\s*([^\s,]+)", srcset)
                     src = candidates[-1] if candidates else src
                 if src and not str(src).startswith("data:"):
                     self.current["image"] = str(src)
@@ -848,22 +848,22 @@ def parse_motozite_cards(
 
     for card in parser.rows:
         text = " ".join(card.get("text") or [])
-        if not re.search(r"\\b(?:demo|pre-owned|used)\\b", text, re.I):
+        if not re.search(r"\b(?:demo|pre-owned|used)\b", text, re.I):
             continue
         price_match = re.search(
-            r"(?:₹|Rs\\.?)[ ]*([\\d,.]+)[ ]*(L|Lakh|Lakhs|Cr|Crore|Crores)\\b",
+            r"(?:₹|Rs\\.?)[ ]*([\d,.]+)[ ]*(L|Lakh|Lakhs|Cr|Crore|Crores)\b",
             text,
             re.I,
         )
-        km_match = re.search(r"([\\d,]+(?:\\.\\d+)?)\\s*kms?\\b", text, re.I)
-        year_match = re.search(r"\\b(19\\d{2}|20\\d{2})\\b", text)
+        km_match = re.search(r"([\d,]+(?:\\.\d+)?)\s*kms?\b", text, re.I)
+        year_match = re.search(r"\b(19\d{2}|20\d{2})\b", text)
         if not price_match or not year_match:
             continue
         amount = float(price_match.group(1).replace(",", ""))
         unit = price_match.group(2).lower()
         price_lakh = amount * 100 if unit in {"cr", "crore", "crores"} else amount
         fuel_match = re.search(
-            r"\\b(Petrol|Diesel|Electric|Hybrid|PHEV|CNG|LPG)\\b", text, re.I
+            r"\b(Petrol|Diesel|Electric|Hybrid|PHEV|CNG|LPG)\b", text, re.I
         )
         fuel = fuel_match.group(1) if fuel_match else None
 
@@ -874,8 +874,8 @@ def parse_motozite_cards(
                 r"^(?:Demo|Used|Unregistered|Ex-Showroom Price|Petrol|Diesel|Electric|Hybrid|PHEV)$",
                 value,
                 re.I,
-            ) and not re.fullmatch(r"[\\d,.]+\\s*kms?", value, re.I):
-                if "₹" not in value and not re.search(r"^\\d{2}/\\d{4}$", value):
+            ) and not re.fullmatch(r"[\d,.]+\s*kms?", value, re.I):
+                if "₹" not in value and not re.search(r"^\d{2}/\d{4}$", value):
                     title = value
                     break
         if not title:
@@ -901,7 +901,7 @@ def parse_motozite_cards(
             "source": source,
             "live_verified": True,
             "data_consistent": bool(title and price_lakh),
-            "condition_signal": "demo" if re.search(r"\\bdemo\\b", text, re.I) else "used",
+            "condition_signal": "demo" if re.search(r"\bdemo\b", text, re.I) else "used",
             "seller_city": None,
             "seller_state": None,
             "location": None,
