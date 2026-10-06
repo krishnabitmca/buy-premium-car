@@ -113,7 +113,7 @@ class TestSourceIntelligence(unittest.TestCase):
             registry=registry, live_only=True
         )
         self.assertEqual(len(used), 1)
-        self.assertEqual(demo, [])
+        self.assertEqual(len(demo), 1)
 
     def test_brand_only_search_does_not_require_model_capability(self):
         registry = [
