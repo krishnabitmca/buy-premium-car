@@ -31,6 +31,12 @@ def main() -> int:
             catalog_errors.append({"brand":b["name"],"error":str(exc)[:200]})
 
     pairs=[(brand,m["name"]) for brand,models in catalog for m in models]
+    if not brands:
+        print(json.dumps({"status":"error","error":"live brand catalog is empty"}, indent=2))
+        return 2
+    if not pairs:
+        print(json.dumps({"status":"error","error":"live model catalog is empty"}, indent=2))
+        return 2
     results=[]
     def probe(pair):
         brand,model=pair
