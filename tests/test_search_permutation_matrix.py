@@ -52,7 +52,7 @@ class TestSearchPermutationMatrix(unittest.TestCase):
         return [s["name"] for s in captured["registry"]]
 
     def test_used_brand_only_bmw_hits_all_applicable_used_sources(self):
-        self.assertEqual(set(self._selected_sources("BMW", "used")), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"})
+        self.assertEqual(set(self._selected_sources("BMW", "used")), {"BMW Premium Selection", "CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"})
 
     def test_used_brand_only_audi_hits_all_applicable_used_sources(self):
         self.assertEqual(set(self._selected_sources("Audi", "used")), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"})
