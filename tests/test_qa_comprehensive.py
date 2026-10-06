@@ -301,7 +301,8 @@ class TestPureFunctions(unittest.TestCase):
         self.assertEqual(len(vehicles), 3)
         self.assertEqual({v["brand"] for v in vehicles}, {"BMW"})
         self.assertEqual({v["model"] for v in vehicles}, {"X1", "X3", "X5"})
-        self.assertTrue(all(v["condition_signal"] in {"used", "unknown"} for v in vehicles))\n        self.assertTrue(all(v["condition_signal"] != "demo" for v in vehicles))
+        self.assertTrue(all(v["condition_signal"] in {"used", "unknown"} for v in vehicles))
+        self.assertTrue(all(v["condition_signal"] != "demo" for v in vehicles))
     def test_visible_marketplace_listing_parser(self):
         html='''<a href="/used/mumbai/mercedes-benz-c-class/abc">
         2024 Mercedes-Benz C-Class C 200 Mild Hybrid 25,000 km | Petrol | Andheri West, Mumbai Rs. 46.75 Lakh
