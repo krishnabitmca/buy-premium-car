@@ -218,27 +218,26 @@ def test_bmw_card_parser_supports_brand_only_demo_inventory(monkeypatch):
     }
     adapter = BuiltinMarketplaceAdapter(source)
     demo_url = "https://www.bmwusedcars.in/buy-used-cars?models=demo_dealer_cars"
+    # This mirrors BMW's actual HTML contract: the visual .carlistblk contains
+    # the listing link/image, while data-price/model/year metadata is rendered
+    # separately outside that container.
     html = """
     <div id="car_item_101" class="blk_grid_new carlistblk">
       <a href="/buy-used-cars/delhi/bmw/x1/101.html">
         <img data-src="https://cdn.example/x1.jpg" />
-        <h2>BMW X1 sDrive20i xLine</h2>
       </a>
-      <a class="emicta" data-title="BMW X1 sDrive20i xLine"
-         data-price="4200000" data-mfgyear="2025" data-listingid="101"
-         data-make="BMW" data-model="X1" data-city="Delhi"></a>
-      <span>10,152 km</span><span>Petrol</span>
     </div>
     <div id="car_item_102" class="blk_grid_new carlistblk">
       <a href="/buy-used-cars/gurgaon/bmw/x5/102.html">
         <img src="https://cdn.example/x5.jpg" />
-        <h2>BMW X5 xDrive40i</h2>
       </a>
-      <a class="emicta" data-title="BMW X5 xDrive40i"
-         data-price="7590000" data-mfgyear="2024" data-listingid="102"
-         data-make="BMW" data-model="X5" data-city="Gurgaon"></a>
-      <span>17,141 km</span><span>Petrol</span>
     </div>
+    <a class="emicta" data-title="BMW X1 sDrive20i xLine"
+       data-price="4200000" data-mfgyear="2025" data-listingid="101"
+       data-make="BMW" data-model="X1" data-city="Delhi">10,152 km Petrol</a>
+    <a class="emicta" data-title="BMW X5 xDrive40i"
+       data-price="7590000" data-mfgyear="2024" data-listingid="102"
+       data-make="BMW" data-model="X5" data-city="Gurgaon">17,141 km Petrol</a>
     """
     monkeypatch.setattr("src.source_adapters.adapter_execution_allowed", lambda name: True)
     monkeypatch.setattr(
