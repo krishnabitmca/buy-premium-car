@@ -1536,7 +1536,8 @@ def live_inventory(
     # A concrete brand/model search expands beyond the cached registry by
     # discovering and validating relevant inventory sources on the open web.
     # Registry entries remain the fast path/cache, not the boundary of search.
-    if brand and model:
+    query_discovery_enabled = os.getenv("CARSCANNER_QUERY_DISCOVERY", "true").lower() not in {"0", "false", "no"}
+    if brand and model and query_discovery_enabled:
         try:
             from .query_discovery import discover_for_intent, merge_source_universe
             discovered=discover_for_intent(
