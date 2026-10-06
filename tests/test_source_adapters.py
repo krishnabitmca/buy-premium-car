@@ -209,6 +209,55 @@ def test_demo_route_with_bmw_filter_marks_listings_as_demo(monkeypatch):
     assert result.listings[0]["condition_signal"] == "demo"
 
 
+def test_bmw_card_parser_supports_brand_only_demo_inventory(monkeypatch):
+    source = {
+        "name": "BMW Premium Selection",
+        "adapter_status": "live",
+        "url": "https://www.bmwusedcars.in/buy-used-cars",
+        "parser_strategy": "bmw_cards",
+    }
+    adapter = BuiltinMarketplaceAdapter(source)
+    demo_url = "https://www.bmwusedcars.in/buy-used-cars?models=demo_dealer_cars"
+    html = """
+    <div id="car_item_101" class="blk_grid_new carlistblk">
+      <a href="/buy-used-cars/delhi/bmw/x1/101.html">
+        <img data-src="https://cdn.example/x1.jpg" />
+        <h2>BMW X1 sDrive20i xLine</h2>
+      </a>
+      <a class="emicta" data-title="BMW X1 sDrive20i xLine"
+         data-price="4200000" data-mfgyear="2025" data-listingid="101"
+         data-make="BMW" data-model="X1" data-city="Delhi"></a>
+      <span>10,152 km</span><span>Petrol</span>
+    </div>
+    <div id="car_item_102" class="blk_grid_new carlistblk">
+      <a href="/buy-used-cars/gurgaon/bmw/x5/102.html">
+        <img src="https://cdn.example/x5.jpg" />
+        <h2>BMW X5 xDrive40i</h2>
+      </a>
+      <a class="emicta" data-title="BMW X5 xDrive40i"
+         data-price="7590000" data-mfgyear="2024" data-listingid="102"
+         data-make="BMW" data-model="X5" data-city="Gurgaon"></a>
+      <span>17,141 km</span><span>Petrol</span>
+    </div>
+    """
+    monkeypatch.setattr("src.source_adapters.adapter_execution_allowed", lambda name: True)
+    monkeypatch.setattr(
+        "src.source_adapters.live_marketplaces._targeted_source_urls",
+        lambda query, condition="both", registry=None: {"BMW Premium Selection": demo_url},
+    )
+    monkeypatch.setattr("src.source_adapters.fetch_text", lambda url: html)
+
+    result = adapter.fetch(AdapterRequest(query="BMW", condition="demo"))
+
+    assert result.status == "live"
+    assert len(result.listings) == 2
+    assert {row["model"] for row in result.listings} == {"X1", "X5"}
+    assert {row["condition_signal"] for row in result.listings} == {"demo"}
+    assert {row["price_lakh"] for row in result.listings} == {42.0, 75.9}
+    assert {row["location"] for row in result.listings} == {"Delhi", "Gurgaon"}
+    assert all(row["image"] for row in result.listings)
+
+
 def test_demo_route_condition_matrix_for_bmw_mercedes_and_audi(monkeypatch):
     cases = [
         ("BMW Premium Selection", "https://www.bmwusedcars.in/buy-used-cars?models=demo_dealer_cars", "BMW X5"),
