@@ -1171,9 +1171,11 @@ class _BMWCardParser(HTMLParser):
         classes = str(attrs_dict.get("class") or "")
         if self.card_depth is None and tag.lower() == "div" and "carlistblk" in classes:
             self.card_depth = self.depth
+            card_id = str(attrs_dict.get("id") or "")
+            listing_id = card_id[len("car_item_"):] if card_id.startswith("car_item_") else None
             self.current = {
                 "href": None, "image": None, "title": None,
-                "price": None, "year": None, "listing_id": None,
+                "price": None, "year": None, "listing_id": listing_id,
                 "brand": None, "model": None, "city": None, "condition_text": None,
                 "text": [],
             }
@@ -1239,7 +1241,7 @@ def parse_bmw_listing_cards(html: str, source: str, base_url: str, query: str = 
         if record is None and index < len(data_records):
             record = data_records[index]
         if record:
-            for key in ("title", "price", "year", "listing_id", "brand", "model", "city"):
+            for key in ("title", "price", "year", "listing_id", "brand", "model", "city", "condition_text"):
                 if not card.get(key) and record.get(key):
                     card[key] = record[key]
         title = " ".join(str(card.get("title") or "").split())
@@ -1285,7 +1287,7 @@ def parse_bmw_listing_cards(html: str, source: str, base_url: str, query: str = 
             "source": source,
             "live_verified": True,
             "data_consistent": bool(href and price_lakh and model),
-            "condition_signal": _infer_condition({}, source),
+            "condition_signal": _infer_condition({"name": title, "description": f"{card.get('condition_text') or ''} {text}"}),
             "seller_city": str(card.get("city") or "").strip() or None,
             "seller_state": None,
             "location": str(card.get("city") or "").strip() or None,
