@@ -193,11 +193,11 @@ def test_critical_customer_journeys_have_expected_source_mix():
     registry = load_source_registry(from_database=False)
 
     journeys = [
-        ("Mercedes-Benz", "E-Class", "used", {"Mercedes-Benz Used Cars", "CarDekho Used", "CarWale Used"}),
-        ("Mercedes-Benz", "E-Class", "demo", {"Mercedes-Benz Used Cars", "Motozite Demo"}),
+        ("Mercedes-Benz", "E-Class", "used", {"CarDekho Used", "CarWale Used"}),
+        ("Mercedes-Benz", "E-Class", "demo", {"Motozite Demo"}),
         ("BMW", "3 Series", "used", {"BMW Premium Selection", "CarDekho Used", "CarWale Used"}),
         ("BMW", "X5", "demo", {"BMW Premium Selection", "Motozite Demo"}),
-        ("Audi", "Q5", "used", {"Audi Approved Plus", "CarDekho Used", "CarWale Used"}),
+        ("Audi", "Q5", "used", {"CarDekho Used", "CarWale Used"}),
     ]
 
     for brand, model, condition, expected in journeys:

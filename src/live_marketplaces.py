@@ -712,6 +712,121 @@ def _listing_identity_from_text(text: str, href: str) -> tuple[str|None,str|None
     return brand, " ".join(remainder[:5]) if remainder else None
 
 
+
+def _embedded_json_scripts(html: str) -> list[Any]:
+    """Extract JSON application state embedded by React/Next.js marketplaces."""
+    values: list[Any] = []
+    pattern = r'<script[^>]*(?:type=["\']application/json["\']|id=["\']__NEXT_DATA__["\'])[^>]*>(.*?)</script>'
+    for match in re.finditer(pattern, html, re.I | re.S):
+        raw = match.group(1).strip()
+        if not raw:
+            continue
+        try:
+            values.append(json.loads(raw))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+    return values
+
+
+def _embedded_value(obj: dict[str, Any], *keys: str) -> Any:
+    wanted={k.lower() for k in keys}
+    for key,value in obj.items():
+        if str(key).lower() in wanted and value not in (None,"",[],{}):
+            return value
+    return None
+
+
+def parse_embedded_marketplace_listings(
+    html: str, source: str, base_url: str, query: str = ""
+) -> list[dict]:
+    """Parse serialized listing state without depending on unstable CSS classes.
+
+    This adapter is deliberately conservative: a candidate must have a listing
+    URL, a vehicle identity, and a numeric price. It is used only for sources
+    explicitly configured with the embedded_json strategy.
+    """
+    rows=[]
+    for root in _embedded_json_scripts(html):
+        for obj in _walk(root):
+            if not isinstance(obj,dict):
+                continue
+            raw_url=_embedded_value(obj,"url","listingUrl","listing_url","detailUrl","detail_url")
+            raw_name=_embedded_value(obj,"name","title","displayName","display_name","carName","car_name")
+            raw_brand=_embedded_value(obj,"brand","make","makeName","make_name")
+            raw_model=_embedded_value(obj,"model","modelName","model_name")
+            raw_price=_embedded_value(obj,"price","sellingPrice","selling_price","amount","displayPrice","display_price")
+            raw_year=_embedded_value(obj,"year","mfgYear","mfg_year","registrationYear","registration_year")
+            raw_km=_embedded_value(obj,"km","kms","kilometers","kilometres","odometer")
+            raw_image=_embedded_value(obj,"image","imageUrl","image_url","thumbnail","thumbnailUrl","thumbnail_url")
+            if not raw_url or raw_price in (None,"",[],{}):
+                continue
+            url=_absolute(base_url,str(raw_url))
+            if not urllib.parse.urlsplit(url).netloc:
+                continue
+            name=" ".join(str(raw_name or "").split())
+            brand,model=_infer_brand_model(name,raw_brand,raw_model)
+            if not brand or not model:
+                continue
+            # Avoid treating arbitrary JSON objects as inventory.
+            if not re.search(r"\b(?:19\d{2}|20\d{2})\b", name) and not raw_year:
+                continue
+            price=_number(raw_price)
+            if price is None:
+                continue
+            price_lakh=price/100000 if price > 100000 else price
+            images=[]
+            if raw_image:
+                image=_absolute(base_url,str(raw_image))
+                if not image.startswith("data:"):
+                    images=[image]
+            year=None
+            ym=re.search(r"\b(19\d{2}|20\d{2})\b",str(raw_year or name))
+            if ym:
+                year=int(ym.group(1))
+            km=_number(raw_km)
+            text=" ".join(str(v) for v in (name, obj.get("variant"), obj.get("fuel"), obj.get("fuelType"), obj.get("transmission")))
+            location=_embedded_value(obj,"city","location","locationName","hub","hubName")
+            row={
+                "brand":_canonical_brand(str(brand)),
+                "model":str(model).strip(),
+                "listing_name":name or f"{brand} {model}",
+                "variant":str(_embedded_value(obj,"variant","variantName","version") or model).strip(),
+                "price_lakh":price_lakh,
+                "url":_canonical_url(base_url,url),
+                "images":images,
+                "image":images[0] if images else None,
+                "source":source,
+                "live_verified":True,
+                "data_consistent":True,
+                "condition_signal":_infer_condition(obj,source),
+                "seller_city":str(location).strip() if location else None,
+                "seller_state":None,
+                "location":str(location).strip() if location else None,
+                "location_raw":str(location).strip() if location else None,
+                "mfg_year":year,
+                "km":km,
+                "fuel":_embedded_value(obj,"fuel","fuelType","fuel_type"),
+                "transmission":_embedded_value(obj,"transmission","gearbox"),
+                "body_type":_embedded_value(obj,"bodyType","body_type"),
+                "provenance":{
+                    "source":source,
+                    "source_url":base_url,
+                    "original_url":_canonical_url(base_url,url),
+                    "extraction":"embedded_json",
+                    "raw_listing":name,
+                },
+            }
+            if query and not _identity_matches_query(row,query):
+                continue
+            rows.append(row)
+    seen=set(); out=[]
+    for row in rows:
+        key=(row["url"],row["price_lakh"],row["model"],row["condition_signal"])
+        if key in seen:
+            continue
+        seen.add(key); out.append(row)
+    return out
+
 class _BMWCardParser(HTMLParser):
     """Parse BMW Premium Selection's server-rendered car cards.
 
