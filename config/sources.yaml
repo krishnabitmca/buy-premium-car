@@ -58,6 +58,7 @@ known_sources:
 
 - name: Spinny Luxury Used
   url: https://www.spinny.com/used-luxury-cars/s/
+  parser_strategy: spinny_embedded
   tier: 1
   source_type: used_retailer
   adapter_status: live
@@ -246,6 +247,7 @@ known_sources:
 
 - name: Mercedes-Benz Used Cars
   url: https://www.mercedes-benzusedcar.in/buy-used-cars
+  parser_strategy: embedded_json
   demo_query_url_template: https://www.mercedes-benzusedcar.in/buy-used-cars?ctype=demonstrator
   brand_demo_query_url_template: https://www.mercedes-benzusedcar.in/buy-used-cars?ctype=demonstrator
   tier: 1
@@ -280,7 +282,7 @@ known_sources:
   url: https://www.audi.in/en/used-cars/
   tier: 1
   source_type: oem_certified
-  adapter_status: live
+  adapter_status: candidate
   geography: india
   conditions: [used]
   segments: [luxury, super_luxury]
@@ -293,7 +295,7 @@ known_sources:
   url: https://www.volvocars.com/in/l/used-cars/
   tier: 1
   source_type: oem_certified
-  adapter_status: live
+  adapter_status: candidate
   geography: india
   conditions: [used]
   segments: [premium, luxury]
@@ -358,7 +360,7 @@ known_sources:
   url: https://www.mahindrafirstchoice.com/used/
   tier: 1
   source_type: used_retailer
-  adapter_status: live
+  adapter_status: candidate
   geography: india
   conditions: [used]
   segments: [mass_market, premium]
@@ -384,7 +386,7 @@ known_sources:
   url: https://www.cartrade.com/second-hand/
   tier: 1
   source_type: marketplace
-  adapter_status: live
+  adapter_status: candidate
   geography: india
   conditions: [used]
   segments: [mass_market, premium, luxury]
