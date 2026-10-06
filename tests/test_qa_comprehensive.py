@@ -242,7 +242,7 @@ class TestPureFunctions(unittest.TestCase):
     def test_demo_adapter_keeps_oem_and_motozite_demo_inventory(self):
         from src.source_adapters import AdapterRequest, BuiltinMarketplaceAdapter
         moto={"name":"Motozite Demo","adapter_status":"live","url":"https://motozite.com/demo-cars"}
-        html=jsonld("Mercedes-Benz E-Class LWB E200",brand="Mercedes-Benz",model="E-Class LWB E200",price="7500000",url="/demo/mercedes-benz/e-class/1")
+        html='''<script type="application/ld+json">{"@type":"Product","name":"Mercedes-Benz E-Class LWB E200","brand":{"name":"Mercedes-Benz"},"model":"E-Class LWB E200","itemCondition":"Demonstrator","offers":{"price":"7500000","url":"/demo/mercedes-benz/e-class/1"}}</script>'''
         with patch.object(lm,"fetch_text",return_value=html):
             result=BuiltinMarketplaceAdapter(moto).fetch(AdapterRequest(query="Mercedes-Benz E-Class",condition="demo"))
         self.assertEqual(result.status,"live")
