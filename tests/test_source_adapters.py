@@ -207,3 +207,38 @@ def test_demo_route_with_bmw_filter_marks_listings_as_demo(monkeypatch):
     assert result.status == "live"
     assert result.listings
     assert result.listings[0]["condition_signal"] == "demo"
+
+
+def test_demo_route_condition_matrix_for_bmw_mercedes_and_audi(monkeypatch):
+    cases = [
+        ("BMW Premium Selection", "https://www.bmwusedcars.in/buy-used-cars?models=demo_dealer_cars", "BMW X5"),
+        ("Mercedes-Benz Used Cars", "https://www.mercedes-benzusedcar.in/buy-used-cars?ctype=demonstrator", "Mercedes-Benz C-Class"),
+        ("Motozite Demo", "https://motozite.example/demo-cars", "Audi Q5"),
+    ]
+    for source_name, demo_url, query in cases:
+        source = {"name": source_name, "adapter_status": "live", "url": demo_url}
+        adapter = BuiltinMarketplaceAdapter(source)
+        monkeypatch.setattr("src.source_adapters.adapter_execution_allowed", lambda name: True)
+        monkeypatch.setattr(
+            "src.source_adapters.live_marketplaces._targeted_source_urls",
+            lambda q, condition="both", registry=None, url=demo_url, name=source_name: {name: url},
+        )
+        monkeypatch.setattr("src.source_adapters.fetch_text", lambda url: "<html>demo inventory</html>")
+        monkeypatch.setattr(
+            "src.source_adapters.parse_live_listings",
+            lambda *args, source_name=source_name, query=query: [{
+                "brand": query.split()[0],
+                "model": query.split()[1] if len(query.split()) > 1 else "",
+                "price_lakh": 60,
+                "url": "https://example.test/car/1",
+                "source": source_name,
+                "condition_signal": "used",
+                "live_verified": True,
+                "data_consistent": True,
+            }],
+        )
+        monkeypatch.setattr("src.source_adapters.parse_visible_listing_links", lambda *args: [])
+        result = adapter.fetch(AdapterRequest(query=query, condition="demo"))
+        assert result.status == "live"
+        assert result.listings
+        assert result.listings[0]["condition_signal"] == "demo"
