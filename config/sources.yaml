@@ -469,18 +469,65 @@ known_sources:
   query_strategy: dealer_demo_discovery
   vehicle_link_pattern: /(?:demo|demonstrator|test-drive)[^?#]*
 
-- name: Tata Assured
-  url: https://www.tatamotors.com/
+- name: MG Motor Used / Demo Discovery
+  url: https://www.mgmotor.co.in/
   tier: 2
-  source_type: oem_certified
+  source_type: oem_discovery
   adapter_status: discovery_only
   geography: india
-  conditions: [used]
+  conditions: [used, demo]
   segments: [mass_market, premium]
-  brands: [Tata]
-  priority: 92
-  query_strategy: oem_brand_model
-  vehicle_link_pattern: /(?:used|assured|pre-owned)[^?#]*
+  brands: [MG]
+  priority: 60
+  query_strategy: dealer_used_demo_discovery
+
+- name: Jeep Used / Demo Discovery
+  url: https://www.jeep-india.com/
+  tier: 2
+  source_type: oem_discovery
+  adapter_status: discovery_only
+  geography: india
+  conditions: [used, demo]
+  segments: [premium]
+  brands: [Jeep]
+  priority: 60
+  query_strategy: dealer_used_demo_discovery
+
+- name: Nissan Used / Demo Discovery
+  url: https://www.nissan.in/
+  tier: 2
+  source_type: oem_discovery
+  adapter_status: discovery_only
+  geography: india
+  conditions: [used, demo]
+  segments: [mass_market]
+  brands: [Nissan]
+  priority: 60
+  query_strategy: dealer_used_demo_discovery
+
+- name: BYD Used / Demo Discovery
+  url: https://www.byd.com/in
+  tier: 2
+  source_type: oem_discovery
+  adapter_status: discovery_only
+  geography: india
+  conditions: [used, demo]
+  segments: [premium, luxury]
+  brands: [BYD]
+  priority: 60
+  query_strategy: dealer_used_demo_discovery
+
+- name: Citroen Used / Demo Discovery
+  url: https://www.citroen.in/
+  tier: 2
+  source_type: oem_discovery
+  adapter_status: discovery_only
+  geography: india
+  conditions: [used, demo]
+  segments: [mass_market, premium]
+  brands: [Citroen]
+  priority: 60
+  query_strategy: dealer_used_demo_discovery
 
 - name: Motozite
   url: https://motozite.com/pre-owned-cars
