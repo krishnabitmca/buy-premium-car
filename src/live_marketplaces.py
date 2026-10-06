@@ -639,9 +639,6 @@ def _targeted_source_urls(query: str, condition: str = "both", registry: list[di
         name = str(source.get("name") or "").strip()
         if not name or source.get("adapter_status") != "live":
             continue
-        conditions = {normalize_condition(x) for x in (source.get("conditions") or [])}
-        if wanted_condition in {"used", "demo"} and conditions and wanted_condition not in conditions:
-            continue
         brands = {str(x).strip().lower() for x in (source.get("brands") or [])}
         if brands and "all" not in brands and brand_name.lower() not in brands:
             continue
