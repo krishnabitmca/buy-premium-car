@@ -112,20 +112,11 @@ class BuiltinMarketplaceAdapter:
                 )
 
             wanted_condition = normalize_condition(request.condition)
-            demo_route = wanted_condition == "demo" and (
-                "ctype=demonstrator" in url.lower()
-                or "models=demo_dealer_cars" in url.lower()
-                or "/demo/" in url.lower()
-                or "/demo-cars" in url.lower()
-            )
             filtered: list[dict[str, Any]] = []
             for row in parsed:
                 if request.query and not live_marketplaces._identity_matches_query(row, request.query):
                     continue
                 actual = normalize_condition(row.get("condition_signal"))
-                if demo_route:
-                    row["condition_signal"] = "demo"
-                    actual = "demo"
                 if wanted_condition in {"used", "demo"} and actual != wanted_condition:
                     continue
                 if request.budget_min is not None and (
