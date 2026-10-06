@@ -1177,7 +1177,7 @@ class _BMWCardParser(HTMLParser):
             self.current = {
                 "href": None, "image": None, "title": None,
                 "price": None, "year": None, "listing_id": None,
-                "brand": None, "model": None, "city": None,
+                "brand": None, "model": None, "city": None, "condition_text": None,
                 "text": [],
             }
             return
