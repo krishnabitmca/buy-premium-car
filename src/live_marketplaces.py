@@ -887,7 +887,7 @@ def parse_motozite_cards(
     wanted_condition = normalize_condition(condition)
 
     for card in parser.rows:
-        text = " ".join(card.get("text") or [])
+        text = " ".join(card.get("text") or []) + " " + str(card.get("condition_text") or "")
         if not re.search(r"\b(?:demo|pre-owned|used)\b", text, re.I):
             continue
         price_match = re.search(
@@ -991,7 +991,7 @@ def parse_bmw_listing_cards(html: str, source: str, base_url: str, query: str = 
         if record is None and index < len(data_records):
             record = data_records[index]
         if record:
-            for key in ("title", "price", "year", "listing_id", "brand", "model", "city"):
+            for key in ("title", "price", "year", "listing_id", "brand", "model", "city", "condition_text"):
                 if not card.get(key) and record.get(key):
                     card[key] = record[key]
         title = " ".join(str(card.get("title") or "").split())
@@ -1166,6 +1166,7 @@ class _BMWCardParser(HTMLParser):
                 "brand": str(attrs_dict.get("data-make") or ""),
                 "model": str(attrs_dict.get("data-model") or ""),
                 "city": str(attrs_dict.get("data-city") or ""),
+                "condition_text": "",
             })
         classes = str(attrs_dict.get("class") or "")
         if self.card_depth is None and tag.lower() == "div" and "carlistblk" in classes:
@@ -1202,6 +1203,10 @@ class _BMWCardParser(HTMLParser):
                 value = " ".join(str(data).split())
                 if value:
                     self.current["text"].append(value)
+        elif self.data_records and self.tag_stack and self.tag_stack[-1] == "a":
+            value = " ".join(str(data).split())
+            if value:
+                self.data_records[-1]["condition_text"] = (self.data_records[-1].get("condition_text","") + " " + value).strip()
 
     def handle_endtag(self, tag):
         if self.card_depth is not None and self.depth == self.card_depth and self.current is not None:
