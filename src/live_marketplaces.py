@@ -725,6 +725,7 @@ class _BMWCardParser(HTMLParser):
         self.card_depth = None
         self.current = None
         self.tag_stack = []
+        self.rows = []
 
     def handle_starttag(self, tag, attrs):
         attrs_dict = {str(k).lower(): v for k, v in attrs}
