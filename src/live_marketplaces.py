@@ -796,10 +796,6 @@ def parse_embedded_marketplace_listings(
             text=" ".join(str(v) for v in (name, obj.get("variant"), obj.get("fuel"), obj.get("fuelType"), obj.get("transmission")))
             location=_embedded_value(obj,"city","location","locationName","hub","hubName")
             listing_condition=_infer_condition(obj,source)
-            if listing_condition=="unknown" and page_heading:
-                # The page title/H1 is listing-level evidence on detail pages.
-                # Do not use arbitrary page/footer text or source/URL identity.
-                listing_condition=_infer_condition({"name":page_heading})
             row={
                 "brand":_canonical_brand(str(brand)),
                 "model":str(model).strip(),
@@ -1538,6 +1534,11 @@ def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
             brand,model=_infer_brand_model(str(name),obj.get("brand"),obj.get("model"))
             seller_city,seller_state,location_raw=_infer_location(obj)
             location=seller_city or seller_state
+            listing_condition=_infer_condition(obj,source)
+            if listing_condition=="unknown" and page_heading:
+                # Title/H1 is listing-level evidence for a detail page; arbitrary
+                # footer/navigation text remains excluded.
+                listing_condition=_infer_condition({"name":page_heading})
             row={
                 "brand":brand,
                 "model":model,
@@ -1550,7 +1551,7 @@ def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
                 "source":source,
                 "live_verified":True,
                 "data_consistent":bool(name and price is not None and url),
-                "condition_signal":_infer_condition(obj,source),
+                "condition_signal":listing_condition,
                 "seller_city":seller_city,
                 "seller_state":seller_state,
                 "location":location,
