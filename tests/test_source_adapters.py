@@ -348,3 +348,39 @@ def test_demo_route_condition_matrix_for_bmw_mercedes_and_audi(monkeypatch):
         assert result.status == "live"
         assert result.listings
         assert result.listings[0]["condition_signal"] == "demo"
+
+
+def test_adapter_fans_out_over_validated_inventory_endpoints(monkeypatch):
+    source={
+        "name":"OEM Inventory","adapter_status":"live","url":"https://oem.example/cars",
+        "endpoints":[
+            {"url":"https://oem.example/cars","is_active":True},
+            {"url":"https://oem.example/dealer-a/demo","is_active":True},
+            {"url":"https://oem.example/dealer-b/demo","is_active":True},
+        ],
+    }
+    adapter=BuiltinMarketplaceAdapter(source)
+    fetched=[]
+    monkeypatch.setattr("src.source_adapters.adapter_execution_allowed",lambda name:True)
+    monkeypatch.setattr(
+        "src.source_adapters.live_marketplaces._targeted_source_urls",
+        lambda *args,**kwargs: {"OEM Inventory":"https://oem.example/cars"},
+    )
+    monkeypatch.setattr("src.source_adapters.fetch_text",lambda url:fetched.append(url) or "<html/>")
+    monkeypatch.setattr(
+        "src.source_adapters.parse_live_listings",
+        lambda html,name,url:[{
+            "brand":"Example","model":"X1","listing_name":"Example X1 Demo",
+            "price_lakh":40,"url":url+"/vehicle-1","source":name,
+            "condition_signal":"demo","live_verified":True,"data_consistent":True,
+        }] if "/demo" in url else [],
+    )
+    monkeypatch.setattr("src.source_adapters.parse_visible_listing_links",lambda *args:[])
+    result=adapter.fetch(AdapterRequest(query="Example X1",condition="demo"))
+    assert set(fetched)=={
+        "https://oem.example/cars",
+        "https://oem.example/dealer-a/demo",
+        "https://oem.example/dealer-b/demo",
+    }
+    assert len(result.listings)==2
+    assert all(row["condition_signal"]=="demo" for row in result.listings)
