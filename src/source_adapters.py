@@ -61,17 +61,28 @@ class BuiltinMarketplaceAdapter:
         self.source = source
         self.source_name = str(source.get("name") or "")
 
-    def _url(self, request: AdapterRequest) -> str:
+    def _urls(self, request: AdapterRequest) -> list[str]:
         targeted = live_marketplaces._targeted_source_urls(
             request.query, request.condition, registry=[self.source]
         )
-        # A registry route may be absent or unresolved while the source still
-        # has a valid canonical base URL. Never pass None into the fetch layer.
-        return targeted.get(self.source_name) or str(self.source.get("url") or "")
+        urls=[]
+        primary=targeted.get(self.source_name) or str(self.source.get("url") or "")
+        if primary:
+            urls.append(primary)
+        # Validated discovered endpoints are first-class inventory surfaces.
+        # Domain identity must never collapse dealer/catalogue/demo endpoints.
+        for endpoint in self.source.get("endpoints") or []:
+            if endpoint.get("is_active", True) is False:
+                continue
+            url=str(endpoint.get("url") or "").strip()
+            if url and url not in urls:
+                urls.append(url)
+        return urls[:12]
 
     def fetch(self, request: AdapterRequest) -> AdapterResult:
         started = time.monotonic()
-        url = self._url(request)
+        urls = self._urls(request)
+        url = urls[0] if urls else ""
         if not adapter_execution_allowed(self.source_name):
             return AdapterResult(
                 source_name=self.source_name,
@@ -87,33 +98,46 @@ class BuiltinMarketplaceAdapter:
             )
 
         try:
-            html = fetch_text(url)
+            all_parsed=[]
+            fetched_urls=[]
             parser_strategy = str(self.source.get("parser_strategy") or "").strip().lower()
-            if parser_strategy == "motozite_cards":
-                parsed = live_marketplaces.parse_motozite_cards(
-                    html, self.source_name, url, request.query
-                )
-            elif parser_strategy == "bmw_cards":
-                parsed = live_marketplaces.parse_bmw_listing_cards(
-                    html, self.source_name, url, request.query
-                )
-            elif parser_strategy in {"embedded_json", "spinny_embedded"}:
-                parsed = live_marketplaces.parse_embedded_marketplace_listings(
-                    html, self.source_name, url, request.query
-                )
-            else:
-                parsed = parse_live_listings(html, self.source_name, url)
-            # Marketplace landing pages often expose most inventory as visible listing cards rather than JSON-LD.
-            # This fallback must also run for unscoped searches (All Brands + All Models), otherwise
-            # the empty query returns only the handful of structured-data records and severely undercounts inventory.
-            if not parsed:
-                parsed = parse_visible_listing_links(
-                    html, self.source_name, url, request.query
-                )
-            if not parsed and request.query:
-                parsed = live_marketplaces.parse_generic_detail_page(
-                    html, self.source_name, url, request.query
-                )
+            for endpoint_url in urls:
+                html = fetch_text(endpoint_url)
+                fetched_urls.append(endpoint_url)
+                if parser_strategy == "motozite_cards":
+                    parsed = live_marketplaces.parse_motozite_cards(
+                        html, self.source_name, endpoint_url, request.query
+                    )
+                elif parser_strategy == "bmw_cards":
+                    parsed = live_marketplaces.parse_bmw_listing_cards(
+                        html, self.source_name, endpoint_url, request.query
+                    )
+                elif parser_strategy in {"embedded_json", "spinny_embedded"}:
+                    parsed = live_marketplaces.parse_embedded_marketplace_listings(
+                        html, self.source_name, endpoint_url, request.query
+                    )
+                else:
+                    parsed = parse_live_listings(html, self.source_name, endpoint_url)
+                if not parsed:
+                    parsed = parse_visible_listing_links(
+                        html, self.source_name, endpoint_url, request.query
+                    )
+                if not parsed and request.query:
+                    parsed = live_marketplaces.parse_generic_detail_page(
+                        html, self.source_name, endpoint_url, request.query
+                    )
+                all_parsed.extend(parsed)
+            # The same car may be exposed by canonical, dealer and campaign
+            # endpoints. Deduplicate by listing URL before condition filtering.
+            parsed=[]
+            seen_listing_urls=set()
+            for row in all_parsed:
+                listing_url=str(row.get("url") or "")
+                key=listing_url or repr((row.get("brand"),row.get("model"),row.get("listing_name"),row.get("price_lakh")))
+                if key in seen_listing_urls:
+                    continue
+                seen_listing_urls.add(key)
+                parsed.append(row)
 
             wanted_condition = normalize_condition(request.condition)
             filtered: list[dict[str, Any]] = []
@@ -149,7 +173,7 @@ class BuiltinMarketplaceAdapter:
                 listings=filtered,
                 status="live",
                 latency_ms=int((time.monotonic() - started) * 1000),
-                query_url=url,
+                query_url=" | ".join(fetched_urls),
             )
             record_adapter_execution(
                 self.source_name,
