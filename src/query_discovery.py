@@ -52,7 +52,7 @@ def discover_for_intent(
     known_domains={_domain(s.get("url")) for s in known_registry if s.get("url")}
     # Request-time discovery is intentionally bounded. Continuous/background
     # indexing does the deep sweep; this path fills an immediate coverage gap.
-    settings.search={**settings.search,"engines":["auto"],"max_discovery_results_per_query":6}
+    settings.search={**settings.search,"engines":["google,brave,bing"],"max_discovery_results_per_query":10}
     candidates=discover(
         settings, known_domains, demand=demand,
         include_known_domain_urls=True, max_queries=3,
