@@ -1537,6 +1537,7 @@ def live_inventory(
     # discovering and validating relevant inventory sources on the open web.
     # Registry entries remain the fast path/cache, not the boundary of search.
     query_discovery_enabled = os.getenv("CARSCANNER_QUERY_DISCOVERY", "true").lower() not in {"0", "false", "no"}
+    discovery_status=None
     if brand and model and query_discovery_enabled:
         try:
             from .query_discovery import discover_for_intent, merge_source_universe
@@ -1545,10 +1546,20 @@ def live_inventory(
                 known_registry=registry,
             )
             registry=merge_source_universe(registry, discovered)
-        except Exception:
-            # Existing verified sources remain available if web discovery itself
-            # is temporarily unavailable.
-            pass
+            discovery_status={
+                "source":"Open Web Discovery","status":"live",
+                "listings_found":0,"discovered_sources":len(discovered),
+                "query_strategy":"open_web_intent",
+            }
+        except Exception as exc:
+            # Search still degrades to verified indexed sources, but the failure
+            # is explicit in diagnostics instead of silently pretending the web
+            # expansion succeeded.
+            discovery_status={
+                "source":"Open Web Discovery","status":"unavailable",
+                "listings_found":0,"discovered_sources":0,
+                "query_strategy":"open_web_intent","error":str(exc)[:500],
+            }
     plan=plan_sources(
         brand=brand,model=model,condition=condition,budget_min=budget_min,
         budget_max=budget_max,destination=destination,registry=registry,live_only=True,
@@ -1570,7 +1581,7 @@ def live_inventory(
     # record and cannot fail the aggregate search.
     from .source_adapters import AdapterRequest, execute_adapters
 
-    return execute_adapters(
+    vehicles, source_statuses = execute_adapters(
         AdapterRequest(
             query=query,
             condition=condition,
@@ -1581,3 +1592,6 @@ def live_inventory(
         selected_registry,
         max_workers=MAX_PARALLEL_SOURCES,
     )
+    if discovery_status is not None:
+        source_statuses.insert(0, discovery_status)
+    return vehicles, source_statuses
