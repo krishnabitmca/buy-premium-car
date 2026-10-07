@@ -1,8 +1,10 @@
 import unittest
 from unittest.mock import patch
 
-from src.inventory_ingestion import _listing_key, _identity_key
+from src.inventory_ingestion import _listing_key
+from src.canonical_identity import candidate_identity
 from src.inventory_refresh_worker import claim_jobs
+from src.models import Vehicle
 
 
 class TestInventoryIngestion(unittest.TestCase):
@@ -16,17 +18,17 @@ class TestInventoryIngestion(unittest.TestCase):
             mileage_km = 20000
         self.assertEqual(_listing_key(V()), _listing_key(V()))
 
-    def test_provisional_identity_does_not_cross_merge_sources(self):
-        class V:
-            source_name = "CarDekho"
-            title = "BMW X5"
-            price_lakh = 70
-            mileage_km = 20000
-            url = "https://cardekho.example/x5/1"
-            final_url = None
-            metadata = {}
-        key = _identity_key(V(), "abc")
-        self.assertTrue(key.startswith("provisional:cardekho:"))
+    def test_weak_identity_evidence_stays_provisional(self):
+        v = Vehicle(
+            source_name="CarDekho", source_tier=2,
+            title="BMW X5", brand="BMW", model="X5",
+            price_lakh=70, mileage_km=20000,
+            url="https://cardekho.example/x5/1",
+        )
+        key, confidence, evidence = candidate_identity(v)
+        self.assertIsNone(key)
+        self.assertEqual(confidence, 0)
+        self.assertEqual(evidence["mode"], "provisional")
 
     @patch("src.inventory_refresh_worker._connect")
     def test_claim_uses_skip_locked(self, connect):
@@ -45,7 +47,6 @@ class TestInventoryIngestion(unittest.TestCase):
         connect.return_value=Conn()
         with patch.dict("os.environ", {"SOURCE_INTELLIGENCE_DATABASE_URL":"postgres://test"}):
             self.assertEqual(claim_jobs(5), [])
-        # A queue worker must use row locking to prevent duplicate processing.
         self.assertIn("skip locked", connect.return_value._cursor.sql.lower())
 
 

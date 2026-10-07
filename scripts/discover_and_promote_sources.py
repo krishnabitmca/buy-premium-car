@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 from src.config import load_settings
 from src.discovery import discover
-from src.live_marketplaces import fetch_text, parse_live_listings, parse_visible_listing_links
+from src.live_marketplaces import fetch_text, parse_live_listings, parse_visible_listing_links, parse_generic_detail_page
 from src.source_intelligence import load_source_registry, normalize_condition
 from src.source_registry_db import (
     enabled as source_db_enabled,
@@ -59,8 +59,26 @@ def validate_candidate(candidate: object) -> tuple[int, str | None]:
             )
 
         matching = [row for row in rows if _matches_candidate(row, candidate)]
+        # Demo catalogue cards frequently omit condition. Follow a bounded set
+        # of vehicle detail links and require explicit detail-page demo evidence.
+        if not matching and normalize_condition(getattr(candidate, "condition", "both")) == "demo":
+            for row in rows[:8]:
+                detail_url = str(row.get("url") or "").strip()
+                if not detail_url or detail_url.rstrip("/") == url.rstrip("/"):
+                    continue
+                try:
+                    detail_html = fetch_text(detail_url)
+                    detail_rows = parse_live_listings(detail_html, source_name, detail_url)
+                    if not detail_rows:
+                        detail_rows = parse_generic_detail_page(
+                            detail_html, source_name, detail_url,
+                            str(getattr(candidate, "brand_hint", "") or ""),
+                        )
+                    matching.extend(r for r in detail_rows if _matches_candidate(r, candidate))
+                except Exception:
+                    continue
         latency_ms = int((time.monotonic() - started) * 1000)
-        if len(matching) < 2:
+        if len(matching) < 1:
             return 0, f"inventory validation found {len(matching)} matching listings in {latency_ms}ms"
         return len(matching), None
     except Exception as exc:
@@ -88,7 +106,7 @@ def main() -> None:
     }
 
     demand = load_search_demand(limit=100, lookback_hours=168)
-    found = discover(settings, known_domains, demand=demand)
+    found = discover(settings, known_domains, demand=demand, include_known_domain_urls=True)
     print(f"demand_intents={len(demand)}")
     candidates = [
         item for item in found

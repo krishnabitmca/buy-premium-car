@@ -57,7 +57,7 @@ def discover_for_intent(
     settings.search={**settings.search,"engines":["duckduckgo,startpage,mojeek,yahoo"],"max_discovery_results_per_query":10}
     candidates=discover(
         settings, known_domains, demand=demand,
-        include_known_domain_urls=True, max_queries=3,
+        include_known_domain_urls=True, max_queries=9 if normalize_condition(condition)=="demo" else 4,
     )
     if diagnostics is not None:
         diagnostics["candidates_found"]=len(candidates)

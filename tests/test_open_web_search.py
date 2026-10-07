@@ -88,7 +88,7 @@ def test_intent_discovery_requests_known_domain_endpoints(monkeypatch):
         known_registry=[{"url":"https://dealer.example/cars"}],
     )
     assert captured["include_known_domain_urls"] is True
-    assert captured["max_queries"] == 3
+    assert captured["max_queries"] == 9
 
 
 def test_demo_discovery_rejects_identity_only_without_demo_evidence(monkeypatch):
