@@ -50,10 +50,13 @@ def _budget_band(budget_min, budget_max):
     return "100+"
 
 def _vehicle_condition(v):
+    """Return listing-level condition only; source identity is never evidence."""
     explicit=str(v.get("condition_signal") or "").strip().lower()
-    if explicit in {"used","demo","demonstrator"}:
-        return "demo" if explicit=="demonstrator" else explicit
-    return "demo" if "demo" in (str(v.get("variant",""))+" "+str(v.get("source",""))).lower() else "used"
+    if explicit in {"demo","demonstrator"}:
+        return "demo"
+    if explicit=="used":
+        return "used"
+    return "unknown"
 
 def _match(v,query,budget_min,budget_max,max_age,destination,condition="both"):
     wanted_condition=str(condition or "both").strip().lower()
@@ -107,11 +110,17 @@ def _score(v):
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self): _response(self,204,{})
     def do_GET(self):
-        if urlparse(self.path).path!="/api/search":
+        parsed=urlparse(self.path)
+        if parsed.path!="/api/search":
             return _response(self,404,{"error":"Not found"})
         try:
-            vehicles,sources=live_inventory()
-            return _response(self,200,{"ok":True,"mode":"live","search_scope":"india","vehicles_count":len(vehicles),"sources":sources})
+            from urllib.parse import parse_qs
+            params=parse_qs(parsed.query)
+            query=str((params.get("query") or [""])[0]).strip()
+            condition=str((params.get("condition") or ["both"])[0]).strip()
+            destination=str((params.get("destination") or [""])[0]).strip()
+            vehicles,sources=live_inventory(query,condition,destination=destination)
+            return _response(self,200,{"ok":True,"mode":"live","search_scope":"india","query":query,"condition":condition,"vehicles_count":len(vehicles),"sources":sources})
         except Exception as exc:
             return _response(self,500,{"error":f"Search inventory unavailable: {exc}"})
     def do_POST(self):

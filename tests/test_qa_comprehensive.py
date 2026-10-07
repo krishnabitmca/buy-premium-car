@@ -510,7 +510,7 @@ class TestHTTPContracts(unittest.TestCase):
     def test_inventory_partial_source_coverage_falls_back_to_live_sources(self):
         inventory_rows=[{
             "brand":"Audi","model":"Q5","price_lakh":45,
-            "source":"CarDekho Used","condition":"used",
+            "source":"CarDekho Used","condition_signal":"used",
             "live_verified":True,"data_consistent":True,
         }]
         live_rows=[

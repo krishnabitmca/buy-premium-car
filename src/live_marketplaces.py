@@ -795,6 +795,7 @@ def parse_embedded_marketplace_listings(
             km=_number(raw_km)
             text=" ".join(str(v) for v in (name, obj.get("variant"), obj.get("fuel"), obj.get("fuelType"), obj.get("transmission")))
             location=_embedded_value(obj,"city","location","locationName","hub","hubName")
+            listing_condition=_infer_condition(obj,source)
             row={
                 "brand":_canonical_brand(str(brand)),
                 "model":str(model).strip(),
@@ -807,7 +808,7 @@ def parse_embedded_marketplace_listings(
                 "source":source,
                 "live_verified":True,
                 "data_consistent":True,
-                "condition_signal":_infer_condition(obj,source),
+                "condition_signal":listing_condition,
                 "seller_city":str(location).strip() if location else None,
                 "seller_state":None,
                 "location":str(location).strip() if location else None,
@@ -1460,8 +1461,57 @@ def _crawl_paginated_source(url: str, source: str, query: str, condition: str, m
         current = nxt
     return rows, pages
 
+def _page_listing_heading(html: str) -> str:
+    """Extract title/H1 only; avoid footer/nav text as condition evidence."""
+    parts=[]
+    for pattern in (r"<title[^>]*>(.*?)</title>", r"<h1[^>]*>(.*?)</h1>"):
+        m=re.search(pattern, html or "", re.I|re.S)
+        if m:
+            parts.append(re.sub(r"<[^>]+>", " ", m.group(1)))
+    return " ".join(re.sub(r"\s+", " ", p).strip() for p in parts if p).strip()
+
+def parse_generic_detail_page(html: str, source: str, base_url: str, query: str="") -> list[dict]:
+    """Conservative fallback for a single unstructured vehicle detail page."""
+    heading=_page_listing_heading(html)
+    condition=_infer_condition({"name":heading}) if heading else "unknown"
+    brand,model=_query_parts(query)
+    if not brand:
+        brand,model=_infer_brand_model(heading,None,None)
+    if not brand or (query and not _model_identity_matches(model, heading)):
+        return []
+    text=re.sub(r"<script[\\s\\S]*?</script>|<style[\\s\\S]*?</style>", " ", html or "", flags=re.I)
+    text=re.sub(r"<[^>]+>", " ", text)
+    text=re.sub(r"\\s+", " ", text)
+    pm=re.search(r"(?:₹|Rs\\.?)[ ]*([\\d,.]+)[ ]*(Lakh|Crore|L|Cr)?", text, re.I)
+    price_lakh=None
+    if pm:
+        value=float(pm.group(1).replace(",",""))
+        unit=(pm.group(2) or "").lower()
+        if unit in {"crore","cr"}: value*=100
+        elif unit not in {"lakh","l"} and value>100000: value/=100000
+        price_lakh=value
+    ym=re.search(r"(?:Manufacturing|Mfg\\.?)\\s*Year[^0-9]{0,20}(?:\\d{1,2}/)?(20\\d{2}|19\\d{2})", text, re.I)
+    if not ym:
+        ym=re.search(r"\\b(20\\d{2}|19\\d{2})\\b", heading)
+    km_m=re.search(r"(?:Current\\s+Mileage|Mileage)[^0-9]{0,20}([\\d,]+)\\s*(?:KM|KMs|Kilomet)", text, re.I)
+    image_m=re.search(r'<meta[^>]+(?:property|name)=[\"\\\'](?:og:image|twitter:image)[\"\\\'][^>]+content=[\"\\\']([^\"\\\']+)', html or "", re.I)
+    image_urls=[_absolute(base_url,image_m.group(1))] if image_m else []
+    return [{
+        "brand":brand,"model":model,"listing_name":heading or f"{brand} {model}",
+        "variant":heading or "","price_lakh":price_lakh,"url":base_url,
+        "images":image_urls,"image":image_urls[0] if image_urls else None,
+        "source":source,"live_verified":True,"data_consistent":bool(base_url and heading),
+        "condition_signal":condition,"seller_city":None,"seller_state":None,
+        "location":None,"location_raw":None,
+        "mfg_year":int(ym.group(1)) if ym else None,
+        "km":float(km_m.group(1).replace(",","")) if km_m else None,
+        "fuel":None,"transmission":None,"body_type":None,
+        "provenance":{"source":source,"source_url":base_url,"original_url":base_url,"extraction":"generic_detail","raw_listing":heading},
+    }]
+
 def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
     rows=[]
+    page_heading=_page_listing_heading(html)
     for root in _json_objects(html):
         for obj in _walk(root):
             if not isinstance(obj,dict): continue
@@ -1484,6 +1534,11 @@ def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
             brand,model=_infer_brand_model(str(name),obj.get("brand"),obj.get("model"))
             seller_city,seller_state,location_raw=_infer_location(obj)
             location=seller_city or seller_state
+            listing_condition=_infer_condition(obj,source)
+            if listing_condition=="unknown" and page_heading:
+                # Title/H1 is listing-level evidence for a detail page; arbitrary
+                # footer/navigation text remains excluded.
+                listing_condition=_infer_condition({"name":page_heading})
             row={
                 "brand":brand,
                 "model":model,
@@ -1496,7 +1551,7 @@ def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
                 "source":source,
                 "live_verified":True,
                 "data_consistent":bool(name and price is not None and url),
-                "condition_signal":_infer_condition(obj,source),
+                "condition_signal":listing_condition,
                 "seller_city":seller_city,
                 "seller_state":seller_state,
                 "location":location,
@@ -1533,6 +1588,34 @@ def live_inventory(
     """Search selected live sources concurrently; destination never restricts inventory."""
     brand,model=_query_parts(query)
     registry=_live_source_entries()
+    # A concrete brand/model search expands beyond the cached registry by
+    # discovering and validating relevant inventory sources on the open web.
+    # Registry entries remain the fast path/cache, not the boundary of search.
+    query_discovery_enabled = os.getenv("CARSCANNER_QUERY_DISCOVERY", "true").lower() not in {"0", "false", "no"}
+    discovery_status=None
+    if brand and model and query_discovery_enabled:
+        try:
+            from .query_discovery import discover_for_intent, merge_source_universe
+            discovery_diagnostics={}
+            discovered=discover_for_intent(
+                brand=brand, model=model, condition=condition,
+                known_registry=registry, diagnostics=discovery_diagnostics,
+            )
+            registry=merge_source_universe(registry, discovered)
+            discovery_status={
+                "source":"Open Web Discovery","status":"live",
+                "listings_found":0,"discovered_sources":len(discovered),
+                "query_strategy":"open_web_intent",**discovery_diagnostics,
+            }
+        except Exception as exc:
+            # Search still degrades to verified indexed sources, but the failure
+            # is explicit in diagnostics instead of silently pretending the web
+            # expansion succeeded.
+            discovery_status={
+                "source":"Open Web Discovery","status":"unavailable",
+                "listings_found":0,"discovered_sources":0,
+                "query_strategy":"open_web_intent","error":str(exc)[:500],
+            }
     plan=plan_sources(
         brand=brand,model=model,condition=condition,budget_min=budget_min,
         budget_max=budget_max,destination=destination,registry=registry,live_only=True,
@@ -1554,7 +1637,7 @@ def live_inventory(
     # record and cannot fail the aggregate search.
     from .source_adapters import AdapterRequest, execute_adapters
 
-    return execute_adapters(
+    vehicles, source_statuses = execute_adapters(
         AdapterRequest(
             query=query,
             condition=condition,
@@ -1565,3 +1648,6 @@ def live_inventory(
         selected_registry,
         max_workers=MAX_PARALLEL_SOURCES,
     )
+    if discovery_status is not None:
+        source_statuses.insert(0, discovery_status)
+    return vehicles, source_statuses

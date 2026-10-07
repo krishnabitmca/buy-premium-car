@@ -234,12 +234,14 @@ def _looks_like_source_landing(url: str, title: str, snippet: str) -> bool:
     )
 
 
-def discover(settings, known_domains, demand=None):
+def discover(settings, known_domains, demand=None, *, include_known_domain_urls=False, max_queries=None):
     results = []
     search = settings.search
     max_n = int(search.get("max_discovery_results_per_query", 8))
     engines = search.get("engines", ["bing", "duckduckgo", "google"])
     query_bank = build_query_bank(search, demand=demand)
+    if max_queries is not None:
+        query_bank = query_bank[:max(0, int(max_queries))]
     brands = list(search.get("brands", []))
     seen_domains = set(known_domains)
     seen_urls = set()
@@ -249,9 +251,9 @@ def discover(settings, known_domains, demand=None):
             with DDGS() as ddgs:
                 for engine in engines:
                     try:
-                        rows = ddgs.text(query, max_results=max_n, backend=engine)
+                        rows = ddgs.text(query, region="in-en", max_results=max_n, backend=engine)
                     except TypeError:
-                        rows = ddgs.text(query, max_results=max_n)
+                        rows = ddgs.text(query, region="in-en", max_results=max_n)
                     except Exception as exc:
                         print(f"discovery backend {engine} failed: {exc}")
                         continue
@@ -262,7 +264,10 @@ def discover(settings, known_domains, demand=None):
                             continue
                         title = row.get("title", "")
                         snippet = row.get("body", row.get("snippet", ""))
-                        if not _looks_like_source_landing(url, title, snippet):
+                        # Demand-driven customer discovery may land directly on a
+                        # brand/model inventory page. Background source discovery keeps
+                        # the stricter source-landing heuristic.
+                        if not demand and not _looks_like_source_landing(url, title, snippet):
                             continue
 
                         domain = urlparse(url).netloc.lower().removeprefix("www.")
@@ -285,7 +290,7 @@ def discover(settings, known_domains, demand=None):
                         # Keep known domains in discovery output only when they
                         # reveal a new source URL/classification. Never enqueue a
                         # known domain as a new crawler source.
-                        if domain in seen_domains:
+                        if domain in seen_domains and not include_known_domain_urls:
                             continue
 
                         results.append(DiscoveryResult(
@@ -300,7 +305,8 @@ def discover(settings, known_domains, demand=None):
                             brand_hint=brand_hint,
                             candidate_confidence=confidence,
                         ))
-                        seen_domains.add(domain)
+                        if not include_known_domain_urls:
+                            seen_domains.add(domain)
         except Exception as exc:
             print(f"discovery query failed: {query}: {exc}")
 

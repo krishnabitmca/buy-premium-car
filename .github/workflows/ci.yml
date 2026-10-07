@@ -24,6 +24,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install "pytest>=8,<9" beautifulsoup4 PyYAML ddgs
       - run: pytest -q -m "not e2e"
+        env:
+          # Unit tests must never perform open-web discovery. Dedicated discovery
+          # contract tests mock the web boundary; preview/runtime validation tests the real web.
+          CARSCANNER_QUERY_DISCOVERY: "false"
 
   e2e:
     runs-on: ubuntu-latest
