@@ -1541,15 +1541,16 @@ def live_inventory(
     if brand and model and query_discovery_enabled:
         try:
             from .query_discovery import discover_for_intent, merge_source_universe
+            discovery_diagnostics={}
             discovered=discover_for_intent(
                 brand=brand, model=model, condition=condition,
-                known_registry=registry,
+                known_registry=registry, diagnostics=discovery_diagnostics,
             )
             registry=merge_source_universe(registry, discovered)
             discovery_status={
                 "source":"Open Web Discovery","status":"live",
                 "listings_found":0,"discovered_sources":len(discovered),
-                "query_strategy":"open_web_intent",
+                "query_strategy":"open_web_intent",**discovery_diagnostics,
             }
         except Exception as exc:
             # Search still degrades to verified indexed sources, but the failure
