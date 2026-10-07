@@ -94,3 +94,9 @@ def test_inventory_ingestion_serializes_jsonb_payloads():
     source=open("src/inventory_ingestion.py").read()
     assert "json.dumps(evidence)" in source
     assert '"vin":v.vin' in source
+
+
+def test_customer_search_does_not_default_to_synchronous_open_web_discovery():
+    source=open("src/live_marketplaces.py").read()
+    assert 'os.getenv("CARSCANNER_QUERY_DISCOVERY", "false")' in source
+    assert 'in {"1", "true", "yes"}' in source
