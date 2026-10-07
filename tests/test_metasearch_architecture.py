@@ -56,3 +56,25 @@ def test_search_ranking_rewards_provider_choice_and_completeness():
           "km":10000,"owners":1,"source_count":1}
     richer=dict(base,source_count=3,image_urls=["https://img.example/car.jpg"],observed_at="2026-10-07T00:00:00Z")
     assert _score(richer) > _score(base)
+
+
+def test_vin_is_authoritative_across_sources():
+    a,ca,ea=candidate_identity(_v("OEM","https://oem/a",vin="WBA12345678901234"))
+    b,cb,eb=candidate_identity(_v("Marketplace","https://market/b",vin="wba-12345678901234",mileage_km=9900))
+    assert a == b == "vin:wba12345678901234"
+    assert ca == cb == 1.0
+    assert ea["mode"] == eb["mode"] == "vin"
+
+
+def test_search_score_rewards_a_real_comparable_discount():
+    from api.search import _score
+    common={"identity_confidence":.9,"live_verified":True,"data_consistent":True,
+            "km":10000,"owners":1,"source_count":2,"observed_at":"2026-10-07T00:00:00Z"}
+    assert _score(dict(common,discount_pct=10)) > _score(dict(common,discount_pct=0))
+
+
+def test_search_computes_score_after_discount_enrichment():
+    source=open("api/search.py").read()
+    discount_pos=source.index('v["discount_pct"]=round')
+    score_pos=source.index('v["_search_score"]=_score(v)')
+    assert score_pos > discount_pos
