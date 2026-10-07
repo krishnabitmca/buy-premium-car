@@ -140,9 +140,18 @@ def build_query_bank(search, demand=None):
             continue
         subject = " ".join(x for x in (brand, model) if x)
         if condition == "demo":
+            # Demo inventory is sparse and fragmented across dealer sites.
+            # Search multiple buyer/dealer vocabularies; none of these terms is
+            # itself condition evidence for a returned vehicle.
             query_bank.extend([
                 f'"{subject}" demo cars India',
-                f'"{subject}" demonstrator dealer India',
+                f'"{subject}" demonstrator cars India',
+                f'"{subject}" dealer demo India',
+                f'"{subject}" test drive car for sale India',
+                f'"{subject}" display car for sale India',
+                f'"{subject}" demo vehicle dealer India',
+                f'"{subject}" unregistered demo car India',
+                f'"{subject}" demo car showroom India',
                 f'"{subject}" demo vehicle "{state}"' if state else f'"{subject}" demo vehicle India',
             ])
         elif condition == "used":
