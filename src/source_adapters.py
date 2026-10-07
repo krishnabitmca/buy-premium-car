@@ -110,6 +110,10 @@ class BuiltinMarketplaceAdapter:
                 parsed = parse_visible_listing_links(
                     html, self.source_name, url, request.query
                 )
+            if not parsed and request.query:
+                parsed = live_marketplaces.parse_generic_detail_page(
+                    html, self.source_name, url, request.query
+                )
 
             wanted_condition = normalize_condition(request.condition)
             filtered: list[dict[str, Any]] = []
