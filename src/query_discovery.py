@@ -10,6 +10,7 @@ be searched immediately. Persistence/promotion remains an optimization.
 
 from urllib.parse import urlparse
 from typing import Any
+import hashlib
 
 from .config import load_settings
 from .discovery import discover
@@ -79,15 +80,39 @@ def discover_for_intent(
                 rows=parse_visible_listing_links(
                     html, f"Web - {candidate.domain}", candidate.url, f"{brand} {model}"
                 )
-            matching=[row for row in rows if _identity(row,brand,model)]
+            identity_rows=[row for row in rows if _identity(row,brand,model)]
             if diagnostics is not None:
-                diagnostics["identity_matches"]+=len(matching)
+                diagnostics["identity_matches"]+=len(identity_rows)
             wanted=normalize_condition(condition)
+            matching=list(identity_rows)
+            validated_endpoint=candidate.url
             if wanted=="demo":
-                matching=[row for row in matching if str(row.get("condition_signal") or "").lower() in {"demo","demonstrator"}]
+                matching=[row for row in identity_rows if str(row.get("condition_signal") or "").lower() in {"demo","demonstrator"}]
+                # Catalogue cards often omit condition. Confirm a bounded number
+                # of detail pages rather than trusting a /demo route or source name.
+                if not matching:
+                    for row in identity_rows[:3]:
+                        detail_url=str(row.get("url") or "")
+                        if not detail_url or detail_url.rstrip("/")==str(candidate.url).rstrip("/"):
+                            continue
+                        try:
+                            detail_html=fetch_text(detail_url)
+                            if diagnostics is not None:
+                                diagnostics["pages_fetched"]+=1
+                            detail_rows=parse_live_listings(detail_html, f"Web - {candidate.domain}", detail_url)
+                            confirmed=[
+                                r for r in detail_rows
+                                if _identity(r,brand,model)
+                                and str(r.get("condition_signal") or "").lower() in {"demo","demonstrator"}
+                            ]
+                            if confirmed:
+                                matching=confirmed
+                                validated_endpoint=detail_url
+                                break
+                        except Exception:
+                            continue
             elif wanted=="used":
-                # Explicit demonstrators can never validate a used endpoint.
-                matching=[row for row in matching if str(row.get("condition_signal") or "").lower() not in {"demo","demonstrator"}]
+                matching=[row for row in identity_rows if str(row.get("condition_signal") or "").lower() not in {"demo","demonstrator"}]
             if diagnostics is not None:
                 diagnostics["condition_matches"]+=len(matching)
             if not matching:
@@ -95,13 +120,13 @@ def discover_for_intent(
         except Exception:
             continue
 
-        normalized_url=str(candidate.url or "").rstrip("/")
+        normalized_url=str(validated_endpoint or "").rstrip("/")
         if normalized_url in validated_urls:
             continue
         validated_urls.add(normalized_url)
         expanded.append({
-            "name":f"Web - {candidate.domain}",
-            "url":candidate.url,
+            "name":f"Web - {candidate.domain} - {hashlib.sha1(normalized_url.encode()).hexdigest()[:8]}",
+            "url":validated_endpoint,
             "source_type":candidate.source_type,
             "adapter_status":"live",
             "geography":"india",
