@@ -795,6 +795,11 @@ def parse_embedded_marketplace_listings(
             km=_number(raw_km)
             text=" ".join(str(v) for v in (name, obj.get("variant"), obj.get("fuel"), obj.get("fuelType"), obj.get("transmission")))
             location=_embedded_value(obj,"city","location","locationName","hub","hubName")
+            listing_condition=_infer_condition(obj,source)
+            if listing_condition=="unknown" and page_heading:
+                # The page title/H1 is listing-level evidence on detail pages.
+                # Do not use arbitrary page/footer text or source/URL identity.
+                listing_condition=_infer_condition({"name":page_heading})
             row={
                 "brand":_canonical_brand(str(brand)),
                 "model":str(model).strip(),
@@ -807,7 +812,7 @@ def parse_embedded_marketplace_listings(
                 "source":source,
                 "live_verified":True,
                 "data_consistent":True,
-                "condition_signal":_infer_condition(obj,source),
+                "condition_signal":listing_condition,
                 "seller_city":str(location).strip() if location else None,
                 "seller_state":None,
                 "location":str(location).strip() if location else None,
@@ -1460,8 +1465,18 @@ def _crawl_paginated_source(url: str, source: str, query: str, condition: str, m
         current = nxt
     return rows, pages
 
+def _page_listing_heading(html: str) -> str:
+    """Extract title/H1 only; avoid footer/nav text as condition evidence."""
+    parts=[]
+    for pattern in (r"<title[^>]*>(.*?)</title>", r"<h1[^>]*>(.*?)</h1>"):
+        m=re.search(pattern, html or "", re.I|re.S)
+        if m:
+            parts.append(re.sub(r"<[^>]+>", " ", m.group(1)))
+    return " ".join(re.sub(r"\s+", " ", p).strip() for p in parts if p).strip()
+
 def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
     rows=[]
+    page_heading=_page_listing_heading(html)
     for root in _json_objects(html):
         for obj in _walk(root):
             if not isinstance(obj,dict): continue
