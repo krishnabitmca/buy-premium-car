@@ -32,7 +32,9 @@ class TestInventoryFirstSearch(unittest.TestCase):
 
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["model"], "X5")
-        self.assertEqual(sources[0]["mode"], "inventory")\n        self.assertEqual(rows[0]["offers"][0]["source"], "CarDekho")\n        self.assertEqual(rows[0]["source_count"], 1)
+        self.assertEqual(sources[0]["mode"], "inventory")
+        self.assertEqual(rows[0]["offers"][0]["source"], "CarDekho")
+        self.assertEqual(rows[0]["source_count"], 1)
 
 
 if __name__ == "__main__":
