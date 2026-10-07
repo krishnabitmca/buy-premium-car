@@ -111,9 +111,21 @@ def search_inventory(
 
     sources=[]; seen=set()
     for row in rows:
-        row["offers"]=list(row.get("offers") or [])
-        row["source_listings"]=row["offers"]
-        for offer in row["offers"]:
+        offers=list(row.get("offers") or [])
+        # Rolling-migration compatibility: older inventory rows expose only the
+        # cheapest/top-level source. Preserve it as a single provider offer so
+        # callers always receive the canonical multi-offer contract.
+        if not offers and row.get("source"):
+            offers=[{
+                "source":row.get("source"),
+                "url":row.get("url"),
+                "final_url":row.get("final_url"),
+                "price_lakh":row.get("price_lakh"),
+            }]
+        row["offers"]=offers
+        row["source_listings"]=offers
+        row["source_count"]=max(int(row.get("source_count") or 0), len(offers))
+        for offer in offers:
             name=offer.get("source")
             if name and name not in seen:
                 seen.add(name); sources.append({"name":name,"status":"inventory","mode":"inventory"})
