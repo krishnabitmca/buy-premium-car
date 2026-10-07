@@ -108,6 +108,18 @@ def load_registry() -> list[dict[str, Any]]:
                  (where sc.capability_type='segment'),'[]') as segments,
                coalesce((
                  select jsonb_agg(jsonb_build_object(
+                   'url', se.url,
+                   'endpoint_type', se.endpoint_type,
+                   'is_active', se.is_active,
+                   'last_checked_at', se.last_checked_at,
+                   'last_http_status', se.last_http_status,
+                   'metadata', se.metadata
+                 ) order by se.url)
+                 from public.source_endpoints se
+                 where se.source_id=s.source_id and se.is_active=true
+               ), '[]') as endpoints,
+               coalesce((
+                 select jsonb_agg(jsonb_build_object(
                    'brand', smc.brand,
                    'model', smc.model,
                    'condition', smc.condition,
@@ -130,7 +142,7 @@ def load_registry() -> list[dict[str, Any]]:
     result = []
     for row in rows:
         item = dict(row)
-        for key in ("brands", "conditions", "segments", "model_capabilities"):
+        for key in ("brands", "conditions", "segments", "endpoints", "model_capabilities"):
             item[key] = list(item.get(key) or [])
         result.append(item)
     return result
