@@ -19,6 +19,10 @@ def _norm(value: Any) -> str:
 
 
 def strong_identity(v: Vehicle) -> str | None:
+    for value in (getattr(v, "vin", None), getattr(v, "chassis_number", None)):
+        normalized = _norm(value)
+        if len(normalized) >= 8:
+            return "vin:" + normalized
     metadata = getattr(v, "metadata", None)
     if isinstance(metadata, dict):
         for key in ("vin", "vehicle_identification_number", "chassis_number"):
