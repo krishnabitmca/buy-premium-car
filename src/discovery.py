@@ -251,9 +251,9 @@ def discover(settings, known_domains, demand=None, *, include_known_domain_urls=
             with DDGS() as ddgs:
                 for engine in engines:
                     try:
-                        rows = ddgs.text(query, max_results=max_n, backend=engine)
+                        rows = ddgs.text(query, region="in-en", max_results=max_n, backend=engine)
                     except TypeError:
-                        rows = ddgs.text(query, max_results=max_n)
+                        rows = ddgs.text(query, region="in-en", max_results=max_n)
                     except Exception as exc:
                         print(f"discovery backend {engine} failed: {exc}")
                         continue
