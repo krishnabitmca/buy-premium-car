@@ -38,3 +38,21 @@ def test_unregistered_alone_is_not_demonstrator_evidence():
 def test_unregistered_with_explicit_demonstrator_evidence_is_demo():
     row = {"name": "2026 BMW X1 xLine", "description": "Unregistered dealer demonstrator vehicle, 1,200 km"}
     assert _infer_condition(row, "BMW Premium Selection") == "demo"
+
+
+def test_detail_page_title_is_listing_level_demo_evidence():
+    from src.live_marketplaces import parse_live_listings
+    html='''<html><head><title>BMW X1 Luxury Demo Car Price & Specs</title></head><body>
+    <script type="application/ld+json">{"@type":"Vehicle","name":"BMW X1 sDrive18i M Sport","offers":{"price":"4800000","url":"https://dealer.example/x1-demo"}}</script>
+    </body></html>'''
+    rows=parse_live_listings(html,"Generic Dealer","https://dealer.example/x1-demo")
+    assert rows[0]["condition_signal"]=="demo"
+
+
+def test_footer_demo_text_does_not_override_explicit_used_listing():
+    from src.live_marketplaces import parse_live_listings
+    html='''<html><head><title>Used BMW X1 for sale</title></head><body>
+    <script type="application/ld+json">{"@type":"Vehicle","name":"BMW X1","condition":"used","offers":{"price":"2500000","url":"https://dealer.example/x1-used"}}</script>
+    <footer>BMW DEMO CARS</footer></body></html>'''
+    rows=parse_live_listings(html,"Generic Dealer","https://dealer.example/x1-used")
+    assert rows[0]["condition_signal"]=="used"
