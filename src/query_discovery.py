@@ -8,7 +8,6 @@ that the pages expose matching inventory, and returns ephemeral sources that can
 be searched immediately. Persistence/promotion remains an optimization.
 """
 
-from dataclasses import asdict
 from urllib.parse import urlparse
 from typing import Any
 
@@ -51,7 +50,13 @@ def discover_for_intent(
     settings.search={**settings.search,"brands":[],"city_hints_per_run":0}
     demand=[{"brand":brand,"model":model,"condition":normalize_condition(condition),"destination_state":""}]
     known_domains={_domain(s.get("url")) for s in known_registry if s.get("url")}
-    candidates=discover(settings, known_domains, demand=demand)
+    # Request-time discovery is intentionally bounded. Continuous/background
+    # indexing does the deep sweep; this path fills an immediate coverage gap.
+    settings.search={**settings.search,"engines":["duckduckgo"],"max_discovery_results_per_query":4}
+    candidates=discover(
+        settings, known_domains, demand=demand,
+        include_known_domain_urls=True, max_queries=3,
+    )
 
     expanded=[]
     for candidate in candidates:
@@ -98,12 +103,16 @@ def merge_source_universe(
     registry: list[dict[str, Any]],
     discovered: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Merge cached registry and current-web discoveries by domain."""
+    """Merge cached registry with newly discovered inventory endpoints.
+
+    URL, not domain, is the identity here: a known marketplace/dealer can expose
+    a previously unknown brand/model inventory route that must be searchable.
+    """
     merged=list(registry)
-    seen={_domain(s.get("url")) for s in registry if s.get("url")}
+    seen_urls={str(s.get("url") or "").rstrip("/") for s in registry if s.get("url")}
     for source in discovered:
-        domain=_domain(source.get("url"))
-        if domain and domain not in seen:
+        url=str(source.get("url") or "").rstrip("/")
+        if url and url not in seen_urls:
             merged.append(source)
-            seen.add(domain)
+            seen_urls.add(url)
     return merged
