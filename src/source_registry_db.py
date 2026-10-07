@@ -239,7 +239,7 @@ def promote_discovery(discovery: dict[str, Any], *, listings_found: int) -> str 
     endpoint and proven that it exposes extractable inventory before calling
     this function. Existing YAML/DB sources are never overwritten by a discovery.
     """
-    if not enabled() or listings_found < 2:
+    if not enabled() or listings_found < 1:
         return None
 
     url = str(discovery.get("url") or "").strip()
@@ -264,6 +264,33 @@ def promote_discovery(discovery: dict[str, Any], *, listings_found: int) -> str 
         )
         existing = cur.fetchone()
         if existing:
+            # A domain is a source identity, not an endpoint identity. Persist
+            # every newly validated catalogue/detail endpoint on the source.
+            cur.execute(
+                """insert into public.source_endpoints
+                   (source_id,url,endpoint_type,is_active,last_checked_at,
+                    last_http_status,metadata)
+                   values (%s,%s,'catalogue',true,now(),200,%s)
+                   on conflict (source_id,url) do update set
+                     is_active=true,last_checked_at=now(),last_http_status=200,
+                     metadata=excluded.metadata""",
+                (existing["source_id"], url, json.dumps({"validated_listings": listings_found,
+                                                         "discovered": True})),
+            )
+            if brand:
+                cur.execute(
+                    """insert into public.source_capabilities
+                       (source_id,capability_type,capability_value)
+                       values (%s,'brand',%s) on conflict do nothing""",
+                    (existing["source_id"], brand),
+                )
+            if condition in {"used","demo"}:
+                cur.execute(
+                    """insert into public.source_capabilities
+                       (source_id,capability_type,capability_value)
+                       values (%s,'condition',%s) on conflict do nothing""",
+                    (existing["source_id"], condition),
+                )
             cur.execute(
                 """update public.sources
                    set last_seen_at=now(), last_validated_at=now()
