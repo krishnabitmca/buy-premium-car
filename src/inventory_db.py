@@ -34,13 +34,14 @@ def search_inventory(
 
     brand, model = _query_parts(query)
     condition = str(condition or "both").strip().lower()
-    params: list[Any] = []
+    expire_minutes=max(60, int(os.getenv("CARSCANNER_INVENTORY_EXPIRE_MINUTES", "10080")))
+    params: list[Any] = [expire_minutes]
     predicates = [
         "l.status = 'active'",
         "v.status in ('active','unknown')",
         "o.live_verified = true",
         "o.sold_signal = false",
-        "l.last_verified_at >= now() - interval '7 days'",
+        "l.last_verified_at >= now() - make_interval(mins => %s)",
     ]
     if brand:
         predicates.append("lower(v.brand) = lower(%s)"); params.append(brand)
