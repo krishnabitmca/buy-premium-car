@@ -60,6 +60,7 @@ def discover_for_intent(
     )
     if diagnostics is not None:
         diagnostics["candidates_found"]=len(candidates)
+        diagnostics["candidate_sample"]=[str(c.url) for c in candidates[:10]]
         diagnostics["pages_fetched"]=0
         diagnostics["identity_matches"]=0
         diagnostics["condition_matches"]=0
