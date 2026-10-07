@@ -14,7 +14,7 @@ import hashlib
 
 from .config import load_settings
 from .discovery import discover
-from .live_marketplaces import fetch_text, parse_live_listings, parse_visible_listing_links
+from .live_marketplaces import fetch_text, parse_live_listings, parse_visible_listing_links, parse_generic_detail_page
 from .source_intelligence import normalize_condition
 
 
@@ -100,6 +100,10 @@ def discover_for_intent(
                             if diagnostics is not None:
                                 diagnostics["pages_fetched"]+=1
                             detail_rows=parse_live_listings(detail_html, f"Web - {candidate.domain}", detail_url)
+                            if not detail_rows:
+                                detail_rows=parse_generic_detail_page(
+                                    detail_html, f"Web - {candidate.domain}", detail_url, f"{brand} {model}"
+                                )
                             confirmed=[
                                 r for r in detail_rows
                                 if _identity(r,brand,model)
