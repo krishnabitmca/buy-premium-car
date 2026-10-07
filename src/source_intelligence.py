@@ -237,4 +237,10 @@ def summarize_plan(plan: list[dict[str, Any]]) -> dict[str, Any]:
         "candidate_sources": len(candidates),
         "live_source_names": [x["name"] for x in live],
         "candidate_source_names": [x["name"] for x in candidates],
+        "coverage_denominator": len(plan),
+        "coverage_ready": len(candidates) == 0 and len(live) > 0,
+        "coverage_gaps": [
+            {"name": x["name"], "reason": "adapter_not_verified", "adapter_status": x.get("adapter_status")}
+            for x in candidates
+        ],
     }
