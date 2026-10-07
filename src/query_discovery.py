@@ -33,6 +33,7 @@ def discover_for_intent(
     condition: str,
     known_registry: list[dict[str, Any]],
     max_sources: int = 12,
+    diagnostics: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Discover and validate sources for this exact customer intent.
 
@@ -57,6 +58,11 @@ def discover_for_intent(
         settings, known_domains, demand=demand,
         include_known_domain_urls=True, max_queries=3,
     )
+    if diagnostics is not None:
+        diagnostics["candidates_found"]=len(candidates)
+        diagnostics["pages_fetched"]=0
+        diagnostics["identity_matches"]=0
+        diagnostics["condition_matches"]=0
 
     expanded=[]
     validated_urls=set()
@@ -65,18 +71,24 @@ def discover_for_intent(
             break
         try:
             html=fetch_text(candidate.url)
+            if diagnostics is not None:
+                diagnostics["pages_fetched"]+=1
             rows=parse_live_listings(html, f"Web - {candidate.domain}", candidate.url)
             if not rows:
                 rows=parse_visible_listing_links(
                     html, f"Web - {candidate.domain}", candidate.url, f"{brand} {model}"
                 )
             matching=[row for row in rows if _identity(row,brand,model)]
+            if diagnostics is not None:
+                diagnostics["identity_matches"]+=len(matching)
             wanted=normalize_condition(condition)
             if wanted=="demo":
                 matching=[row for row in matching if str(row.get("condition_signal") or "").lower() in {"demo","demonstrator"}]
             elif wanted=="used":
                 # Explicit demonstrators can never validate a used endpoint.
                 matching=[row for row in matching if str(row.get("condition_signal") or "").lower() not in {"demo","demonstrator"}]
+            if diagnostics is not None:
+                diagnostics["condition_matches"]+=len(matching)
             if not matching:
                 continue
         except Exception:
