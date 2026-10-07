@@ -223,7 +223,6 @@ class handler(BaseHTTPRequestHandler):
                     enriched["images"] = enriched["image_urls"]
                     enriched["image"] = enriched["image_urls"][0] if enriched["image_urls"] else None
                 enriched["purchase_context"]=purchase_context(v,destination)
-                enriched["_search_score"]=_score(v)
                 results.append(enriched)
             # Calculate market reference only from comparable live observations.
             from statistics import median
@@ -245,6 +244,9 @@ class handler(BaseHTTPRequestHandler):
                     v["comp_median"]=None
                     v["comparable_count"]=len(comparable)
                     v["discount_pct"]=None
+                # Score only after comparable-price enrichment so deal evidence
+                # participates in ranking rather than being calculated too early.
+                v["_search_score"]=_score(v)
             results.sort(key=lambda x:(-x["_search_score"],x.get("price_lakh") or 9999))
             for v in results: v.pop("_search_score",None)
             return _response(self,200,{
