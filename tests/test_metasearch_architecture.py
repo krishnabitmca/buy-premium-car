@@ -37,7 +37,8 @@ def test_inventory_query_exposes_multi_provider_offers_and_freshness_gate():
     source=open("src/inventory_db.py").read()
     assert "jsonb_agg(jsonb_build_object" in source
     assert '"offers"' in source
-    assert "last_verified_at >= now() - interval '7 days'" in source
+    assert "CARSCANNER_INVENTORY_EXPIRE_MINUTES" in source
+    assert "make_interval(mins => %s)" in source
     assert "source_count" in source
 
 
@@ -47,6 +48,7 @@ def test_search_api_exposes_marketplace_diagnostics_and_offer_aware_source_count
     assert '"planned_sources"' in source
     assert '"responding_sources"' in source
     assert '"zero_result"' in source
+    assert '"zero_result_reason"' in source
     assert 'v.get("offers")' in source
 
 
@@ -78,3 +80,17 @@ def test_search_computes_score_after_discount_enrichment():
     discount_pos=source.index('v["discount_pct"]=round')
     score_pos=source.index('v["_search_score"]=_score(v)')
     assert score_pos > discount_pos
+
+
+def test_zero_result_reason_is_actionable():
+    from api.search import _zero_result_reason
+    assert _zero_result_reason(result_count=0,source_plan=[],sources=[],search_mode="live",availability_warning=None) == "no_eligible_sources"
+    assert _zero_result_reason(result_count=0,source_plan=[{"name":"A"}],sources=[],search_mode="live_fallback",availability_warning=None) == "sources_unavailable"
+    assert _zero_result_reason(result_count=0,source_plan=[{"name":"A"}],sources=[{"name":"A","status":"live"}],search_mode="live",availability_warning=None) == "no_matching_inventory"
+    assert _zero_result_reason(result_count=1,source_plan=[],sources=[],search_mode="live",availability_warning=None) is None
+
+
+def test_inventory_ingestion_serializes_jsonb_payloads():
+    source=open("src/inventory_ingestion.py").read()
+    assert "json.dumps(evidence)" in source
+    assert '"vin":v.vin' in source
