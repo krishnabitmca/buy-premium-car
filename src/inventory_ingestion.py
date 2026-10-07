@@ -3,6 +3,7 @@ from __future__ import annotations
 """Transactional ingestion into canonical vehicle -> listings -> observations."""
 
 import hashlib
+import json
 from .models import Vehicle
 from .source_registry_db import _connect, enabled
 from .canonical_identity import candidate_identity
@@ -50,12 +51,13 @@ def ingest_vehicles(vehicles: list[Vehicle]) -> dict[str,int]:
                        values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
                                'active',%s,now(),now(),%s)
                        on conflict do nothing returning vehicle_id""",
-                    (provisional_key,identity_state,evidence,v.brand,v.model,v.variant,
+                    (provisional_key,identity_state,json.dumps(evidence),v.brand,v.model,v.variant,
                      v.year_manufacture,v.year_registration,v.manufacture_date,v.registration_date,
                      str(v.condition_signal or "used").lower() if str(v.condition_signal or "used").lower() in {"used","demo"} else "unknown",
                      v.fuel,v.transmission,v.seller_city,v.seller_state,v.registration_state,
                      max(float(v.identity_confidence),identity_confidence),
-                     {"identity_mode":evidence.get("mode"),"image_urls":list(v.image_urls or [])}))
+                     json.dumps({"identity_mode":evidence.get("mode"),"image_urls":list(v.image_urls or []),
+                                 "vin":v.vin,"chassis_number":v.chassis_number,**dict(v.metadata or {})})))
                 inserted=cur.fetchone()
                 if inserted: vehicle_id=inserted["vehicle_id"]
                 else:
@@ -77,9 +79,9 @@ def ingest_vehicles(vehicles: list[Vehicle]) -> dict[str,int]:
                      metadata=excluded.metadata returning listing_id""",
                 (source_id,vehicle_id,listing_key,v.url,v.final_url,v.title,None,v.seller_city,v.seller_state,
                  str(v.condition_signal or "used").lower() if str(v.condition_signal or "used").lower() in {"used","demo"} else "unknown",
-                 {"identity_confidence":max(float(v.identity_confidence),identity_confidence),
+                 json.dumps({"identity_confidence":max(float(v.identity_confidence),identity_confidence),
                   "identity_evidence":evidence,"image_urls":list(v.image_urls or []),
-                  "verification_notes":v.verification_notes}))
+                  "verification_notes":v.verification_notes,"vin":v.vin,"chassis_number":v.chassis_number})))
             listing_id=cur.fetchone()["listing_id"]; counts["listings"]+=1
             cur.execute(
                 """insert into public.vehicle_observations
@@ -90,8 +92,8 @@ def ingest_vehicles(vehicles: list[Vehicle]) -> dict[str,int]:
                 (vehicle_id,listing_id,source_id,v.price_lakh,v.mileage_km,v.owner_count,
                  v.year_manufacture,v.year_registration,v.seller_city,v.seller_state,v.registration_state,
                  bool(v.data_consistent),max(float(v.identity_confidence),identity_confidence),
-                 {"url":v.url,"final_url":v.final_url,"title":v.title,"source":v.source_name,
-                  "condition":v.condition_signal,"identity_evidence":evidence}))
+                 json.dumps({"url":v.url,"final_url":v.final_url,"title":v.title,"source":v.source_name,
+                  "condition":v.condition_signal,"identity_evidence":evidence,"vin":v.vin,"chassis_number":v.chassis_number})))
             counts["observations"]+=1
         conn.commit()
     return counts
