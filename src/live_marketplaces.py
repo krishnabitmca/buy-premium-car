@@ -1474,6 +1474,45 @@ def _page_listing_heading(html: str) -> str:
             parts.append(re.sub(r"<[^>]+>", " ", m.group(1)))
     return " ".join(re.sub(r"\s+", " ", p).strip() for p in parts if p).strip()
 
+def parse_generic_detail_page(html: str, source: str, base_url: str, query: str="") -> list[dict]:
+    """Conservative fallback for a single unstructured vehicle detail page."""
+    heading=_page_listing_heading(html)
+    condition=_infer_condition({"name":heading}) if heading else "unknown"
+    brand,model=_query_parts(query)
+    if not brand:
+        brand,model=_infer_brand_model(heading,None,None)
+    if not brand or (query and not _model_identity_matches(model, heading)):
+        return []
+    text=re.sub(r"<script[\\s\\S]*?</script>|<style[\\s\\S]*?</style>", " ", html or "", flags=re.I)
+    text=re.sub(r"<[^>]+>", " ", text)
+    text=re.sub(r"\\s+", " ", text)
+    pm=re.search(r"(?:₹|Rs\\.?)[ ]*([\\d,.]+)[ ]*(Lakh|Crore|L|Cr)?", text, re.I)
+    price_lakh=None
+    if pm:
+        value=float(pm.group(1).replace(",",""))
+        unit=(pm.group(2) or "").lower()
+        if unit in {"crore","cr"}: value*=100
+        elif unit not in {"lakh","l"} and value>100000: value/=100000
+        price_lakh=value
+    ym=re.search(r"(?:Manufacturing|Mfg\\.?)\\s*Year[^0-9]{0,20}(?:\\d{1,2}/)?(20\\d{2}|19\\d{2})", text, re.I)
+    if not ym:
+        ym=re.search(r"\\b(20\\d{2}|19\\d{2})\\b", heading)
+    km_m=re.search(r"(?:Current\\s+Mileage|Mileage)[^0-9]{0,20}([\\d,]+)\\s*(?:KM|KMs|Kilomet)", text, re.I)
+    image_m=re.search(r'<meta[^>]+(?:property|name)=[\"\\\'](?:og:image|twitter:image)[\"\\\'][^>]+content=[\"\\\']([^\"\\\']+)', html or "", re.I)
+    image_urls=[_absolute(base_url,image_m.group(1))] if image_m else []
+    return [{
+        "brand":brand,"model":model,"listing_name":heading or f"{brand} {model}",
+        "variant":heading or "","price_lakh":price_lakh,"url":base_url,
+        "images":image_urls,"image":image_urls[0] if image_urls else None,
+        "source":source,"live_verified":True,"data_consistent":bool(base_url and heading),
+        "condition_signal":condition,"seller_city":None,"seller_state":None,
+        "location":None,"location_raw":None,
+        "mfg_year":int(ym.group(1)) if ym else None,
+        "km":float(km_m.group(1).replace(",","")) if km_m else None,
+        "fuel":None,"transmission":None,"body_type":None,
+        "provenance":{"source":source,"source_url":base_url,"original_url":base_url,"extraction":"generic_detail","raw_listing":heading},
+    }]
+
 def parse_live_listings(html: str, source: str, base_url: str) -> list[dict]:
     rows=[]
     page_heading=_page_listing_heading(html)
