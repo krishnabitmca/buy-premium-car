@@ -246,4 +246,7 @@ def test_metasearch_coverage_gate_counts_known_sources_not_only_live_adapters():
 
     summary = __import__("src.source_intelligence", fromlist=["summarize_plan"]).summarize_plan(plan)
     assert summary["selected_sources"] >= summary["live_sources"]
-    assert "Mercedes-Benz Used Cars" in summary["candidate_source_names"]
+    assert summary["coverage_denominator"] >= 4
+    assert {"Mercedes-Benz Used Cars", "Motozite Demo", "Big Boy Toyz", "AutoHangar Used Cars"}.issubset(
+        set(summary["live_source_names"])
+    )
