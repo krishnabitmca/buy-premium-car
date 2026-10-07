@@ -98,14 +98,18 @@ def _planned_live_sources_unavailable(source_plan, sources):
     return bool(planned_live) and not planned_live.intersection(observed_live)
 
 def _score(v):
-    # Transparent ordering: deal evidence first, then identity and trust signals.
+    # Metasearch relevance: deal evidence + provider choice + trust/completeness.
     deal=float(v.get("discount_pct") or 0)
-    sources=int(v.get("source_count") or 1)
+    sources=int(v.get("source_count") or len(v.get("offers") or []) or 1)
     confidence=float(v.get("identity_confidence") or 0)
     verified=1 if v.get("live_verified") and v.get("data_consistent") else 0
     lowkm=1 if v.get("km") is not None and float(v["km"])<=30000 else 0
     owners=1 if v.get("owners")==1 else 0
-    return 4*max(-10,min(20,deal))+5*min(4,sources)+10*confidence+8*verified+5*lowkm+4*owners
+    images=1 if (v.get("images") or v.get("image_urls")) else 0
+    certified=1 if v.get("certification") else 0
+    freshness=1 if v.get("observed_at") else 0
+    return (4*max(-10,min(20,deal))+5*min(4,sources)+10*confidence+8*verified+
+            5*lowkm+4*owners+3*images+3*certified+4*freshness)
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self): _response(self,204,{})
@@ -258,7 +262,15 @@ class handler(BaseHTTPRequestHandler):
                 "page_size": page_size,
                 "has_more": ((page * page_size) < int(inventory_total)) if search_mode == "inventory" and inventory_total is not None else False,
                 "inventory_total": int(inventory_total) if inventory_total is not None else None,
-                "sources_found":len({s for v in results for s in [v.get("source")] if s}),
+                "sources_found":len({offer.get("source") for v in results for offer in (v.get("offers") or [{"source":v.get("source")}]) if offer.get("source")}),
+                "search_diagnostics":{
+                    "planned_sources":len(source_plan),
+                    "responding_sources":len([source for source in sources if source.get("status") in ("live","inventory")]),
+                    "result_count":len(results),
+                    "zero_result":len(results)==0,
+                    "coverage_mode":search_mode,
+                    "availability_warning":availability_warning,
+                },
                 "availability_warning": availability_warning,
                 "results":results
             })
