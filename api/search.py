@@ -110,11 +110,17 @@ def _score(v):
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self): _response(self,204,{})
     def do_GET(self):
-        if urlparse(self.path).path!="/api/search":
+        parsed=urlparse(self.path)
+        if parsed.path!="/api/search":
             return _response(self,404,{"error":"Not found"})
         try:
-            vehicles,sources=live_inventory()
-            return _response(self,200,{"ok":True,"mode":"live","search_scope":"india","vehicles_count":len(vehicles),"sources":sources})
+            from urllib.parse import parse_qs
+            params=parse_qs(parsed.query)
+            query=str((params.get("query") or [""])[0]).strip()
+            condition=str((params.get("condition") or ["both"])[0]).strip()
+            destination=str((params.get("destination") or [""])[0]).strip()
+            vehicles,sources=live_inventory(query,condition,destination=destination)
+            return _response(self,200,{"ok":True,"mode":"live","search_scope":"india","query":query,"condition":condition,"vehicles_count":len(vehicles),"sources":sources})
         except Exception as exc:
             return _response(self,500,{"error":f"Search inventory unavailable: {exc}"})
     def do_POST(self):
