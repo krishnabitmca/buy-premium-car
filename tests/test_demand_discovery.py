@@ -29,7 +29,9 @@ class TestDemandDrivenDiscovery(unittest.TestCase):
             }],
         )
         self.assertIn('"Mercedes-Benz GLE" demo cars India', queries)
-        self.assertIn('"Mercedes-Benz GLE" demonstrator dealer India', queries)
+        self.assertIn('"Mercedes-Benz GLE" demonstrator cars India', queries)
+        self.assertIn('"Mercedes-Benz GLE" dealer demo India', queries)
+        self.assertIn('"Mercedes-Benz GLE" test drive car for sale India', queries)
 
     def test_empty_demand_preserves_existing_query_bank(self):
         search = {
