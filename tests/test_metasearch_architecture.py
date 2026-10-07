@@ -39,3 +39,20 @@ def test_inventory_query_exposes_multi_provider_offers_and_freshness_gate():
     assert '"offers"' in source
     assert "last_verified_at >= now() - interval '7 days'" in source
     assert "source_count" in source
+
+
+def test_search_api_exposes_marketplace_diagnostics_and_offer_aware_source_count():
+    source=open("api/search.py").read()
+    assert '"search_diagnostics"' in source
+    assert '"planned_sources"' in source
+    assert '"responding_sources"' in source
+    assert '"zero_result"' in source
+    assert 'v.get("offers")' in source
+
+
+def test_search_ranking_rewards_provider_choice_and_completeness():
+    from api.search import _score
+    base={"discount_pct":5,"identity_confidence":.9,"live_verified":True,"data_consistent":True,
+          "km":10000,"owners":1,"source_count":1}
+    richer=dict(base,source_count=3,image_urls=["https://img.example/car.jpg"],observed_at="2026-10-07T00:00:00Z")
+    assert _score(richer) > _score(base)
