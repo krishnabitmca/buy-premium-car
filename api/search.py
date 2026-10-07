@@ -97,6 +97,19 @@ def _planned_live_sources_unavailable(source_plan, sources):
     }
     return bool(planned_live) and not planned_live.intersection(observed_live)
 
+def _zero_result_reason(*, result_count, source_plan, sources, search_mode, availability_warning):
+    if result_count:
+        return None
+    if availability_warning:
+        return "sources_unavailable"
+    if not source_plan:
+        return "no_eligible_sources"
+    if search_mode == "inventory_partial":
+        return "partial_coverage"
+    if search_mode in {"live_fallback", "live_coverage_fallback"} and not sources:
+        return "sources_unavailable"
+    return "no_matching_inventory"
+
 def _score(v):
     # Metasearch relevance: deal evidence + provider choice + trust/completeness.
     deal=float(v.get("discount_pct") or 0)
@@ -249,6 +262,10 @@ class handler(BaseHTTPRequestHandler):
                 v["_search_score"]=_score(v)
             results.sort(key=lambda x:(-x["_search_score"],x.get("price_lakh") or 9999))
             for v in results: v.pop("_search_score",None)
+            zero_result_reason=_zero_result_reason(
+                result_count=len(results), source_plan=source_plan, sources=sources,
+                search_mode=search_mode, availability_warning=availability_warning,
+            )
             return _response(self,200,{
                 "ok":True,
                 "search_scope":"india",
@@ -270,6 +287,7 @@ class handler(BaseHTTPRequestHandler):
                     "responding_sources":len([source for source in sources if source.get("status") in ("live","inventory")]),
                     "result_count":len(results),
                     "zero_result":len(results)==0,
+                    "zero_result_reason":zero_result_reason,
                     "coverage_mode":search_mode,
                     "availability_warning":availability_warning,
                 },
