@@ -89,3 +89,20 @@ def test_intent_discovery_requests_known_domain_endpoints(monkeypatch):
     )
     assert captured["include_known_domain_urls"] is True
     assert captured["max_queries"] == 3
+
+
+def test_demo_discovery_rejects_identity_only_without_demo_evidence(monkeypatch):
+    import src.query_discovery as qd
+    class Candidate:
+        url="https://cars.example/bmw/x1"
+        domain="cars.example"
+        source_type="marketplace"
+        segment="luxury"
+        query='"BMW X1" demo cars India'
+        candidate_confidence=.9
+    monkeypatch.setattr(qd,"discover",lambda *args,**kwargs:[Candidate()])
+    monkeypatch.setattr(qd,"fetch_text",lambda url:"<html/>")
+    monkeypatch.setattr(qd,"parse_live_listings",lambda *args:[
+        {"brand":"BMW","model":"X1","listing_name":"BMW X1 new car","condition_signal":"unknown"}
+    ])
+    assert discover_for_intent(brand="BMW",model="X1",condition="demo",known_registry=[])==[]
