@@ -132,8 +132,27 @@ class BuiltinMarketplaceAdapter:
             parsed=[]
             seen_listing_urls=set()
             for row in all_parsed:
-                listing_url=str(row.get("url") or "")
-                key=listing_url or repr((row.get("brand"),row.get("model"),row.get("listing_name"),row.get("price_lakh")))
+                listing_url=str(row.get("url") or "").strip()
+                provenance=row.get("provenance") or {}
+                source_url=str(provenance.get("source_url") or "").strip()
+                # A catalogue/card without its own href legitimately shares the
+                # endpoint URL with sibling vehicles. In that case URL is not a
+                # vehicle identity and must not collapse distinct inventory.
+                if listing_url and (
+                    not source_url
+                    or listing_url.rstrip("/") != source_url.rstrip("/")
+                ):
+                    key=("url", listing_url.rstrip("/"))
+                else:
+                    key=(
+                        "vehicle",
+                        str(row.get("brand") or "").strip().lower(),
+                        str(row.get("model") or "").strip().lower(),
+                        str(row.get("listing_name") or "").strip().lower(),
+                        row.get("price_lakh"),
+                        row.get("mfg_year"),
+                        row.get("km"),
+                    )
                 if key in seen_listing_urls:
                     continue
                 seen_listing_urls.add(key)
