@@ -13,7 +13,7 @@ def test_registry_is_cache_not_search_universe(monkeypatch):
         candidate_confidence=.91
 
     captured={}
-    def fake_discover(settings, known_domains, demand=None):
+    def fake_discover(settings, known_domains, demand=None, **kwargs):
         captured["demand"]=demand
         return [Candidate()]
 
@@ -45,7 +45,7 @@ def test_same_open_web_expansion_applies_to_any_brand_model(monkeypatch):
         query='"Audi Q5" used cars India'
         candidate_confidence=.9
 
-    monkeypatch.setattr(qd, "discover", lambda settings, known_domains, demand=None: [Candidate()])
+    monkeypatch.setattr(qd, "discover", lambda settings, known_domains, demand=None, **kwargs: [Candidate()])
     monkeypatch.setattr(qd, "fetch_text", lambda url: "<html/>")
     monkeypatch.setattr(qd, "parse_live_listings", lambda *args: [
         {"brand":"Audi","model":"Q5","listing_name":"Audi Q5 pre-owned","condition_signal":"used"}
@@ -58,17 +58,34 @@ def test_same_open_web_expansion_applies_to_any_brand_model(monkeypatch):
     assert found[0]["query_strategy"]=="open_web_intent"
 
 
-def test_merge_keeps_registry_and_adds_new_domains():
+def test_merge_keeps_registry_and_adds_new_endpoints_even_on_known_domain():
     registry=[{"name":"Known","url":"https://known.example/cars"}]
     discovered=[
-        {"name":"Duplicate","url":"https://known.example/new"},
-        {"name":"New","url":"https://new.example/cars"},
+        {"name":"New endpoint","url":"https://known.example/bmw/x1-demo"},
+        {"name":"New domain","url":"https://new.example/cars"},
     ]
     merged=merge_source_universe(registry,discovered)
-    assert [x["name"] for x in merged]==["Known","New"]
+    assert [x["name"] for x in merged]==["Known","New endpoint","New domain"]
 
 
 def test_condition_is_listing_evidence_not_source_name():
     from api.search import _vehicle_condition
     assert _vehicle_condition({"source":"BMW Demo Cars","condition_signal":"unknown"})=="unknown"
     assert _vehicle_condition({"source":"Used Marketplace","condition_signal":"demo"})=="demo"
+
+
+def test_intent_discovery_requests_known_domain_endpoints(monkeypatch):
+    import src.query_discovery as qd
+
+    captured={}
+    def fake_discover(settings, known_domains, demand=None, **kwargs):
+        captured.update(kwargs)
+        return []
+
+    monkeypatch.setattr(qd, "discover", fake_discover)
+    discover_for_intent(
+        brand="BMW", model="X1", condition="demo",
+        known_registry=[{"url":"https://dealer.example/cars"}],
+    )
+    assert captured["include_known_domain_urls"] is True
+    assert captured["max_queries"] == 3
