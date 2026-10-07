@@ -1591,7 +1591,11 @@ def live_inventory(
     # A concrete brand/model search expands beyond the cached registry by
     # discovering and validating relevant inventory sources on the open web.
     # Registry entries remain the fast path/cache, not the boundary of search.
-    query_discovery_enabled = os.getenv("CARSCANNER_QUERY_DISCOVERY", "true").lower() not in {"0", "false", "no"}
+    # Source discovery belongs to the scheduled/background intelligence pipeline.
+    # Synchronous open-web discovery makes customer searches unbounded and caused
+    # browser journeys to exceed 90s under modest parallel load. It remains
+    # available as an explicit opt-in for diagnostics/deep-search workers.
+    query_discovery_enabled = os.getenv("CARSCANNER_QUERY_DISCOVERY", "false").lower() in {"1", "true", "yes"}
     discovery_status=None
     if brand and model and query_discovery_enabled:
         try:
