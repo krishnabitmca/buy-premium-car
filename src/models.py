@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
 
 @dataclass
 class Vehicle:
@@ -25,6 +25,9 @@ class Vehicle:
     seller_city: Optional[str]=None
     seller_state: Optional[str]=None
     registration_state: Optional[str]=None
+    vin: Optional[str]=None
+    chassis_number: Optional[str]=None
+    metadata: dict[str, Any]=field(default_factory=dict)
     source_listings: list[dict]=field(default_factory=list)
     certification: Optional[str]=None
     condition_signal: Optional[str]=None
