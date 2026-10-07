@@ -53,16 +53,16 @@ class TestSearchPermutationMatrix(unittest.TestCase):
         self.assertEqual(set(self._selected_sources("Audi", "demo")), {"Motozite Demo"})
 
     def test_both_brand_only_audi_includes_used_and_demo(self):
-        self.assertEqual(set(self._selected_sources("Audi", "both")), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"})
+        self.assertEqual(set(self._selected_sources("Audi", "both")), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used", "Motozite Demo"})
 
     def test_selected_model_audi_q5_keeps_all_applicable_sources(self):
         self.assertEqual(set(self._selected_sources("Audi Q5", "used")), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"})
 
     def test_selected_model_mercedes_c_class_used_excludes_demo_only_source(self):
-        self.assertEqual(set(self._selected_sources("Mercedes-Benz C-Class", "used")), {"Motozite Demo"})
+        self.assertEqual(set(self._selected_sources("Mercedes-Benz C-Class", "used")), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"})
 
     def test_selected_model_demo_includes_demo_source(self):
-        self.assertEqual(set(self._selected_sources("Mercedes-Benz C-Class", "demo")), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"})
+        self.assertEqual(set(self._selected_sources("Mercedes-Benz C-Class", "demo")), {"Motozite Demo"})
 
     def test_budget_segment_excludes_luxury_retailers_from_mass_market_search(self):
         self.assertEqual(
@@ -74,7 +74,7 @@ class TestSearchPermutationMatrix(unittest.TestCase):
         self.assertEqual(set(self._selected_sources("BMW", "used", budget_min=30, budget_max=40)), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"})
 
     def test_open_ended_budget_does_not_drop_luxury_sources(self):
-        self.assertEqual(set(self._selected_sources("Audi", "used", budget_min=30, budget_max=None)), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used", "Motozite Demo"})
+        self.assertEqual(set(self._selected_sources("Audi", "used", budget_min=30, budget_max=None)), {"CarDekho Used", "CarWale Used", "Cars24 Luxury Used", "Spinny Luxury Used"})
 
     def test_destination_changes_priority_not_inventory_boundary(self):
         bengaluru = self._selected_sources("Audi", "used", destination="Bengaluru")
