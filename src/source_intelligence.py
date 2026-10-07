@@ -217,6 +217,7 @@ def plan_sources(
             "conditions": source.get("conditions") or [],
             "segments": source.get("segments") or [],
             "model_capabilities": source.get("model_capabilities") or [],
+            "endpoints": source.get("endpoints") or [],
             "priority": int(source.get("priority") or 50),
             "score": score,
             "query_strategy": source.get("query_strategy", "brand_model"),
