@@ -59,6 +59,7 @@ def discover_for_intent(
     )
 
     expanded=[]
+    validated_urls=set()
     for candidate in candidates:
         if len(expanded)>=max_sources:
             break
@@ -70,11 +71,21 @@ def discover_for_intent(
                     html, f"Web - {candidate.domain}", candidate.url, f"{brand} {model}"
                 )
             matching=[row for row in rows if _identity(row,brand,model)]
+            wanted=normalize_condition(condition)
+            if wanted=="demo":
+                matching=[row for row in matching if str(row.get("condition_signal") or "").lower() in {"demo","demonstrator"}]
+            elif wanted=="used":
+                # Explicit demonstrators can never validate a used endpoint.
+                matching=[row for row in matching if str(row.get("condition_signal") or "").lower() not in {"demo","demonstrator"}]
             if not matching:
                 continue
         except Exception:
             continue
 
+        normalized_url=str(candidate.url or "").rstrip("/")
+        if normalized_url in validated_urls:
+            continue
+        validated_urls.add(normalized_url)
         expanded.append({
             "name":f"Web - {candidate.domain}",
             "url":candidate.url,
