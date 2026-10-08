@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from src.acquisition import purchase_context
 from src.inventory_db import enabled as inventory_enabled, search_inventory
 from src.india_geo import infer_state
-from src.live_marketplaces import live_inventory, _query_parts
+from src.live_marketplaces import live_inventory, _query_parts, _identity_matches_query
 from src.source_intelligence import load_source_registry, plan_sources, summarize_plan
 from src.source_registry_db import enabled as source_db_enabled, record_search_demand
 
@@ -63,9 +63,7 @@ def _match(v,query,budget_min,budget_max,max_age,destination,condition="both"):
     actual_condition=_vehicle_condition(v)
     if wanted_condition in {"used","demo"} and actual_condition != wanted_condition:
         return False
-    hay=" ".join(str(v.get(k) or "") for k in ("brand","model","listing_name","variant","location","fuel","transmission","source")).lower()
-    tokens=[t for t in query.lower().split() if t]
-    if tokens and not all(t in hay for t in tokens): return False
+    if query and not _identity_matches_query(v, query): return False
     price=v.get("price_lakh")
     if budget_min is not None and (price is None or float(price)<budget_min): return False
     if budget_max is not None and (price is None or float(price)>budget_max): return False
