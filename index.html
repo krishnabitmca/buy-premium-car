@@ -56,7 +56,7 @@
 </main>
 <div id="modal" class="modal" onclick="if(event.target===this)closeModal()"><div class="modalbox"><div class="modalhead"><h3 id="modalTitle"></h3><button class="close" onclick="closeModal()">✕</button></div><div id="modalBody" class="modalbody"></div></div></div>
 <script>
-let inventory=[],shown=[],liveAt=null,sourceStatus=[],quickFilter='',condition='both';
+let inventory=[],shown=[],liveAt=null,sourceStatus=[],coverageWarning=null,quickFilter='',condition='both';
 const $=id=>document.getElementById(id);
 const money=x=>x==null?'—':'₹'+Number(x).toFixed(2)+'L';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -112,7 +112,7 @@ async function searchLive(){
  try{
   const r=await fetch('/api/search?ts='+Date.now(),{method:'POST',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({query:[b,m].filter(Boolean).join(' '),destination,budget_min:fmin||null,budget_max:fmax||null,condition})});
   if(!r.ok)throw Error((await r.text()).slice(0,150));const p=await r.json();if(!p.ok||p.search_scope!=='india'||!['live','inventory','live_coverage_fallback','live_fallback'].includes(p.mode))throw Error(p.error||'Live search unavailable');
-  inventory=p.results||[];liveAt=p.live_at;sourceStatus=p.sources||[];populateRefinements();applyResults();
+  inventory=p.results||[];liveAt=p.live_at;sourceStatus=p.sources||[];coverageWarning=p.availability_warning||null;populateRefinements();applyResults();
  }catch(e){inventory=[];shown=[];$('grid').innerHTML='<div class="empty"><b>Live search is currently unavailable.</b>CarScanner will not show an offline snapshot.</div>';$('summary').textContent='Live source query failed'}
  finally{$('search').disabled=false;$('search').textContent='Search cars'}
 }
@@ -141,7 +141,7 @@ function applyResults(){
  shown=inventory.filter(v=>(selectedCondition==='both'||conditionOf(v)===selectedCondition)&&(!city||v.location===city)&&(fmin===null||(v.price_lakh!=null&&Number(v.price_lakh)>=fmin))&&(fmax===null||(v.price_lakh!=null&&Number(v.price_lakh)<=fmax))&&(y===null||age(v)<=y)&&(!fuels.length||fuels.includes(String(v.fuel||'').toLowerCase()))&&(quickFilter===''||String(v.fuel||'').toLowerCase()===quickFilter||String(v.body_type||'').toLowerCase()===quickFilter));
  const mode=$('sort').value;
  shown.sort((a,b)=>mode==='price'?(a.price_lakh||999)-(b.price_lakh||999):mode==='gap'?(b.discount_pct||-999)-(a.discount_pct||-999):mode==='km'?(a.km||999999)-(b.km||999999):mode==='year'?(b.mfg_year||0)-(a.mfg_year||0):score(b)-score(a));
- $('summary').textContent=shown.length+' live result'+(shown.length===1?'':'s')+' · '+sourceStatus.filter(s=>s.status==='live').length+' source(s) responded'+(liveAt?' · checked '+new Date(liveAt).toLocaleTimeString('en-IN'):'');
+ $('summary').textContent=shown.length+' live result'+(shown.length===1?'':'s')+' · '+sourceStatus.filter(s=>s.status==='live'||s.status==='inventory').length+' source(s) fetched · '+sourceStatus.filter(s=>Number(s.listings_found)>0).length+' source(s) with matches'+(liveAt?' · checked '+new Date(liveAt).toLocaleTimeString('en-IN'):'');
  $('meta').textContent='Live marketplace results. No offline inventory snapshot is used.';
  updateMarketView();
  render();
@@ -165,7 +165,7 @@ function runAssistant(){
  else if(nums.length===1){if(/under|below|less than|upto|up to/.test(text)){$('max').value=nums[0];$('min').value=''}else if(/above|over|more than/.test(text)){$('min').value=nums[0];$('max').value=''}else $('max').value=nums[0]}
  if(brand)loadModels().then(()=>{$('search').click()});else $('search').click();
 }
-function render(){$('grid').innerHTML=shown.length?shown.map(card).join(''):'<div class="empty"><b>No matching live cars found.</b>Try another brand, model, budget or filter. CarScanner does not fall back to stale inventory.</div>'}
+function render(){$('grid').innerHTML=shown.length?shown.map(card).join(''):'<div class="empty"><b>No verified matching listings returned.</b>'+(coverageWarning?esc(coverageWarning):'Source coverage may be incomplete. Try another model or filter; this does not establish that no cars are available.')+'</div>'}
 function inspectFromCard(el){inspect(shown[Number(el.dataset.index)]);}
 function inspect(v){$('modalTitle').textContent=(v.brand||'')+' '+(v.model||'');$('modalBody').innerHTML='<div class="deal"><b>Live marketplace observation</b><br>This listing was returned by a current source query.</div><table class="compare"><tbody>'+[['Asking price',money(v.price_lakh)],['Year',v.mfg_year||'—'],['Mileage',v.km!=null?Number(v.km).toLocaleString('en-IN')+' km':'—'],['Fuel / transmission',(v.fuel||'—')+' / '+(v.transmission||'—')],['Location',v.location||'—'],['Source',v.source||'—'],['Live verification',v.live_verified?'Source response received':'Not verified']].map(r=>'<tr><th>'+esc(r[0])+'</th><td>'+esc(r[1])+'</td></tr>').join('')+'</tbody></table>';$('modal').classList.add('show')}
 function closeModal(){$('modal').classList.remove('show')}

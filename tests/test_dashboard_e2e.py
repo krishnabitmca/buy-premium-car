@@ -68,3 +68,36 @@ def test_current_evidence_action_is_wired(dashboard_url):
         assert page.locator("#modal.show").count() == 1
         assert "Live marketplace observation" in page.locator("#modalBody").inner_text()
         browser.close()
+
+
+def test_empty_demo_search_distinguishes_fetched_sources_from_matches(dashboard_url):
+    import json
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.route("**/api/catalog*", lambda route: route.fulfill(
+            content_type="application/json", body=json.dumps({
+                "ok": True, "mode": "live", "brands": [{"name": "BMW"}],
+                "models": [{"name": "X1"}],
+            })))
+        requests = []
+        def search(route):
+            requests.append(route.request.post_data_json)
+            route.fulfill(content_type="application/json", body=json.dumps({
+                "ok": True, "mode": "live", "search_scope": "india",
+                "sources": [{"source": "Motozite Demo", "status": "live", "listings_found": 0}],
+                "results": [],
+            }))
+        page.route("**/api/search*", search)
+        page.goto(dashboard_url)
+        page.locator("#brand").select_option("BMW")
+        page.locator("#model").select_option("X1")
+        page.locator("#condition").select_option("demo")
+        page.locator("#search").click()
+        page.get_by_text("No verified matching listings returned.").wait_for()
+        assert page.locator(".card").count() == 0
+        assert "1 source(s) fetched · 0 source(s) with matches" in page.locator("#summary").inner_text()
+        assert "does not establish that no cars are available" in page.locator("#grid").inner_text()
+        assert requests[0]["query"] == "BMW X1"
+        assert requests[0]["condition"] == "demo"
+        browser.close()
