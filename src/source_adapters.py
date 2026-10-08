@@ -128,7 +128,7 @@ class BuiltinMarketplaceAdapter:
                 except Exception as exc:
                     if len(urls) == 1:
                         raise
-                    partial_error = (partial_error or "") + f"{endpoint_url}: {type(exc).__name__}; "
+                    partial_error = (partial_error or "") + f"{endpoint_url}: {type(exc).__name__}: {str(exc)[:100]}; "
                     continue
                 fetched_urls.append(endpoint_url)
                 if parser_strategy == "motozite_cards":
@@ -170,7 +170,9 @@ class BuiltinMarketplaceAdapter:
                 # A catalogue/card without its own href legitimately shares the
                 # endpoint URL with sibling vehicles. In that case URL is not a
                 # vehicle identity and must not collapse distinct inventory.
-                if listing_url and (
+                if row.get("source_listing_id"):
+                    key=("source_listing_id", str(row["source_listing_id"]))
+                elif listing_url and (
                     not source_url
                     or listing_url.rstrip("/") != source_url.rstrip("/")
                 ):

@@ -147,6 +147,7 @@ def parse_dealer_cards(html, source, base_url, strategy, query=""):
         condition = "demo" if product.get("isDemo") is True or re.search(r"\b(?:demo|demonstrator)\b", text, re.I) else "used"
         row = {"brand": brand, "model": model, "listing_name": title, "variant": title,
                "price_lakh": price, "url": url, "source": source, "images": images,
+               "source_listing_id": str(card.get("data-product-id")) if strategy == "bbt_cards" else None,
                "image": images[0] if images else None, "condition_signal": condition,
                "mfg_year": int(year[1]) if year and strategy != "bbt_cards" else None,
                "registration_year": int(year[1]) if year and strategy == "bbt_cards" else None,

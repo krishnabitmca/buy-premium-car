@@ -71,3 +71,13 @@ def test_supplemental_demo_endpoint_failure_keeps_primary_inventory(monkeypatch)
     assert len(adapter._urls(AdapterRequest(condition='used'))) == 1
     result = adapter.fetch(AdapterRequest(condition='both'))
     assert result.status == 'live' and len(result.listings) == 2 and 'TimeoutError' in result.error
+
+
+def test_bbt_product_id_deduplicates_alternate_endpoint_links(monkeypatch):
+    fixture = Path('tests/fixtures/dealer_bbt.html').read_text()
+    monkeypatch.setattr('src.source_adapters.fetch_text', lambda url: fixture if url.endswith('/brand') else fixture.replace('-detail-page', '-alternate-detail-page'))
+    monkeypatch.setattr('src.source_adapters.adapter_execution_allowed', lambda _: True)
+    monkeypatch.setattr('src.source_adapters.record_adapter_execution', lambda *a, **kw: None)
+    source = {'name': 'BBT', 'url': 'https://www.bigboytoyz.com/brand', 'parser_strategy': 'bbt_cards', 'endpoints': [{'url': 'https://www.bigboytoyz.com/demo'}]}
+    result = BuiltinMarketplaceAdapter(source).fetch(AdapterRequest(condition='both'))
+    assert result.status == 'live' and len(result.listings) == 2
