@@ -1,5 +1,13 @@
 # CarScanner Changelog
 
+## 2026-10-08
+
+- Reject catalogue/category pages in generic vehicle extraction; require individual vehicle identity and price plus year/mileage or VIN.
+- Correct escaped regexes in generic detail extraction so real price/year/mileage evidence is read.
+- Read parser strategy from PostgreSQL source metadata as well as YAML fields.
+- Distinguish fetched sources from sources with matching listings in the UI; empty searches no longer imply market-wide absence.
+
+
 ## 2026-09-29
 
 ### Live search foundation

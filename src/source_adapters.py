@@ -100,7 +100,7 @@ class BuiltinMarketplaceAdapter:
         try:
             all_parsed=[]
             fetched_urls=[]
-            parser_strategy = str(self.source.get("parser_strategy") or "").strip().lower()
+            parser_strategy = str(self.source.get("parser_strategy") or (self.source.get("metadata") or {}).get("parser_strategy") or "").strip().lower()
             for endpoint_url in urls:
                 html = fetch_text(endpoint_url)
                 fetched_urls.append(endpoint_url)
