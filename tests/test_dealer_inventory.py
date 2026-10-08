@@ -34,7 +34,8 @@ def test_bbt_unregistered_is_not_demo_and_registration_is_not_manufacture_year()
     assert rows[0]["registration_year"] is None
     assert rows[1]["registration_year"] == 2024
     assert rows[1]["mfg_year"] is None
-    assert rows[1]["seller_state"] == "Odisha (OD)"
+    assert rows[1]["registration_state"] == "Odisha (OD)"
+    assert rows[1]["seller_state"] is None and rows[1]["location"] is None
 
 
 @pytest.mark.parametrize("name,strategy,url,prices", CASES)

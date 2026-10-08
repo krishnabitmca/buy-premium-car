@@ -151,7 +151,8 @@ def parse_dealer_cards(html, source, base_url, strategy, query=""):
                "mfg_year": int(year[1]) if year and strategy != "bbt_cards" else None,
                "registration_year": int(year[1]) if year and strategy == "bbt_cards" else None,
                "km": float(km[1].replace(",", "")), "fuel": fuel[1] if fuel else None,
-               "location": location, "seller_city": None, "seller_state": location if strategy == "bbt_cards" else None,
+               "location": location if strategy != "bbt_cards" else None, "seller_city": None, "seller_state": None,
+               "registration_state": location if strategy == "bbt_cards" else None,
                "live_verified": True, "data_consistent": True,
                "provenance": {"source_url": base_url, "original_url": url, "extraction": strategy,
                               "condition_evidence": "product.isDemo=true" if product.get("isDemo") is True else "visible dealer card"}}
