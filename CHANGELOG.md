@@ -2,6 +2,10 @@
 
 ## 2026-10-08
 
+- Acquire Mercedes OEM inventory through the public session-token/inventory request used by its showroom UI.
+- Parse individual OEM article cards with explicit condition, asking price, specifications, images, city, and seller link; enable the verified adapter.
+
+
 - Reject catalogue/category pages in generic vehicle extraction; require individual vehicle identity and price plus year/mileage or VIN.
 - Correct escaped regexes in generic detail extraction so real price/year/mileage evidence is read.
 - Read parser strategy from PostgreSQL source metadata as well as YAML fields.

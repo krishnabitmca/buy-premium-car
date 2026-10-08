@@ -248,9 +248,10 @@ known_sources:
 
 - name: Mercedes-Benz Used Cars
   url: https://www.mercedes-benzusedcar.in/buy-used-cars
+  parser_strategy: mercedes_inventory
   tier: 1
   source_type: oem_certified
-  adapter_status: candidate
+  adapter_status: live
   geography: india
   conditions: [used, demo]
   segments: [luxury, super_luxury]

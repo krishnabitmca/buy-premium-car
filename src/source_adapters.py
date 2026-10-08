@@ -102,6 +102,13 @@ class BuiltinMarketplaceAdapter:
             fetched_urls=[]
             parser_strategy = str(self.source.get("parser_strategy") or (self.source.get("metadata") or {}).get("parser_strategy") or "").strip().lower()
             for endpoint_url in urls:
+                if parser_strategy == "mercedes_inventory":
+                    from .oem_inventory import fetch_mercedes_inventory
+                    all_parsed.extend(fetch_mercedes_inventory(
+                        endpoint_url, request.query, normalize_condition(request.condition), self.source_name
+                    ))
+                    fetched_urls.append(endpoint_url)
+                    continue
                 html = fetch_text(endpoint_url)
                 fetched_urls.append(endpoint_url)
                 if parser_strategy == "motozite_cards":
