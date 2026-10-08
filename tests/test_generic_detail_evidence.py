@@ -72,3 +72,8 @@ def test_adapter_does_not_promote_empty_motozite_category(monkeypatch):
     result = BuiltinMarketplaceAdapter(source).fetch(AdapterRequest(query="BMW X1", condition="demo"))
     assert result.status == "live"
     assert result.listings == []
+
+
+def test_malformed_price_punctuation_does_not_fail_adapter():
+    html = '<h1>BMW X1 Demo</h1><p>Rs. ... Manufacturing Year 2025 Mileage 3,200 KM</p>'
+    assert parse_generic_detail_page(html, "Test", "https://example.com/car/123", "BMW X1") == []

@@ -1494,7 +1494,7 @@ def parse_generic_detail_page(html: str, source: str, base_url: str, query: str=
     text = re.sub(r"<script[\s\S]*?</script>|<style[\s\S]*?</style>", " ", html or "", flags=re.I)
     text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"\s+", " ", text)
-    pm = re.search(r"(?:₹|Rs\.?)[ ]*([\d,.]+)[ ]*(Lakh|Crore|L|Cr)?", text, re.I)
+    pm = re.search(r"(?:₹|Rs\.?)[ ]*([0-9][0-9,]*(?:\.[0-9]+)?)[ ]*(Lakh|Crore|L|Cr)?", text, re.I)
     if not pm:
         return []
     price_lakh = float(pm.group(1).replace(",", ""))
