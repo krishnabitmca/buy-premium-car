@@ -18,6 +18,8 @@ Responsibilities:
 
 PostgreSQL/Supabase is the production source-intelligence system of record when configured. config/sources.yaml is the versioned bootstrap/recovery seed.
 
+The daily crawler visits enabled registry roots and active inventory endpoints, deduplicated by URL. The three-hour source-expansion job explicitly probes registered candidates from both the database and versioned seed before adding open-web discoveries. Search-engine omission does not prevent candidate monitoring. Successful validation stages an adapter; it does not enable customer-facing inventory automatically.
+
 ## 2. Live marketplace search
 
 Customer search queries live marketplace pages/APIs through adapters whose adapter_status is live. data/latest.json is historical/reporting data and must never be used as a customer-facing inventory fallback.

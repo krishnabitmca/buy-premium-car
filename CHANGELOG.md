@@ -1,3 +1,10 @@
+## 2026-10-08 — Scheduled source monitoring
+
+- Register additional demo marketplace, authorised-dealer and OEM inventory leads as candidates, including Porsche Finder, Skoda Certified, GetOnRoadPrice, DiscountedCarsIndia, Motodeals and Gurudev Skoda; point Volvo Selekt at its inventory portal.
+- Daily crawling now visits active configured inventory endpoints as well as primary URLs.
+- Three-hour source expansion explicitly rechecks registered candidates alongside open-web discoveries. Deduplicate by URL, preserve distinct same-domain inventory surfaces, skip disabled sources and verified live URLs.
+- Successful validation stages candidate adapters; empty/sold, blocked and enquiry-only pages cannot automatically become live search inventory.
+
 ## 2026-10-08 — Additional dealer demo coverage
 
 - Added Sundaram Motors active dealer cards, advertised pagination (maximum ten pages), explicit demo asking prices and per-page failure diagnostics.

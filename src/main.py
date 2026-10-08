@@ -24,7 +24,8 @@ def main():
     conn.execute("INSERT INTO run_history(run_id,started_at) VALUES(?,?)",(run_id,now))
     for s in known_sources:record_source(conn,domain(s["url"]),s["url"],s["name"],True,now,"known")
     conn.commit()
-    queue=[(s["name"],s["url"],int(s.get("tier",2))) for s in known_sources];new_sources=[]
+    from .source_monitoring import crawl_queue
+    queue=crawl_queue(known_sources);new_sources=[]
     if not args.no_discovery:
         found=discover(settings,known_domains(conn));cap=int(settings.market.get("max_discovered_sources_per_run",20))
         for r in found[:cap]:record_source(conn,r.domain,r.url,r.domain,False,now,"discovered");new_sources.append({"domain":r.domain,"url":r.url,"title":r.title,"snippet":r.snippet,"query":r.query,"source_type":r.source_type,"condition":r.condition,"segment":r.segment,"brand_hint":r.brand_hint or "","candidate_confidence":r.candidate_confidence});queue.append((r.domain,r.url,3))

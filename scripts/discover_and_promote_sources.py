@@ -12,6 +12,7 @@ import time
 from urllib.parse import urlparse
 
 from src.config import load_settings
+from src.source_monitoring import registered_candidates, merge_candidates
 from src.discovery import discover
 from src.live_marketplaces import fetch_text, parse_live_listings, parse_visible_listing_links, parse_generic_detail_page
 from src.source_intelligence import load_source_registry, normalize_condition
@@ -108,10 +109,12 @@ def main() -> None:
     demand = load_search_demand(limit=100, lookback_hours=168)
     found = discover(settings, known_domains, demand=demand, include_known_domain_urls=True)
     print(f"demand_intents={len(demand)}")
-    candidates = [
-        item for item in found
-        if float(item.candidate_confidence) >= args.min_confidence
-    ][: max(0, args.max_candidates)]
+    # Known candidates must be probed even if search engines do not return
+    # them. Merge versioned seeds with the DB registry; existing live URLs are
+    # skipped and validation still stages adapters rather than enabling them.
+    seeds = registered_candidates([*registry, *load_source_registry(from_database=False)])
+    candidates = merge_candidates(seeds, found, args.min_confidence, args.max_candidates)
+    print(f"registered_candidates={len(seeds)}")
 
     discoveries = [
         {
