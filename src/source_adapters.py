@@ -113,8 +113,11 @@ class BuiltinMarketplaceAdapter:
                 fetched_urls.append(endpoint_url)
                 if parser_strategy == "motozite_cards":
                     parsed = live_marketplaces.parse_motozite_cards(
-                        html, self.source_name, endpoint_url, request.query
+                        html, self.source_name, endpoint_url, request.query, condition="both"
                     )
+                elif parser_strategy in {"bbt_cards", "autobest_cards", "luxuryride_cards", "ninthgear_cards"}:
+                    from .dealer_inventory import parse_dealer_cards
+                    parsed = parse_dealer_cards(html, self.source_name, endpoint_url, parser_strategy, request.query)
                 elif parser_strategy == "bmw_cards":
                     parsed = live_marketplaces.parse_bmw_listing_cards(
                         html, self.source_name, endpoint_url, request.query

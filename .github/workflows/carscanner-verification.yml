@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install source-planner dependency
-        run: python -m pip install PyYAML
+        run: python -m pip install PyYAML beautifulsoup4
       - name: Python syntax checks
         run: python -m py_compile api/search.py api/catalog.py src/live_marketplaces.py
       - name: Parser smoke tests
