@@ -85,10 +85,19 @@ def test_bbt_explicit_demo_flag_and_dynamic_model_family_are_correlated_to_visib
     assert len(rows) == 1
     assert rows[0]["model"] == "C Class" and rows[0]["condition_signal"] == "demo"
     assert rows[0]["provenance"]["condition_evidence"] == "product.isDemo=true"
+    from api.search import _match
+    assert _match(rows[0], "Mercedes-Benz C-Class", None, None, None, "Bengaluru", "demo")
+    assert not _match(rows[0], "Mercedes-Benz E-Class", None, None, None, None, "demo")
     assert not parse_dealer_cards(script, "BBT", CASES[0][2], "bbt_cards")
     # Contradictory family metadata must not turn C200 into an E-Class.
     assert not parse_dealer_cards(fixture("bbt") + script.replace("Mercedes C Class", "Mercedes E Class"), "BBT", CASES[0][2], "bbt_cards", "Mercedes-Benz E-Class")
     assert not parse_dealer_cards(fixture("bbt") + script.replace('\\"inStock\\": true', '\\"inStock\\": false'), "BBT", CASES[0][2], "bbt_cards", "Mercedes-Benz C-Class")
+
+
+def test_final_api_filter_uses_exact_model_identity_not_substrings():
+    from api.search import _match
+    row = {"brand": "BMW", "model": "X10", "listing_name": "BMW X10", "condition_signal": "used", "price_lakh": 40}
+    assert not _match(row, "BMW X1", None, None, None, None, "used")
 
 
 def test_motozite_used_inventory_is_not_discarded_by_demo_default(monkeypatch):
