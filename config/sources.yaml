@@ -444,7 +444,7 @@ known_sources:
   source_type: luxury_specialist
   adapter_status: live
   geography: india
-  conditions: [used]
+  conditions: [used, demo]
   segments: [luxury, super_luxury]
   brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
   priority: 90

@@ -7,12 +7,13 @@ name = "premium-car-deal-radar"
 version = "0.1.0"
 description = "India-wide premium used/demo car crawler and deal detector"
 requires-python = ">=3.11,<3.14"
-# Keep the core package dependency-free so lightweight Vercel Python functions
+# Keep core dependencies small so lightweight Vercel Python functions
 # do not inherit the crawler/browser/data-science dependency tree. The scheduled
 # crawler installs requirements-crawler.txt explicitly.
 dependencies = [
   "psycopg[binary]>=3.2,<4",
   "PyYAML>=6.0,<7",
+  "beautifulsoup4>=4.12,<5",
 ]
 
 [project.optional-dependencies]

@@ -5,6 +5,7 @@
 - Restore live dealer inventory from Big Boy Toyz, AutoBest Emperio, Luxury Ride and 9th Gear with card-specific price, mileage, photo and original-link extraction; exclude sold, reserved and zero-price cards.
 - Route Big Boy Toyz and Motozite used searches to brand/model inventory rather than generic home pages.
 - Remove Motozite's implicit demo-only parser filter; the adapter applies the customer's condition after extracting card-local evidence.
+- Read Big Boy Toyz's explicit product demonstrator/stock flags and model-family catalog from public embedded JSON; correlate only visible card IDs and reject contradictory family assignments.
 
 - Acquire Mercedes OEM inventory through the public session-token/inventory request used by its showroom UI.
 - Parse individual OEM article cards with explicit condition, asking price, specifications, images, city, and seller link; enable the verified adapter.

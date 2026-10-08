@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 import pytest
 
@@ -74,6 +75,20 @@ def test_sold_reserved_and_zero_prices_are_excluded():
     html = fixture("9gear")
     assert not parse_dealer_cards(html.replace("New Arrival", "Recently Sold").replace("Less Driven", "Just Missed"), "9gear", CASES[3][2], "ninthgear_cards")
     assert not parse_dealer_cards(html.replace("19,25,000", "0").replace("61,75,000", "0"), "9gear", CASES[3][2], "ninthgear_cards")
+
+
+def test_bbt_explicit_demo_flag_and_dynamic_model_family_are_correlated_to_visible_ids():
+    state = [{"id": "134", "bid": "11", "modelname": "Mercedes C Class"},
+             {"id": "2929", "brand": {"id": "11", "name": "Mercedes-Benz", "model": {"id": "134"}}, "price": 4900000, "isDemo": True, "inStock": True}]
+    script = '<script>self.__next_f.push(' + json.dumps([1, '15:' + json.dumps(state)]) + ')</script>'
+    rows = parse_dealer_cards(fixture("bbt") + script, "BBT", CASES[0][2], "bbt_cards", "Mercedes-Benz C-Class")
+    assert len(rows) == 1
+    assert rows[0]["model"] == "C Class" and rows[0]["condition_signal"] == "demo"
+    assert rows[0]["provenance"]["condition_evidence"] == "product.isDemo=true"
+    assert not parse_dealer_cards(script, "BBT", CASES[0][2], "bbt_cards")
+    # Contradictory family metadata must not turn C200 into an E-Class.
+    assert not parse_dealer_cards(fixture("bbt") + script.replace("Mercedes C Class", "Mercedes E Class"), "BBT", CASES[0][2], "bbt_cards", "Mercedes-Benz E-Class")
+    assert not parse_dealer_cards(fixture("bbt") + script.replace('\\"inStock\\": true', '\\"inStock\\": false'), "BBT", CASES[0][2], "bbt_cards", "Mercedes-Benz C-Class")
 
 
 def test_motozite_used_inventory_is_not_discarded_by_demo_default(monkeypatch):
