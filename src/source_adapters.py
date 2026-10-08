@@ -72,6 +72,8 @@ class BuiltinMarketplaceAdapter:
         # Validated discovered endpoints are first-class inventory surfaces.
         # Domain identity must never collapse dealer/catalogue/demo endpoints.
         for endpoint in self.source.get("endpoints") or []:
+            if endpoint.get("condition") and normalize_condition(request.condition) not in {"both", normalize_condition(endpoint["condition"])}:
+                continue
             if endpoint.get("is_active", True) is False:
                 continue
             url=str(endpoint.get("url") or "").strip()
@@ -101,7 +103,19 @@ class BuiltinMarketplaceAdapter:
             all_parsed=[]
             fetched_urls=[]
             parser_strategy = str(self.source.get("parser_strategy") or (self.source.get("metadata") or {}).get("parser_strategy") or "").strip().lower()
+            partial_error = None
             for endpoint_url in urls:
+                if parser_strategy == "sundaram_cards":
+                    from .demo_dealers import fetch_sundaram
+                    rows, partial_error = fetch_sundaram(endpoint_url, self.source_name, fetch_text)
+                    all_parsed.extend(rows)
+                    fetched_urls.append(endpoint_url)
+                    continue
+                if parser_strategy == "gurudev_stock":
+                    from .demo_dealers import parse_gurudev
+                    all_parsed.extend(parse_gurudev(fetch_text(endpoint_url), self.source_name, endpoint_url))
+                    fetched_urls.append(endpoint_url)
+                    continue
                 if parser_strategy == "mercedes_inventory":
                     from .oem_inventory import fetch_mercedes_inventory
                     all_parsed.extend(fetch_mercedes_inventory(
@@ -109,7 +123,13 @@ class BuiltinMarketplaceAdapter:
                     ))
                     fetched_urls.append(endpoint_url)
                     continue
-                html = fetch_text(endpoint_url)
+                try:
+                    html = fetch_text(endpoint_url)
+                except Exception as exc:
+                    if len(urls) == 1:
+                        raise
+                    partial_error = (partial_error or "") + f"{endpoint_url}: {type(exc).__name__}: {str(exc)[:100]}; "
+                    continue
                 fetched_urls.append(endpoint_url)
                 if parser_strategy == "motozite_cards":
                     parsed = live_marketplaces.parse_motozite_cards(
@@ -137,6 +157,8 @@ class BuiltinMarketplaceAdapter:
                         html, self.source_name, endpoint_url, request.query
                     )
                 all_parsed.extend(parsed)
+            if not fetched_urls:
+                raise RuntimeError(partial_error or "No inventory endpoint responded")
             # The same car may be exposed by canonical, dealer and campaign
             # endpoints. Deduplicate by listing URL before condition filtering.
             parsed=[]
@@ -148,7 +170,9 @@ class BuiltinMarketplaceAdapter:
                 # A catalogue/card without its own href legitimately shares the
                 # endpoint URL with sibling vehicles. In that case URL is not a
                 # vehicle identity and must not collapse distinct inventory.
-                if listing_url and (
+                if row.get("source_listing_id"):
+                    key=("source_listing_id", str(row["source_listing_id"]))
+                elif listing_url and (
                     not source_url
                     or listing_url.rstrip("/") != source_url.rstrip("/")
                 ):
@@ -203,6 +227,7 @@ class BuiltinMarketplaceAdapter:
                 status="live",
                 latency_ms=int((time.monotonic() - started) * 1000),
                 query_url=" | ".join(fetched_urls),
+                error=partial_error,
             )
             record_adapter_execution(
                 self.source_name,

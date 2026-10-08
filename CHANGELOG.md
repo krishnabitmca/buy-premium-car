@@ -1,3 +1,10 @@
+## 2026-10-08 — Additional dealer demo coverage
+
+- Added Sundaram Motors active dealer cards, advertised pagination (maximum ten pages), explicit demo asking prices and per-page failure diagnostics.
+- Added Gurudev Tata's public current demo-stock API. Keep unknown mileage unknown, omit catalogue photos, and label the published Chennai on-road price.
+- Added Big Boy Toyz's dedicated demo collection alongside its brand inventory; deduplicate overlapping vehicle links.
+- Preserve exact model, budget and condition filtering. Separate on-road price observations from unspecified-price comparable groups.
+
 # CarScanner Changelog
 
 ## 2026-10-08

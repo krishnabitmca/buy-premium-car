@@ -438,6 +438,9 @@ known_sources:
 - name: Big Boy Toyz
   url: https://www.bigboytoyz.com/
   parser_strategy: bbt_cards
+  endpoints:
+  - url: https://www.bigboytoyz.com/collection?demo=1
+    condition: demo
   query_url_template: https://www.bigboytoyz.com/buy-used-{brand_slug}-cars
   brand_query_url_template: https://www.bigboytoyz.com/buy-used-{brand_slug}-cars
   tier: 2
@@ -534,3 +537,27 @@ known_sources:
   priority: 76
   query_strategy: luxury_model
   vehicle_link_pattern: /(?:pre-owned-cars|demo-cars)/[^/?#]+
+
+- name: Sundaram Motors Pre-Owned
+  url: https://sundarammotorspoc.com/listings/
+  parser_strategy: sundaram_cards
+  tier: 2
+  source_type: dealer
+  adapter_status: live
+  geography: india
+  conditions: [used, demo]
+  segments: [premium, luxury]
+  brands: [Mercedes-Benz]
+  priority: 90
+
+- name: Gurudev Tata Demo
+  url: https://gurudevtata.in/quotations/api/demo-stock/public
+  parser_strategy: gurudev_stock
+  tier: 2
+  source_type: dealer
+  adapter_status: live
+  geography: india
+  conditions: [demo]
+  segments: [mass_market]
+  brands: [Tata]
+  priority: 85
