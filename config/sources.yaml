@@ -293,7 +293,7 @@ known_sources:
   vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
 
 - name: Volvo Selekt
-  url: https://www.volvocars.com/in/l/used-cars/
+  url: https://selekt.volvocars.in/en-in/store/
   tier: 1
   source_type: oem_certified
   adapter_status: candidate
@@ -561,3 +561,69 @@ known_sources:
   segments: [mass_market]
   brands: [Tata]
   priority: 85
+
+- name: Porsche Finder India
+  url: https://finder.porsche.com/in/en-IN
+  tier: 2
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used, demo]
+  brands: [Porsche]
+  segments: [mass_market, premium, luxury]
+  priority: 80
+
+- name: Skoda Certified Pre-Owned
+  url: https://www.skodapreowned.in/
+  tier: 2
+  source_type: oem_certified
+  adapter_status: candidate
+  geography: india
+  conditions: [used, demo]
+  brands: [Skoda]
+  segments: [mass_market, premium, luxury]
+  priority: 80
+
+- name: GetOnRoadPrice Demo
+  url: https://www.getonroadprice.com/demo-cars/india
+  tier: 2
+  source_type: marketplace
+  adapter_status: candidate
+  geography: india
+  conditions: [demo]
+  brands: [all]
+  segments: [mass_market, premium, luxury]
+  priority: 80
+
+- name: DiscountedCarsIndia Demo
+  url: https://www.discountedcarsindia.com/cars?category=demo
+  tier: 2
+  source_type: marketplace
+  adapter_status: candidate
+  geography: india
+  conditions: [demo]
+  brands: [all]
+  segments: [mass_market, premium, luxury]
+  priority: 80
+
+- name: Motodeals
+  url: https://www.motodeals.co.in/
+  tier: 2
+  source_type: marketplace
+  adapter_status: candidate
+  geography: india
+  conditions: [used, demo]
+  brands: [all]
+  segments: [mass_market, premium, luxury]
+  priority: 80
+
+- name: Gurudev Skoda Demo
+  url: https://gurudevmotors.com/skoda-demo-cars-sale/
+  tier: 2
+  source_type: dealer_network
+  adapter_status: candidate
+  geography: india
+  conditions: [demo]
+  brands: [Skoda]
+  segments: [mass_market, premium, luxury]
+  priority: 80
