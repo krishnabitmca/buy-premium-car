@@ -194,7 +194,7 @@ def test_critical_customer_journeys_have_expected_source_mix():
 
     journeys = [
         ("Mercedes-Benz", "E-Class", "used", {"CarDekho Used", "CarWale Used"}),
-        ("Mercedes-Benz", "E-Class", "demo", {"Motozite Demo"}),
+        ("Mercedes-Benz", "E-Class", "demo", {"Motozite Demo", "Mercedes-Benz Used Cars", "Big Boy Toyz", "AutoHangar Used Cars"}),
         ("BMW", "3 Series", "used", {"BMW Premium Selection", "CarDekho Used", "CarWale Used"}),
         ("BMW", "X5", "demo", {"BMW Premium Selection", "Motozite Demo"}),
         ("Audi", "Q5", "used", {"CarDekho Used", "CarWale Used"}),
@@ -225,3 +225,28 @@ def test_no_source_plan_contains_discovery_only_sources():
                 live_only=True,
             )
             assert all(p.get("adapter_status") != "discovery_only" for p in plan)
+
+
+def test_metasearch_coverage_gate_counts_known_sources_not_only_live_adapters():
+    """Known relevant sources must remain visible to the coverage gate.
+
+    A missing/unverified adapter is a coverage gap, not a reason to shrink the
+    market denominator until the test turns green.
+    """
+    registry = load_source_registry(from_database=False)
+    plan = plan_sources(
+        brand="Mercedes-Benz",
+        model="E-Class",
+        condition="demo",
+        registry=registry,
+        live_only=False,
+    )
+    names = {p["name"] for p in plan}
+    assert {"Mercedes-Benz Used Cars", "Motozite Demo", "Big Boy Toyz", "AutoHangar Used Cars"}.issubset(names)
+
+    summary = __import__("src.source_intelligence", fromlist=["summarize_plan"]).summarize_plan(plan)
+    assert summary["selected_sources"] >= summary["live_sources"]
+    assert summary["coverage_denominator"] >= 4
+    assert {"Mercedes-Benz Used Cars", "Motozite Demo", "Big Boy Toyz", "AutoHangar Used Cars"}.issubset(
+        set(summary["live_source_names"])
+    )

@@ -284,7 +284,13 @@ class handler(BaseHTTPRequestHandler):
                 "sources_found":len({offer.get("source") for v in results for offer in (v.get("offers") or [{"source":v.get("source")}]) if offer.get("source")}),
                 "search_diagnostics":{
                     "planned_sources":len(source_plan),
+                    "eligible_market_sources":len(source_plan),
+                    "verified_live_sources":len([p for p in source_plan if p.get("adapter_status") == "live"]),
+                    "unverified_coverage_gaps":[p.get("name") for p in source_plan if p.get("adapter_status") != "live"],
+                    "attempted_sources":len(sources),
                     "responding_sources":len([source for source in sources if source.get("status") in ("live","inventory")]),
+                    "inventory_producing_sources":len({offer.get("source") for v in results for offer in (v.get("offers") or [{"source":v.get("source")}]) if offer.get("source")}),
+                    "market_coverage_complete":bool(source_plan) and all(p.get("adapter_status") == "live" for p in source_plan),
                     "result_count":len(results),
                     "zero_result":len(results)==0,
                     "zero_result_reason":zero_result_reason,

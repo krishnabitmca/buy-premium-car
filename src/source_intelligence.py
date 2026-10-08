@@ -176,6 +176,11 @@ def plan_sources(
             continue
         if not _model_matches(source, brand, model, "both"):
             continue
+        # Condition capability is registry evidence. A source that later proves
+        # it carries demonstrators must be updated to [used, demo] rather than
+        # silently searched as a used-only source.
+        if not _condition_matches(source, condition):
+            continue
         if not _segment_matches(source, segments):
             continue
 
@@ -229,12 +234,22 @@ def plan_sources(
 
 
 def summarize_plan(plan: list[dict[str, Any]]) -> dict[str, Any]:
-    live = [x for x in plan if x.get("adapter_status") == "live"]
-    candidates = [x for x in plan if x.get("adapter_status") != "live"]
+    eligible = [x for x in plan if x.get("adapter_status") in {"live", "candidate"}]
+    live = [x for x in eligible if x.get("adapter_status") == "live"]
+    candidates = [x for x in eligible if x.get("adapter_status") == "candidate"]
+    discovery_only = [x for x in plan if x.get("adapter_status") == "discovery_only"]
     return {
         "selected_sources": len(plan),
         "live_sources": len(live),
         "candidate_sources": len(candidates),
         "live_source_names": [x["name"] for x in live],
         "candidate_source_names": [x["name"] for x in candidates],
+        "coverage_denominator": len(eligible),
+        "discovery_only_sources": len(discovery_only),
+        "discovery_only_source_names": [x["name"] for x in discovery_only],
+        "coverage_ready": len(candidates) == 0 and len(live) > 0,
+        "coverage_gaps": [
+            {"name": x["name"], "reason": "adapter_not_verified", "adapter_status": x.get("adapter_status")}
+            for x in candidates
+        ],
     }

@@ -437,11 +437,13 @@ known_sources:
 
 - name: Big Boy Toyz
   url: https://www.bigboytoyz.com/
+  demo_query_url_template: https://www.bigboytoyz.com/collection?demo=1
+  brand_demo_query_url_template: https://www.bigboytoyz.com/collection?demo=1
   tier: 2
   source_type: luxury_specialist
   adapter_status: live
   geography: india
-  conditions: [used]
+  conditions: [used, demo]
   segments: [luxury, super_luxury]
   brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
   priority: 90

@@ -33,8 +33,8 @@ class TestSourceIntelligence(unittest.TestCase):
         names = [p["name"] for p in plan]
         self.assertIn("BMW Premium Selection", names)
         self.assertIn("Motozite Demo", names)
-        self.assertIn("CarDekho Used", names)
-        self.assertIn("Spinny Luxury Used", names)
+        self.assertNotIn("CarDekho Used", names)
+        self.assertNotIn("Spinny Luxury Used", names)
         bmw = next(x for x in self.registry if x["name"] == "BMW Premium Selection")
         self.assertEqual(
             bmw.get("demo_query_url_template"),
@@ -55,7 +55,7 @@ class TestSourceIntelligence(unittest.TestCase):
         plan = plan_sources(brand="BMW", model="X5", condition="used", budget_min=30, budget_max=40,
                             registry=self.registry)
         summary = summarize_plan(plan)
-        self.assertEqual(summary["selected_sources"], summary["live_sources"] + summary["candidate_sources"])
+        self.assertEqual(summary["coverage_denominator"], summary["live_sources"] + summary["candidate_sources"])
         # Candidate sources are deliberately visible to the planner but must
         # remain distinct from production-live sources until adapter verification.
         self.assertGreater(summary["candidate_sources"], 0)
