@@ -27,7 +27,7 @@ from api import search
 from src.inventory_db import search_inventory
 from src.inventory_ingestion import ingest_vehicles
 from src.inventory_refresh_planner import schedule_refreshes
-from src.inventory_refresh_worker import claim_jobs, process_job
+from src.inventory_refresh_worker import claim_jobs, process_job, recover_jobs, complete_job, run_batch
 from src.models import Vehicle
 from src.source_adapters import AdapterResult
 
@@ -233,3 +233,68 @@ def test_scheduler_claim_worker_ingestion_and_http_boundary(db,monkeypatch):
     db.commit()
     payload=post_search(monkeypatch,{'query':'BMW X1','condition':'used'},['Fixture Dealer'])
     assert len(payload['results'])==1 and payload['mode']=='inventory'
+
+
+def test_successful_empty_scan_is_fresh_and_other_model_still_scheduled(db,monkeypatch):
+    add_source(db)
+    assert schedule_refreshes()==1
+    job=claim_jobs(1)[0]
+    monkeypatch.setattr('src.inventory_refresh_worker.BuiltinMarketplaceAdapter.fetch',
+                        lambda self,request:AdapterResult(self.source_name,[],status='live'))
+    assert process_job(job)['observations']==0
+    assert schedule_refreshes()==0
+    monkeypatch.setattr('src.inventory_refresh_planner.load_search_demand',
+        lambda **kwargs:[{'brand':'BMW','model':'X1','condition':'used','search_count':1}])
+    assert schedule_refreshes()==1
+    db.commit()
+    assert db.execute("select model from public.inventory_refresh_queue where status='queued'").fetchone()['model']=='X1'
+
+
+def test_abandoned_claim_recovered_and_old_attempt_cannot_complete(db):
+    add_source(db)
+    schedule_refreshes()
+    first=claim_jobs(1)[0]
+    db.execute("update public.inventory_refresh_queue set started_at=now()-interval '31 minutes'")
+    db.commit()
+    assert recover_jobs()==1
+    second=claim_jobs(1)[0]
+    assert second['attempt_count']==2
+    complete_job(first['refresh_id'],success=True,attempt_count=first['attempt_count'])
+    assert db.execute('select status from public.inventory_refresh_queue').fetchone()['status']=='running'
+    db.commit()
+    complete_job(second['refresh_id'],success=True,attempt_count=second['attempt_count'])
+    assert db.execute('select status from public.inventory_refresh_queue').fetchone()['status']=='completed'
+
+
+def test_retry_backoff_and_exhausted_job_remains_failed(db):
+    add_source(db)
+    schedule_refreshes()
+    for attempt in (1,2,3):
+        job=claim_jobs(1)[0]
+        assert job['attempt_count']==attempt
+        complete_job(job['refresh_id'],success=False,error='blocked',attempt_count=attempt)
+        assert recover_jobs()==0
+        db.execute("update public.inventory_refresh_queue set completed_at=now()-interval '1 day'")
+        db.commit()
+        assert recover_jobs()==(1 if attempt<3 else 0)
+    schedule_refreshes()
+    assert claim_jobs(1)==[]
+
+
+def test_worker_passes_parser_configuration_and_continues_after_failure(db,monkeypatch):
+    add_source(db)
+    second=add_source(db,'Other Dealer')
+    db.execute("update public.sources set metadata=%s where source_id=%s",
+               (json.dumps({'parser_strategy':'custom_fixture'}),second))
+    db.commit()
+    schedule_refreshes()
+    seen=[]
+    def fetch(adapter,request):
+        seen.append(adapter.source)
+        if adapter.source_name=='Fixture Dealer':
+            raise RuntimeError('source unavailable')
+        return AdapterResult(adapter.source_name,[],status='live')
+    monkeypatch.setattr('src.inventory_refresh_worker.BuiltinMarketplaceAdapter.fetch',fetch)
+    assert run_batch(10)=={'completed':1,'failed':1}
+    assert len(seen)==2
+    assert next(s for s in seen if s['name']=='Other Dealer')['metadata']['parser_strategy']=='custom_fixture'

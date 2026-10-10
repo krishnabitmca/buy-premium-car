@@ -23,7 +23,7 @@ def test_scheduled_refresh_exports_the_database_variable_read_by_runtime(monkeyp
         assert database_url()=='postgresql://example.invalid/test'
 
 
-@pytest.mark.parametrize('module',['src.inventory_refresh_planner','src.inventory_refresh_worker'])
+@pytest.mark.parametrize('module',['src.inventory_refresh_planner','src.inventory_refresh_worker','src.inventory_service'])
 def test_refresh_command_fails_when_database_configuration_is_missing(module):
     env={k:v for k,v in os.environ.items() if k not in {'SOURCE_INTELLIGENCE_DATABASE_URL','DATABASE_URL','CARSCANNER_DATABASE_URL'}}
     result=subprocess.run([sys.executable,'-m',module,'--limit','1'],env=env,capture_output=True,text=True,timeout=20)

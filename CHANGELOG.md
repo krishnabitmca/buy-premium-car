@@ -1,3 +1,11 @@
+## 2026-10-10 — Continuous database refresh service
+
+- Add a continuous scheduler/worker command that requires PostgreSQL and remains separate from HTTP search.
+- Preserve full source parser/endpoint configuration and claim jobs immediately before execution; isolate failures within a batch.
+- Recover abandoned claims, retry failed work with bounded backoff, and fence completion by attempt number.
+- Schedule freshness per source/intent successful scan, including zero-result scans, rather than the newest listing across the whole source.
+- Document operational behavior and outstanding PAN-India launch gates in docs/CONTINUOUS_INVENTORY.md.
+
 ## 2026-10-10 — Inventory reliability foundation
 
 - Correct the refresh workflow database variable and fail background commands when database configuration is absent; serialize queue metadata for psycopg JSONB writes.

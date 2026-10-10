@@ -1,5 +1,13 @@
 # CarScanner Architecture
 
+## Continuous inventory operations
+
+`python -m src.inventory_service` runs the PostgreSQL scheduler and source-isolated
+worker outside customer requests. Scan freshness is per source/intent; failures
+have bounded retries and expired claims are recoverable. See
+[continuous inventory operations](docs/CONTINUOUS_INVENTORY.md) for execution,
+at-least-once behavior and remaining migration/launch gates.
+
 ## Architectural principle
 Keep source discovery, source governance, live inventory acquisition, search, deal intelligence, presentation, and future buyer services independently testable.
 
