@@ -10,7 +10,8 @@ from .canonical_identity import candidate_identity
 
 
 def _listing_key(v: Vehicle) -> str:
-    raw=str(v.final_url or v.url or "").strip()
+    stock_id=getattr(v,"source_listing_id",None)
+    raw=("id:"+str(stock_id).strip()) if stock_id else str(v.final_url or v.url or "").strip()
     if not raw:
         raw=f"{v.source_name}|{v.title}|{v.price_lakh}|{v.mileage_km}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
@@ -94,6 +95,17 @@ def ingest_vehicles(vehicles: list[Vehicle]) -> dict[str,int]:
             if vehicle_id is None: continue
             counts["vehicles"]+=1
 
+            # Adopt a stable marketplace ID for an older URL-keyed offer only
+            # when it resolves to the same canonical vehicle. Preserve its
+            # observation history instead of leaving a cheaper old offer active.
+            if v.source_listing_id and (v.final_url or v.url):
+                old_key=hashlib.sha256(str(v.final_url or v.url).strip().encode("utf-8")).hexdigest()
+                cur.execute("""update public.listings set source_listing_key=%s
+                    where source_id=%s and vehicle_id=%s and source_listing_key=%s
+                      and not exists (select 1 from public.listings newer
+                                      where newer.source_id=%s and newer.source_listing_key=%s)""",
+                    (listing_key,source_id,vehicle_id,old_key,source_id,listing_key))
+
             cur.execute(
                 """insert into public.listings
                    (source_id,vehicle_id,source_listing_key,url,final_url,title,seller_name,
@@ -108,7 +120,8 @@ def ingest_vehicles(vehicles: list[Vehicle]) -> dict[str,int]:
                  str(v.condition_signal or "used").lower() if str(v.condition_signal or "used").lower() in {"used","demo"} else "unknown",
                  json.dumps({"identity_confidence":max(float(v.identity_confidence),identity_confidence),
                   "identity_evidence":evidence,"image_urls":list(v.image_urls or []),
-                  "verification_notes":v.verification_notes,"vin":v.vin,"chassis_number":v.chassis_number})))
+                  "verification_notes":v.verification_notes,"vin":v.vin,"chassis_number":v.chassis_number,
+                  "source_listing_id":v.source_listing_id,"price_basis":v.price_basis})))
             listing_id=cur.fetchone()["listing_id"]; counts["listings"]+=1
             cur.execute(
                 """insert into public.vehicle_observations
@@ -120,7 +133,8 @@ def ingest_vehicles(vehicles: list[Vehicle]) -> dict[str,int]:
                  v.year_manufacture,v.year_registration,v.seller_city,v.seller_state,v.registration_state,
                  bool(v.data_consistent),max(float(v.identity_confidence),identity_confidence),
                  json.dumps({"url":v.url,"final_url":v.final_url,"title":v.title,"source":v.source_name,
-                  "condition":v.condition_signal,"identity_evidence":evidence,"vin":v.vin,"chassis_number":v.chassis_number})))
+                  "condition":v.condition_signal,"identity_evidence":evidence,"vin":v.vin,"chassis_number":v.chassis_number,
+                  "source_listing_id":v.source_listing_id,"price_basis":v.price_basis})))
             counts["observations"]+=1
         conn.commit()
     return counts

@@ -13,7 +13,7 @@ The current price/age thresholds are **radar defaults**, not permanent limits on
 
 ## Components
 - Static dashboard at `index.html`
-- Python crawler under `src/`
+- Canonical Postgres acquisition under `src/main.py` and continuous refresh under `src/inventory_service.py`
 - Source configuration under `config/`
 - Daily GitHub Actions crawl under `.github/workflows/daily-crawl.yml`
 - Historical SQLite data and reports under `data/` and `reports/`
@@ -57,7 +57,8 @@ silently reporting no work. `CARSCANNER_DATABASE_URL` is not a supported alias.
 India is the product market. A future customer can specify any Indian city, district or locality; the matching layer will not reject it because it is absent from a static city list.
 
 ## Vercel
-Deploy this repository using the repository root. The dashboard loads `data/latest.json`.
+Deploy this repository using the repository root. The dashboard calls `/api/search`;
+`data/latest.json` is a legacy/reporting artifact, not a customer inventory fallback.
 
 ## Customer Car Watches
 
@@ -87,6 +88,23 @@ For WhatsApp delivery, add:
 Optional:
 - `APP_BASE_URL`
 
-GitHub Actions runs the alert processor after the market crawl when Supabase is configured. Until provider credentials are configured, no live notifications are sent.
+Production acquisition and watches require `SOURCE_INTELLIGENCE_DATABASE_URL` (or
+`DATABASE_URL`). Apply all migrations and explicitly bootstrap/verify the source
+registry before enabling workflows. Watch API credentials must refer to the same
+Supabase project as the inventory connection.
+
+```sh
+python -m src.main --limit 100
+python -m src.inventory_service --limit 10 --interval-seconds 60
+python -m scripts.process_alerts --mode instant --dry-run
+```
+
+The daily workflow runs daily/both watches; the 15-minute refresh workflow runs
+instant/both watches. Provider credentials and recorded channel consent are
+required to send. Remove `--dry-run` only in a configured environment intended to
+deliver alerts. See [continuous inventory operations](docs/CONTINUOUS_INVENTORY.md)
+for execution, migration behavior and outstanding launch gates. Legacy browser/
+SQLite reports require an explicit `python -m src.legacy_reports` invocation and
+cannot feed production watch processing.
 
 The dashboard explicitly records separate Email and WhatsApp consent. WhatsApp should only be enabled when the user has intentionally opted in.

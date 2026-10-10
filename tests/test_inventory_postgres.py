@@ -25,6 +25,7 @@ from psycopg.rows import dict_row
 
 from api import search
 from src.inventory_db import search_inventory
+from src.inventory_db import iter_inventory
 from src.inventory_ingestion import ingest_vehicles
 from src.inventory_refresh_planner import schedule_refreshes
 from src.inventory_refresh_worker import claim_jobs, process_job, recover_jobs, complete_job, run_batch
@@ -298,3 +299,129 @@ def test_worker_passes_parser_configuration_and_continues_after_failure(db,monke
     assert run_batch(10)=={'completed':1,'failed':1}
     assert len(seen)==2
     assert next(s for s in seen if s['name']=='Other Dealer')['metadata']['parser_strategy']=='custom_fixture'
+
+
+def seed_adapter_inventory(db,monkeypatch):
+    from src.inventory_service import run_cycle
+    add_source(db)
+    rows=[{'source':'Fixture Dealer','brand':'BMW','model':'X1','mfg_year':2024,
+           'km':10000+i*1000,'owners':1,'price_lakh':price,'condition_signal':'used',
+           'live_verified':True,'url':'https://fixture.invalid/shared-inventory',
+           'source_listing_id':f'stock-{i}','vin':f'WBA123456789{i:05d}',
+           'price_basis':'asking'} for i,price in enumerate((30,40,50),1)]
+    monkeypatch.setattr('src.inventory_refresh_worker.BuiltinMarketplaceAdapter.fetch',
+                        lambda self,request:AdapterResult(self.source_name,rows,status='live'))
+    assert run_cycle(10)=={'scheduled':1,'completed':1,'failed':0}
+    return rows
+
+
+def test_daily_pipeline_keeps_shared_url_cars_and_paginates_full_price_cohort(db,monkeypatch):
+    seed_adapter_inventory(db,monkeypatch)
+    monkeypatch.setenv('CARSCANNER_INVENTORY_FIRST','false')
+    pages=list(iter_inventory(query='BMW X1',condition='used',page_size=1))
+    assert len(pages)==3
+    results=[p[0] for p in pages]
+    assert {v['price_lakh'] for v in results}=={30,40,50}
+    assert len({v['listing_id'] for v in results})==3
+    assert all(v['comparable_count']==3 and v['comp_median']==40 for v in results)
+    assert all(v['source_tier']==2 and v['price_basis']=='asking' for v in results)
+    db.commit()
+    db.execute("update public.sources set enabled=false")
+    db.commit()
+    assert list(iter_inventory(query='BMW X1'))==[]
+
+
+def test_inventory_comparison_does_not_mix_year_or_price_basis(db,monkeypatch):
+    seed_adapter_inventory(db,monkeypatch)
+    ingest_vehicles([vehicle(source_listing_id='stock-other-year',vin='WBA12345678999998',
+                             year_manufacture=2023,price_lakh=5,price_basis='asking'),
+                     vehicle(source_listing_id='stock-on-road',vin='WBA12345678999997',
+                             year_manufacture=2024,price_lakh=10,price_basis='on_road')])
+    results=[v for p in iter_inventory(query='BMW X1') for v in p]
+    asking=[v for v in results if v['mfg_year']==2024 and v['price_basis']=='asking']
+    assert len(asking)==3 and all(v['comp_median']==40 for v in asking)
+    assert all(v['comp_median'] is None for v in results if v not in asking)
+
+
+def test_stable_marketplace_id_adopts_existing_url_offer_without_old_price(db):
+    original=ingest(db,price_lakh=30)
+    before=search_inventory(query='BMW X1')[0][0]['listing_id']
+    ingest_vehicles([replace(original,source_listing_id='new-stable-id',price_lakh=40)])
+    rows,_=search_inventory(query='BMW X1')
+    assert len(rows)==1 and rows[0]['listing_id']==before and rows[0]['price_lakh']==40
+    assert rows[0]['source_count']==1
+    db.commit()
+    assert db.execute('select count(*) as n from public.listings').fetchone()['n']==1
+    assert db.execute('select count(*) as n from public.vehicle_observations').fetchone()['n']==2
+
+
+def test_watch_comparison_needs_known_year_and_consistent_observations(db,monkeypatch):
+    seed_adapter_inventory(db,monkeypatch)
+    db.execute('update public.vehicles set manufacture_year=null')
+    db.commit()
+    assert all(v['comp_median'] is None for p in iter_inventory(query='BMW X1') for v in p)
+    db.execute('update public.vehicles set manufacture_year=2024')
+    db.execute('update public.vehicle_observations set data_consistent=false where price_lakh=50')
+    db.commit()
+    rows=[v for p in iter_inventory(query='BMW X1') for v in p]
+    assert len(rows)==3 and all(v['comparable_count']==2 and v['comp_median'] is None for v in rows)
+
+
+def test_database_crawl_to_watch_outbox_price_change_and_sold_suppression(db,monkeypatch,tmp_path):
+    from scripts import process_alerts as alerts
+    from src.inventory_contract import json_inventory_value
+    from unittest.mock import Mock
+    from urllib.parse import parse_qs
+    rows=seed_adapter_inventory(db,monkeypatch)
+    user=db.execute("insert into public.deal_watch_users(email) values ('fixture@example.invalid') returning user_id").fetchone()
+    criteria={'make':'BMW','model':'X1','condition':'both','budget_min_lakh':25,'budget_max_lakh':35,
+              'mileage_max_km':50000,'max_owners':2}
+    watch=db.execute("""insert into public.deal_watches(user_id,name,constraints,alert_quality,target_discount_pct)
+                      values (%s,'BMW Watch',%s,'good',20) returning *""",
+                     (user['user_id'],json.dumps(criteria))).fetchone()
+    db.execute("""insert into public.watch_channel_preferences(watch_id,channel,enabled,consent_at)
+                  values (%s,'email',true,now())""",(watch['watch_id'],))
+    db.commit()
+    def request(method,path,payload=None,prefer=None):
+        table,_,query=path.partition('?')
+        filters=parse_qs(query)
+        if table=='deal_watches':
+            record=dict(db.execute('select * from public.deal_watches').fetchone())
+            record['deal_watch_users']=dict(db.execute('select * from public.deal_watch_users').fetchone())
+            record['watch_channel_preferences']=[dict(r) for r in db.execute('select * from public.watch_channel_preferences').fetchall()]
+            db.commit()
+            return [json_inventory_value(record)]
+        assert table=='alert_events'
+        if method=='GET':
+            values=[filters[k][0].removeprefix('eq.') for k in ('watch_id','listing_id','channel','event_type')]
+            result=[dict(r) for r in db.execute('select alert_id,status from public.alert_events where watch_id=%s and listing_id=%s and channel=%s and event_type=%s',values).fetchall()]
+        elif method=='POST':
+            result=[dict(db.execute('''insert into public.alert_events(user_id,watch_id,listing_id,channel,event_type,status,payload)
+                    values (%s,%s,%s,%s,%s,%s,%s) returning alert_id''',
+                    tuple(payload[k] for k in ('user_id','watch_id','listing_id','channel','event_type','status'))+
+                    (json.dumps(payload['payload']),)).fetchone())]
+        else:
+            assert method=='PATCH'
+            db.execute('update public.alert_events set status=%s,provider_message_id=%s where alert_id=%s',
+                       (payload['status'],payload.get('provider_message_id'),filters['alert_id'][0].removeprefix('eq.')))
+            result=[]
+        db.commit()
+        return json_inventory_value(result)
+    monkeypatch.setattr(alerts,'sb_request',request)
+    provider=Mock(return_value={'id':'fixture-provider-id'})
+    monkeypatch.setattr(alerts,'send_resend',provider)
+    # A poisoned snapshot in the working directory must never affect matches.
+    (tmp_path/'data').mkdir()
+    (tmp_path/'data'/'latest.json').write_text('{"vehicles":[{"price_lakh":1}]}')
+    monkeypatch.chdir(tmp_path)
+    assert alerts.process_alerts()['sent']==1
+    assert 'Open original listing' in provider.call_args.args[2]
+    assert alerts.process_alerts()['sent']==0
+    v=vehicle(url=rows[0]['url'],vin=rows[0]['vin'],source_listing_id='stock-1',
+              owner_count=1,price_lakh=29,price_basis='asking')
+    ingest_vehicles([v])
+    assert alerts.process_alerts()['sent']==1
+    ingest_vehicles([replace(v,sold_signal=True,live_verified=False)])
+    assert alerts.process_alerts()['matched']==0
+    assert provider.call_count==2
+    assert db.execute("select count(*) as n from public.alert_events where status='sent'").fetchone()['n']==2

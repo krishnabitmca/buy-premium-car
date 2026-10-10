@@ -1,3 +1,12 @@
+## 2026-10-10 — Canonical daily acquisition and watch matching
+
+- Route the production daily command through the same Postgres refresh pipeline as the continuous worker; keep broad browser/SQLite reports under an explicit legacy command.
+- Read paginated current inventory for watches with no JSON fallback or dependency on the web inventory flag. Keep optional exports as diagnostic workflow artifacts instead of committing a file database to main.
+- Correct lakh/rupee budgets and make/model keys; enforce explicit condition, mileage, owners, current evidence and target discount. “Any” alerts accept valid criteria matches without inventing bargain evidence.
+- Preserve source stock IDs and price basis, adopt existing URL offers when canonical identity matches, and calculate current comparison cohorts before watch pagination/budget filtering.
+- Skip inactive users, unconsented/disabled channels and mismatched notification frequencies; use price-version event identities so rescans do not resend and qualifying price changes may notify.
+- Document pending ownership, outbox recovery, RLS, national coverage and deployment gates in ADR 006 and continuous inventory operations.
+
 ## 2026-10-10 — Continuous database refresh service
 
 - Add a continuous scheduler/worker command that requires PostgreSQL and remains separate from HTTP search.

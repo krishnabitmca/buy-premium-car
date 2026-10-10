@@ -127,6 +127,7 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
             vin=v.get("vin") or v.get("vehicle_identification_number"),
             chassis_number=v.get("chassis_number"), metadata=dict(v.get("metadata") or {}),
             condition_signal=v.get("condition_signal"),
+            source_listing_id=v.get("source_listing_id"), price_basis=v.get("price_basis"),
             final_url=v.get("final_url"), live_verified=bool(v.get("live_verified")),
             sold_signal=bool(v.get("sold_signal")), data_consistent=bool(v.get("data_consistent", True)),
             identity_confidence=float(v.get("identity_confidence") or 0.0),

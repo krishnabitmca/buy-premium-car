@@ -38,10 +38,12 @@ Source intelligence:
 - PostgreSQL/Supabase registry, capabilities, endpoints, health, discoveries
 
 Current inventory:
-- live responses from external marketplaces
+- live responses from external marketplaces and canonical Postgres vehicles/listings/observations
+- Production daily and continuous acquisition share verified adapters and one canonical ingestion path (ADR 006).
+- Watch processing reads the same latest-observation/expiry projection as inventory search; it never loads repository JSON or SQLite.
 
 Historical/reporting:
-- data/latest.json, data/, reports/
+- Optional Postgres-derived workflow exports; explicit `src.legacy_reports` SQLite/JSON reports remain diagnostic artifacts.
 
 A source-intelligence row is source metadata, not a vehicle listing.
 
