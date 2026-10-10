@@ -22,7 +22,34 @@ def ingest_vehicles(vehicles: list[Vehicle]) -> dict[str,int]:
     counts={"vehicles":0,"listings":0,"observations":0}
     with _connect() as conn,conn.cursor() as cur:
         for v in vehicles:
-            if not v.live_verified or v.sold_signal or v.price_lakh is None or not v.brand or not v.model:
+            # Explicit negative evidence updates an existing offer, even if its
+            # price/identity fields are no longer present on the sold page.
+            if v.sold_signal:
+                cur.execute(
+                    """select l.listing_id,l.vehicle_id,l.source_id
+                       from public.listings l join public.sources s on s.source_id=l.source_id
+                       where s.name=%s and l.source_listing_key=%s
+                       for update of l""",
+                    (str(v.source_name or "").strip(), _listing_key(v)),
+                )
+                listing=cur.fetchone()
+                if listing and listing["vehicle_id"]:
+                    cur.execute(
+                        """update public.listings set status='sold',last_seen_at=now(),last_verified_at=now()
+                           where listing_id=%s""", (listing["listing_id"],),
+                    )
+                    cur.execute(
+                        """insert into public.vehicle_observations
+                           (vehicle_id,listing_id,source_id,observed_at,price_lakh,
+                            live_verified,data_consistent,sold_signal,snapshot)
+                           values (%s,%s,%s,now(),%s,false,%s,true,%s)""",
+                        (listing["vehicle_id"],listing["listing_id"],listing["source_id"],v.price_lakh,
+                         bool(v.data_consistent),json.dumps({"url":v.url,"final_url":v.final_url,
+                                                            "verification_notes":v.verification_notes})),
+                    )
+                    counts["listings"]+=1; counts["observations"]+=1
+                continue
+            if not v.live_verified or v.price_lakh is None or not v.brand or not v.model:
                 continue
             cur.execute("select source_id from public.sources where name=%s and enabled=true limit 1",(str(v.source_name or "").strip(),))
             source=cur.fetchone()

@@ -6,9 +6,10 @@ The scheduler creates deduplicated refresh work. It never fetches marketplaces.
 Execution remains the responsibility of the source-isolated adapter worker.
 """
 
+import json
 from typing import Any
 from .inventory_freshness import refresh_priority
-from .source_registry_db import _connect, enabled, load_search_demand
+from .source_registry_db import _connect, enabled, load_search_demand, require_database
 
 
 def _reliability(status: Any) -> float:
@@ -121,8 +122,8 @@ def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
                     (
                         source["source_id"], brand, model, condition, state,
                         priority, reason,
-                        {"search_count": search_count, "inventory_hit_count": hit_count,
-                         "freshness": freshness, "source_health": source.get("health_status")},
+                        json.dumps({"search_count": search_count, "inventory_hit_count": hit_count,
+                                    "freshness": freshness, "source_health": source.get("health_status")}),
                     ),
                 )
                 created += 1
@@ -138,6 +139,7 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=100)
     parser.add_argument("--lookback-hours", type=int, default=168)
     args = parser.parse_args()
+    require_database()
     print(schedule_refreshes(limit=args.limit, lookback_hours=args.lookback_hours))
 
 

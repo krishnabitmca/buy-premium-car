@@ -51,7 +51,7 @@ def _budget_band(budget_min, budget_max):
 
 def _vehicle_condition(v):
     """Return listing-level condition only; source identity is never evidence."""
-    explicit=str(v.get("condition_signal") or "").strip().lower()
+    explicit=str(v.get("condition_signal") or v.get("condition") or "").strip().lower()
     if explicit in {"demo","demonstrator"}:
         return "demo"
     if explicit=="used":

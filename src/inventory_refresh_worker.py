@@ -12,7 +12,7 @@ from typing import Any
 
 from .inventory_ingestion import ingest_vehicles
 from .source_adapters import AdapterRequest, BuiltinMarketplaceAdapter
-from .source_registry_db import _connect, enabled
+from .source_registry_db import _connect, enabled, require_database
 
 
 def claim_jobs(limit: int = 10) -> list[dict[str, Any]]:
@@ -117,6 +117,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=10)
     args = parser.parse_args()
+    require_database()
     for job in claim_jobs(args.limit):
         process_job(job)
 

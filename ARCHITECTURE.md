@@ -51,6 +51,10 @@ Only LIVE adapter sources enter customer search execution.
 
 ## 6. Reliability
 
+- When the existing optional inventory-first path is enabled, select each listing's actual latest observation before applying budget or availability predicates. A newer sold/unverified observation must prevent an older available observation from returning.
+- The database-to-API boundary preserves numeric lakh fields for existing clients, converts UUIDs to strings and timezone-aware timestamps to UTC ISO 8601, and exposes actual observation/verification timestamps per offer. Response creation time is not verification time.
+- Explicit sold evidence can retire an existing source offer; a failed fetch or incomplete scan does not establish that the vehicle is sold. Automatic catalogue-absence reconciliation requires complete scan evidence and is not implemented yet.
+- Scheduled refresh commands require `SOURCE_INTELLIGENCE_DATABASE_URL` (or the existing `DATABASE_URL` fallback) and fail when it is absent. Library functions keep optional-database behavior for existing local callers.
 - A source fetch failure is not zero inventory.
 - Source outages are observable and persistable.
 - One slow source must not serially block all other sources.

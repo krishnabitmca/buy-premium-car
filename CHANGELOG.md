@@ -1,3 +1,11 @@
+## 2026-10-10 — Inventory reliability foundation
+
+- Correct the refresh workflow database variable and fail background commands when database configuration is absent; serialize queue metadata for psycopg JSONB writes.
+- Select the actual latest listing observation before checking budget/availability, with an observation-ID tie-breaker. Earlier prices and available observations cannot be resurrected by filtering history.
+- Record explicit sold evidence for existing offers transactionally; failed fetches and missing catalogue rows do not imply a sale.
+- Normalize inventory UUIDs, numeric values and timezone-aware timestamps for the existing numeric-lakh JSON contract; preserve offer-level observation times and accept the inventory condition projection in API filtering.
+- Add a disposable-local-Postgres CI job covering migrated schema, scheduling, claiming, ingestion and real HTTP search responses. Coverage manifests, worker leases, identity fixes and alert ownership/matching remain subsequent reliability work.
+
 ## 2026-10-08 — Scheduled source monitoring
 
 - Register additional demo marketplace, authorised-dealer and OEM inventory leads as candidates, including Porsche Finder, Skoda Certified, GetOnRoadPrice, DiscountedCarsIndia, Motodeals and Gurudev Skoda; point Volvo Selekt at its inventory portal.

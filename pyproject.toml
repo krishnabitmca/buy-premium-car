@@ -28,4 +28,5 @@ packages = ["src"]
 pythonpath = ["."]
 markers = [
   "e2e: browser end-to-end dashboard tests",
+  "integration: real PostgreSQL tests using a disposable localhost database",
 ]
