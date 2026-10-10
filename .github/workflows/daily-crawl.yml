@@ -27,9 +27,9 @@ jobs:
         run: pip install -r requirements.txt
       - name: Refresh canonical PostgreSQL inventory
         env:
-          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
-          CARSCANNER_MAX_PAGES_PER_SOURCE: '20'
-        run: python -m src.main --limit 100 --export-json work/inventory-export.json
+          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.CARSCANNER_FREE_TEST_DATABASE_URL || secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
+          CARSCANNER_MAX_PAGES_PER_SOURCE: '3'
+        run: python -m src.main --limit 10 --export-json work/inventory-export.json
       - name: Upload diagnostic inventory export
         uses: actions/upload-artifact@v4
         with:
@@ -38,9 +38,9 @@ jobs:
           retention-days: 7
       - name: Process daily car watches
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.CARSCANNER_FREE_TEST_SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.CARSCANNER_FREE_TEST_SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.CARSCANNER_FREE_TEST_DATABASE_URL || secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
           WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
@@ -51,7 +51,7 @@ jobs:
           APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
         run: |
           if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-            python -m scripts.process_alerts --mode daily
+            python -m scripts.process_alerts --mode daily --dry-run
           else
             echo 'Daily alerts disabled: watch database API credentials are not configured.'
           fi

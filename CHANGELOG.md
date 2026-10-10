@@ -91,3 +91,10 @@
 - Current inventory snapshot contains a small set of premium used vehicles from multiple sources/cities.
 - Search API supports query, destination, budget, and age-related behavior.
 - Deal intent engine and Supabase deal-watch schema are present.
+## 2026-10-10 — Free testing setup
+
+- Add a local preview launcher with ignored server credentials, complete watch routing, catalog preflight and a health endpoint; restrict static serving to the customer page.
+- Respect disabled request-time crawling even for empty inventory, accept partial inventory responses in the UI and label database observations accurately.
+- Configure hourly batches of 10 jobs, three pages per source, five discovery candidates and dry-run alerts with separate encrypted free-test credentials.
+- Enable queue RLS, add a dedicated backend runtime role and explicitly grant server watch/sequence access without storing passwords in migrations.
+- Document the existing Supabase free project setup and the approval required to activate scheduled changes on main.

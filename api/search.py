@@ -199,7 +199,7 @@ class handler(BaseHTTPRequestHandler):
                     allow_coverage_fallback = os.getenv(
                         "CARSCANNER_ALLOW_LIVE_COVERAGE_FALLBACK", "true"
                     ).lower() not in {"0", "false", "no"}
-                    if vehicles and not allow_coverage_fallback:
+                    if not allow_coverage_fallback:
                         search_mode = "inventory_partial"
                     else:
                         vehicles, sources = live_inventory(
@@ -224,6 +224,8 @@ class handler(BaseHTTPRequestHandler):
                     source_count=len(sources),
                 )
             availability_warning = None
+            if search_mode == "inventory_partial":
+                availability_warning = "Showing available verified database observations; source coverage is incomplete and no live query was made."
             if not vehicles and sources and _planned_live_sources_unavailable(source_plan, sources):
                 availability_warning = "No configured live source responded for this search; zero results are not an inventory guarantee."
             results=[]
