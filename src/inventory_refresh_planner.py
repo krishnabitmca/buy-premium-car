@@ -6,9 +6,10 @@ The scheduler creates deduplicated refresh work. It never fetches marketplaces.
 Execution remains the responsibility of the source-isolated adapter worker.
 """
 
+import json
 from typing import Any
 from .inventory_freshness import refresh_priority
-from .source_registry_db import _connect, enabled, load_search_demand
+from .source_registry_db import _connect, enabled, load_search_demand, require_database
 
 
 def _reliability(status: Any) -> float:
@@ -49,7 +50,7 @@ def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
                           coalesce(s.expire_after_minutes,10080) as expire_after_minutes,
                           coalesce(sh.status,'healthy') as health_status,
                           coalesce(
-                            extract(epoch from (now()-max(l.last_verified_at)))/60,
+                            extract(epoch from (now()-(q.metadata->>'last_success_at')::timestamptz))/60,
                             999999
                           ) as age_minutes
                      from public.sources s
@@ -64,8 +65,9 @@ def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
                           order by sh2.checked_at desc
                           limit 1
                        )
-                     left join public.listings l
-                       on l.source_id=s.source_id and l.status='active'
+                     left join public.inventory_refresh_queue q
+                       on q.source_id=s.source_id and q.brand=%s and q.model=%s
+                       and q.condition=%s and q.destination_state=%s
                      where s.enabled=true
                        and s.adapter_status='live'
                        and (
@@ -78,13 +80,14 @@ def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
                          )
                        )
                      group by s.source_id,s.name,s.freshness_target_minutes,
-                              s.stale_after_minutes,s.expire_after_minutes,sh.status""",
-                (brand, brand),
+                              s.stale_after_minutes,s.expire_after_minutes,sh.status,q.metadata""",
+                (brand, model, condition, state, brand, brand),
             )
             sources = cur.fetchall()
 
             for source in sources:
-                age = float(source.get("age_minutes") or 999999)
+                age_value = source.get("age_minutes")
+                age = 999999 if age_value is None else float(age_value)
                 if age <= float(source.get("target_minutes") or 360):
                     continue
 
@@ -113,16 +116,18 @@ def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
                          reason=excluded.reason,
                          requested_at=now(),
                          status=case
-                           when public.inventory_refresh_queue.status in ('completed','failed')
+                           when public.inventory_refresh_queue.status='completed'
                            then 'queued'
                            else public.inventory_refresh_queue.status
                          end,
-                         metadata=excluded.metadata""",
+                         attempt_count=case when public.inventory_refresh_queue.status='completed'
+                                            then 0 else public.inventory_refresh_queue.attempt_count end,
+                         metadata=public.inventory_refresh_queue.metadata || excluded.metadata""",
                     (
                         source["source_id"], brand, model, condition, state,
                         priority, reason,
-                        {"search_count": search_count, "inventory_hit_count": hit_count,
-                         "freshness": freshness, "source_health": source.get("health_status")},
+                        json.dumps({"search_count": search_count, "inventory_hit_count": hit_count,
+                                    "freshness": freshness, "source_health": source.get("health_status")}),
                     ),
                 )
                 created += 1
@@ -138,6 +143,7 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=100)
     parser.add_argument("--lookback-hours", type=int, default=168)
     args = parser.parse_args()
+    require_database()
     print(schedule_refreshes(limit=args.limit, lookback_hours=args.lookback_hours))
 
 

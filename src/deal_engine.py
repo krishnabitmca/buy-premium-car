@@ -19,6 +19,8 @@ class DealIntent:
     condition: Optional[str] = None
     min_age_years: Optional[float] = None
     max_age_years: Optional[float] = None
+    max_mileage_km: Optional[float] = None
+    max_owners: Optional[float] = None
     notification_channels: tuple[str, ...] = ("email",)
 
 @dataclass(frozen=True)

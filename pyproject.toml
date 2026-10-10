@@ -9,7 +9,8 @@ description = "India-wide premium used/demo car crawler and deal detector"
 requires-python = ">=3.11,<3.14"
 # Keep core dependencies small so lightweight Vercel Python functions
 # do not inherit the crawler/browser/data-science dependency tree. The scheduled
-# crawler installs requirements-crawler.txt explicitly.
+# production refresh worker uses requirements.txt; only explicit legacy browser
+# reporting installs requirements-crawler.txt.
 dependencies = [
   "psycopg[binary]>=3.2,<4",
   "PyYAML>=6.0,<7",
@@ -28,4 +29,5 @@ packages = ["src"]
 pythonpath = ["."]
 markers = [
   "e2e: browser end-to-end dashboard tests",
+  "integration: real PostgreSQL tests using a disposable localhost database",
 ]

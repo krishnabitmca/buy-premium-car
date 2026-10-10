@@ -22,6 +22,12 @@ def enabled() -> bool:
     return bool(database_url())
 
 
+def require_database() -> None:
+    """Background commands must not silently succeed in optional-DB mode."""
+    if not enabled():
+        raise RuntimeError("Set SOURCE_INTELLIGENCE_DATABASE_URL or DATABASE_URL before running inventory refresh")
+
+
 def _connect():
     if psycopg is None:
         raise RuntimeError("PostgreSQL is configured but psycopg is not installed")
