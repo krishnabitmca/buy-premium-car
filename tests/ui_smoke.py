@@ -50,6 +50,12 @@ async def main():
         assert "BMW X5" in await page.locator(".card .title").inner_text()
         assert "₹49.50L" in await page.locator(".card .price").inner_text()
         assert "LIVE" in await page.locator(".livebar").inner_text()
+        assert await page.locator("#market.show").count() == 1
+        assert "comparable" in (await page.locator("#marketNote").inner_text()).lower()
+        await page.locator("#aiPrompt").fill("BMW X5 under ₹55 lakh")
+        await page.locator("#askSearch").click()
+        await page.wait_for_timeout(100)
+        assert await page.locator("#max").input_value() == "55"
 
         if errors:
             raise AssertionError("Browser console/page errors: " + repr(errors))
