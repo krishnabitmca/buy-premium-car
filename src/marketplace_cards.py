@@ -23,7 +23,7 @@ def parse_marketplace_cards(html, source, base_url, strategy, query=''):
             heading_node=anchor.find('h3')
             if heading_node is None:continue
             title=heading_node.get_text(' ',strip=True);model_title=re.sub(r'^(?:19|20)\d{2}\s+','',title)
-            card=next((p for p in anchor.parents if any('cardFrame' in c for c in p.get('class',[]))),None)
+            card=next((p for p in anchor.parents if any('cardFrame' in c or 'searchCardClasses' in c for c in p.get('class',[]))),None)
             if card is None:continue
             location_node=None
         elif strategy=='cars24_cards':
@@ -44,6 +44,7 @@ def parse_marketplace_cards(html, source, base_url, strategy, query=''):
         if not prices or not year or not km:continue
         price=prices[-1] if strategy=='cars24_cards' else prices[0]
         amount=float(price[1].replace(',',''))*(100 if price[2].lower() in {'crore','cr'} else 1)
+        model_title=re.sub(r'^Mercedes\s+Benz\b','Mercedes-Benz',model_title,flags=re.I)
         brand,model=lm._infer_brand_model(model_title,None,None)
         if brand not in lm._known_brand_names() or not model or amount<=0:continue
         url=lm._canonical_url(base_url,href)

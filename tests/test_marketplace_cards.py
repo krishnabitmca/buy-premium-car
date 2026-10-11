@@ -35,6 +35,18 @@ def test_carwale_rejects_category_and_external_links():
     assert rows[0]['location']=='Mumbai'
 
 
+def test_standard_carwale_layout_does_not_take_emi_as_asking_price():
+    html='<div class="UsedSearchCard__searchCardClasses"><a href="/used/delhi/bmw-x5/ts0ov70t/"><h3>2025 BMW X5 xDrive40i</h3><span>18,000 km | Petrol | Delhi</span></a><p>₹92.75 Lakh EMI at ₹1.67 L</p></div>'
+    row=parse_marketplace_cards(html,'CarWale','https://www.carwale.com/used/bmw/','carwale_cards')[0]
+    assert row['price_lakh']==92.75 and row['location']=='Delhi'
+
+
+def test_cars24_mercedes_spelling_matches_canonical_brand():
+    html='<a href="/buy-used-mercedes-benz-c-class-2020-cars-delhi-12345678/"><img alt="2020 Mercedes Benz C Class - Sedan" src="car.jpg">20,000 km ₹30 lakh</a>'
+    row=parse_marketplace_cards(html,'Cars24','https://www.cars24.com/buy-used-mercedes-benz-cars/','cars24_cards','Mercedes-Benz')[0]
+    assert row['brand']=='Mercedes-Benz' and row['model']=='C Class'
+
+
 def test_inventory_pagination_is_bounded_and_stays_on_source(monkeypatch):
     seen=[]
     def fetch(url):
