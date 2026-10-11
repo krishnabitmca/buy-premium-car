@@ -51,3 +51,16 @@ def test_inventory_pagination_is_bounded_and_stays_on_source(monkeypatch):
     seen.clear();monkeypatch.setenv('CARSCANNER_MAX_PAGES_PER_SOURCE','1')
     BuiltinMarketplaceAdapter({'name':'Test','url':'https://test.example/stock'}).fetch(AdapterRequest())
     assert seen==['https://test.example/stock']
+
+
+def test_brand_identity_snapshot_is_bounded_to_each_scan(monkeypatch):
+    from src import live_marketplaces as lm
+    calls=[]
+    monkeypatch.setattr(lm,'_registry_brand_records',lambda:calls.append(1) or [{'name':'BMW'}])
+    monkeypatch.setattr(lm,'_configured_brand_records',lambda:[])
+    @lm.with_brand_identity
+    def scan():
+        for _ in range(100):assert lm._known_brand_names()==['BMW']
+    scan();assert len(calls)==1
+    scan();assert len(calls)==2
+    assert lm._brand_identity_snapshot.get() is None

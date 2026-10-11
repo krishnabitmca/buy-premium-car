@@ -83,6 +83,7 @@ class BuiltinMarketplaceAdapter:
                 urls.append(url)
         return urls[:12]
 
+    @live_marketplaces.with_brand_identity
     def fetch(self, request: AdapterRequest) -> AdapterResult:
         started = time.monotonic()
         urls = self._urls(request)

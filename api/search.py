@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from src.acquisition import purchase_context
 from src.inventory_db import enabled as inventory_enabled, search_inventory
 from src.india_geo import infer_state
-from src.live_marketplaces import live_inventory, _query_parts, _identity_matches_query
+from src.live_marketplaces import live_inventory, _query_parts, _identity_matches_query, with_brand_identity
 from src.source_intelligence import load_source_registry, plan_sources, summarize_plan
 from src.source_registry_db import enabled as source_db_enabled, record_search_demand
 
@@ -138,6 +138,7 @@ class handler(BaseHTTPRequestHandler):
             return _response(self,200,{"ok":True,"mode":"live","search_scope":"india","query":query,"condition":condition,"vehicles_count":len(vehicles),"sources":sources})
         except Exception as exc:
             return _response(self,500,{"error":f"Search inventory unavailable: {exc}"})
+    @with_brand_identity
     def do_POST(self):
         if urlparse(self.path).path!="/api/search":
             return _response(self,404,{"error":"Not found"})

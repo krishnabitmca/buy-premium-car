@@ -11,6 +11,8 @@ import socket
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
 from typing import Any
+from contextvars import ContextVar
+from functools import wraps
 
 from .source_intelligence import load_source_registry, plan_sources, normalize_condition
 
@@ -30,6 +32,20 @@ BRAND_ALIASES = {
     "Citroen": "Citroën",
     "Vinfast": "VinFast",
 }
+
+_brand_identity_snapshot=ContextVar('carscanner_brand_identity_snapshot',default=None)
+
+
+def with_brand_identity(function):
+    """Use one registry taxonomy per request/scan, isolated across threads."""
+    @wraps(function)
+    def wrapped(*args,**kwargs):
+        if _brand_identity_snapshot.get() is not None:
+            return function(*args,**kwargs)
+        token=_brand_identity_snapshot.set(tuple(_known_brand_names()))
+        try:return function(*args,**kwargs)
+        finally:_brand_identity_snapshot.reset(token)
+    return wrapped
 
 class _ImageLinkParser(HTMLParser):
     """Collect image URLs nested inside listing anchors."""
@@ -219,6 +235,8 @@ def _clean_model_catalog_name(text: str, brand: str = "") -> str | None:
     return clean or None
 
 def _known_brand_names() -> list[str]:
+    snapshot=_brand_identity_snapshot.get()
+    if snapshot is not None:return list(snapshot)
     names=[]
     seen=set()
     for record in _registry_brand_records()+_configured_brand_records():

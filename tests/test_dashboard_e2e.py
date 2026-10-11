@@ -123,7 +123,7 @@ def test_stored_inventory_assistant_and_filters_are_honest(dashboard_url):
         assert requests[-1]['budget_min'] is None
         assert requests[-1]['budget_max']=='80'
         assert '1 source(s) with matches' in page.locator('#summary').inner_text()
-        page.locator('.secondary').click()
+        page.get_by_role('button',name='Why this car?',exact=True).click()
         assert 'Stored marketplace observation' in page.locator('#modalBody').inner_text()
         assert 'Observation time' in page.locator('#modalBody').inner_text()
         page.locator('.close').click()
