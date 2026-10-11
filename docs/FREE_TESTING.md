@@ -8,6 +8,13 @@ Source adapters now follow advertised next links and the BMW/Mercedes public sho
 
 Partial database searches expose their total and additional pages. Use **Load more observations** to retrieve additional results; sidebar filters and market statistics apply to loaded observations. Database comparison references retain their full query cohort across pages.
 
+The scheduler also seeds each registered brand across every applicable verified
+source, independent of search traffic. **Marketplace coverage for this search**
+shows the full source plan and gaps in loaded results. Neither a successful
+bounded scan nor the presence of some offers proves source catalogue completeness.
+The free worker budget must be evaluated against the much larger baseline queue;
+it is a testing limit, not a promise of nationwide freshness.
+
 ## Repairing an older source registry
 
 An older database may contain source names without the versioned parser/catalog

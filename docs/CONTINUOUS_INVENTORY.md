@@ -23,6 +23,15 @@ python -m src.inventory_service --limit 10 --once
 ```
 
 This service schedules India-wide work even without customer traffic, then
+creates brand-level baseline jobs from every concrete registry brand across
+all eligible verified sources. It does not wait for a buyer to search that brand.
+The registry's `all` capability is a matching rule, not a brand. Customer demands
+retain priority when they overlap baseline jobs. This expands queue breadth;
+it does not establish that the registry contains every Indian brand or that
+bounded crawls cover entire source catalogues. Size worker capacity against
+queue age and each source's freshness target before claiming a coverage SLA.
+
+The service
 consumes queued source/intent jobs. Multiple processes can use PostgreSQL
 `FOR UPDATE SKIP LOCKED`; each process fetches one source at a time. The existing
 15-minute workflow remains a finite execution alternative. Do not enable both

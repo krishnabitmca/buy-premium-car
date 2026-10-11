@@ -51,13 +51,14 @@
 <section id="results">
 <div class="contentHead"><div><h2>Cars found</h2><div id="meta" class="meta">Search discovered car listings</div></div><select id="sort" class="sort"><option value="match">Recommended</option><option value="price">Lowest price</option><option value="gap">Best market gap</option><option value="km">Lowest mileage</option><option value="year">Newest</option></select></div>
 <div class="livebar"><span><strong>India-wide</strong> Source-backed car search</span><span id="summary">Search to see source observations</span></div>
+<details id="coverage" style="display:none;margin:12px 0"><summary>Marketplace coverage for this search</summary><p>Coverage is limited to discovered sources and fetched pages. A source without matches here may have cars that have not been indexed.</p><ul id="coverageSources"></ul></details>
 <div id="market" class="market"><div class="marketTop"><div><h3 id="marketTitle">Market view</h3><small id="marketSub"></small></div><span class="confidence" id="marketConfidence"></span></div><div class="marketStats"><div class="stat"><b id="marketCount">—</b><span>cars observed</span></div><div class="stat"><b id="marketCities">—</b><span>cities observed</span></div><div class="stat"><b id="marketSources">—</b><span>sources observed</span></div><div class="stat"><b id="marketBelow">—</b><span>below comparable median</span></div></div><div class="marketNote" id="marketNote"></div></div><div id="grid" class="grid"><div class="empty"><b>Search car listings</b>Select a brand/model or budget to compare available source observations.</div></div>
 <button id="more" class="secondary" style="display:none;margin-top:18px" onclick="searchLive({append:true,manufactureYear:assistantYear})">Load more observations</button>
 </section>
 </main>
 <div id="modal" class="modal" onclick="if(event.target===this)closeModal()"><div class="modalbox"><div class="modalhead"><h3 id="modalTitle"></h3><button class="close" onclick="closeModal()">✕</button></div><div id="modalBody" class="modalbody"></div></div></div>
 <script>
-let inventory=[],shown=[],liveAt=null,sourceStatus=[],coverageWarning=null,searchMode='live',quickFilter='',condition='both',assistantYear=null,searchPage=0,searchRequest=null,inventoryTotal=null,hasMore=false;
+let inventory=[],shown=[],liveAt=null,sourceStatus=[],sourcePlan=[],coverageWarning=null,searchMode='live',quickFilter='',condition='both',assistantYear=null,searchPage=0,searchRequest=null,inventoryTotal=null,hasMore=false;
 const $=id=>document.getElementById(id);
 const money=x=>x==null?'—':'₹'+Number(x).toFixed(2)+'L';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -116,13 +117,23 @@ async function searchLive(options={}){
  if(append&&!searchRequest)return;
  const nextPage=searchPage+1;
  const controller=new AbortController(),searchTimer=setTimeout(()=>controller.abort(),45000);
- $('search').disabled=true;$('more').disabled=true;$('search').textContent='Searching…';if(!append)$('grid').innerHTML='<div class="empty"><b>Searching car listings…</b>CarScanner is checking available source observations.</div>';
+ $('search').disabled=true;$('more').disabled=true;$('search').textContent='Searching…';if(!append){$('coverage').style.display='none';$('grid').innerHTML='<div class="empty"><b>Searching car listings…</b>CarScanner is checking available source observations.</div>'}
  try{
   const r=await fetch('/api/search?ts='+Date.now(),{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({...searchRequest,page:nextPage,page_size:50})});
   if(!r.ok)throw Error((await r.text()).slice(0,150));const p=await r.json();if(!p.ok||p.search_scope!=='india'||!['live','inventory','inventory_partial','live_coverage_fallback','live_fallback'].includes(p.mode))throw Error(p.error||'Search unavailable');
-  searchMode=p.mode;document.querySelector('.livebar>span').textContent=searchMode.startsWith('inventory')?'Verified database observations · '+(searchMode==='inventory_partial'?'partial coverage':'source coverage established'):'● LIVE · Current marketplace query';inventory=append?[...inventory,...(p.results||[])]:p.results||[];searchPage=nextPage;hasMore=Boolean(p.has_more);inventoryTotal=p.inventory_total??p.total_results??inventory.length;$('more').style.display=hasMore?'block':'none';liveAt=p.live_at;sourceStatus=append?[...new Map([...sourceStatus,...(p.sources||[])].map(s=>[s.name||s.source,s])).values()]:p.sources||[];coverageWarning=p.availability_warning||null;populateRefinements();applyResults();
+  searchMode=p.mode;document.querySelector('.livebar>span').textContent=searchMode.startsWith('inventory')?'Verified database observations · '+(searchMode==='inventory_partial'?'partial coverage':'completeness unverified'):'● LIVE · Current marketplace query';inventory=append?[...inventory,...(p.results||[])]:p.results||[];searchPage=nextPage;hasMore=Boolean(p.has_more);inventoryTotal=p.inventory_total??p.total_results??inventory.length;$('more').style.display=hasMore?'block':'none';liveAt=p.live_at;sourceStatus=append?[...new Map([...sourceStatus,...(p.sources||[])].map(s=>[s.name||s.source,s])).values()]:p.sources||[];coverageWarning=p.availability_warning||null;sourcePlan=p.source_plan||[];renderCoverage();populateRefinements();applyResults();
  }catch(e){if(!append){inventory=[];shown=[];$('grid').innerHTML='<div class="empty"><b>Search is currently unavailable.</b>Please retry. No unverified listings are shown.</div>'}$('summary').textContent=append?'Additional observations could not load; retry Load more.':'Search failed; please retry'}
  finally{clearTimeout(searchTimer);$('search').disabled=false;$('more').disabled=false;$('search').textContent='Search cars'}
+}
+function renderCoverage(){
+ const represented=new Set(inventory.flatMap(v=>(v.offers||[{source:v.source}]).map(o=>o.source)));
+ const status=new Map(sourceStatus.map(s=>[s.name||s.source,s]));
+ $('coverage').style.display=sourcePlan.length?'block':'none';
+ $('coverageSources').innerHTML=sourcePlan.map(s=>{
+  const observed=represented.has(s.name),response=status.get(s.name);
+  const label=observed?'Matching observations loaded':s.adapter_status!=='live'?'Adapter not available for inventory search':response&&['error','unavailable','blocked'].includes(response.status)?'Source could not be fetched':'No matching observations loaded; coverage not established';
+  return '<li>'+esc(s.name)+' — '+esc(label)+'</li>';
+ }).join('');
 }
 function populateRefinements(){const cities=[...new Set(inventory.map(v=>v.location).filter(Boolean))].sort();$('city').innerHTML='<option value="">All India</option>'+cities.map(x=>'<option>'+esc(x)+'</option>').join('')}
 function selectCarType(value){$('condition').value=value;$('condition').onchange();if(!inventory.length)searchLive()}

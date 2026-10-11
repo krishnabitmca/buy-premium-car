@@ -9,7 +9,25 @@ Execution remains the responsibility of the source-isolated adapter worker.
 import json
 from typing import Any
 from .inventory_freshness import refresh_priority
-from .source_registry_db import _connect, enabled, load_search_demand, require_database
+from .source_registry_db import _connect, enabled, load_search_demand, require_database, load_registry
+
+
+def baseline_brand_demands():
+    """Warm every registered brand, independently of customer traffic.
+
+    The registry is the taxonomy, not a hand-picked brand list. An ``all``
+    capability means multi-brand coverage; it is never itself a brand job.
+    Sources without verified adapters remain excluded by the scheduling SQL.
+    """
+    brands = {}
+    for source in load_registry():
+        for value in source.get('brands') or []:
+            brand = str(value or '').strip()
+            if brand and brand.lower() not in {'all', '*'}:
+                brands.setdefault(brand.lower(), brand)
+    return [dict(brand=brand, model='', condition='both', destination_state='',
+                 search_count=1, inventory_hit_count=1)
+            for _, brand in sorted(brands.items())]
 
 
 def _reliability(status: Any) -> float:
@@ -29,9 +47,14 @@ def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
         "brand": "", "model": "", "condition": "both",
         "destination_state": "", "search_count": 1, "inventory_hit_count": 0,
     }
-    demands = [global_demand] + [d for d in demands if not (
-        not d.get("brand") and not d.get("model") and str(d.get("condition") or "both") == "both"
-    )]
+    # Customer demand comes first so its priority is retained when it overlaps
+    # a baseline job. Brand scans remain India-wide regardless of destination.
+    unique_demands = {}
+    for demand in [global_demand] + demands + baseline_brand_demands():
+        key = tuple(str(demand.get(k) or ('both' if k == 'condition' else '')).strip().lower()
+                    for k in ('brand', 'model', 'condition', 'destination_state'))
+        unique_demands.setdefault(key, demand)
+    demands = list(unique_demands.values())
     created = 0
 
     with _connect() as conn, conn.cursor() as cur:

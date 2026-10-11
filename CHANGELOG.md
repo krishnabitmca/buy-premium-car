@@ -39,6 +39,12 @@
 
 # CarScanner Changelog
 
+## 2026-10-11 — Brand-independent coverage baseline
+
+- Schedule each registered brand across all eligible verified sources without requiring prior customer demand; preserve India-wide scope and queue deduplication.
+- Return the complete search source plan and expose per-source coverage gaps in the browser. Loaded observations are not proof of source catalogue completeness.
+- Record the remaining taxonomy, durable continuation, source adapter and coverage-matrix launch requirements in ADR 007.
+
 ## 2026-10-11 — Multi-source BMW and Mercedes coverage
 
 - Restore missing runtime parser/template settings for all existing registry rows while preserving lifecycle and operator overrides; scheduled refreshes repeat the idempotent repair.

@@ -281,7 +281,7 @@ class handler(BaseHTTPRequestHandler):
                 "live_at":__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
                 "sources":sources,
                 "source_strategy":summarize_plan(source_plan),
-                "source_plan":[{k:p.get(k) for k in ("name","source_type","adapter_status","score","query_strategy","query","reasons")} for p in source_plan[:12]],
+                "source_plan":[{k:p.get(k) for k in ("name","source_type","adapter_status","score","query_strategy","query","reasons")} for p in source_plan],
                 "total_results": int(inventory_total) if search_mode.startswith("inventory") and inventory_total is not None else len(results),
                 "page": page,
                 "page_size": page_size,

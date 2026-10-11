@@ -27,7 +27,7 @@ from api import search
 from src.inventory_db import search_inventory
 from src.inventory_db import iter_inventory
 from src.inventory_ingestion import ingest_vehicles
-from src.inventory_refresh_planner import schedule_refreshes
+from src.inventory_refresh_planner import schedule_refreshes, baseline_brand_demands
 from src.inventory_refresh_worker import claim_jobs, process_job, recover_jobs, complete_job, run_batch
 from src.models import Vehicle
 from src.source_adapters import AdapterResult
@@ -63,6 +63,8 @@ def disposable_database():
 
 @pytest.fixture
 def db(disposable_database,monkeypatch):
+    # These fixtures exercise one job at a time; baseline fan-out has its own test.
+    monkeypatch.setattr('src.inventory_refresh_planner.baseline_brand_demands',lambda:[])
     monkeypatch.setenv('SOURCE_INTELLIGENCE_DATABASE_URL',disposable_database)
     monkeypatch.setenv('CARSCANNER_INVENTORY_FIRST','true')
     monkeypatch.setenv('CARSCANNER_ALLOW_LIVE_COVERAGE_FALLBACK','false')
@@ -266,6 +268,22 @@ def test_scheduler_claim_worker_ingestion_and_http_boundary(db,monkeypatch):
     assert len(payload['results'])==1 and payload['mode']=='inventory'
 
 
+def test_baseline_refresh_covers_non_example_brands_and_all_marketplaces(db,monkeypatch):
+    first = add_source(db, 'National Marketplace')
+    second = add_source(db, 'Second Marketplace')
+    db.execute("update public.source_capabilities set capability_value='all'")
+    for brand in ('Audi', 'Toyota', 'Hyundai'):
+        db.execute("insert into public.source_capabilities(source_id,capability_type,capability_value) values (%s,'brand',%s)",(first,brand))
+    db.commit()
+    # Restore the production function rather than the single-job fixture stub.
+    monkeypatch.setattr('src.inventory_refresh_planner.baseline_brand_demands',baseline_brand_demands)
+    monkeypatch.setattr('src.inventory_refresh_planner.load_search_demand',lambda **kwargs:[])
+    assert schedule_refreshes()==8  # global + each brand, on both sources
+    db.commit()
+    rows=db.execute("select source_id,brand from public.inventory_refresh_queue").fetchall()
+    assert {(r['source_id'],r['brand']) for r in rows}=={(s,b) for s in (first,second) for b in ('','Audi','Hyundai','Toyota')}
+
+
 def test_partial_inventory_paginates_without_repricing_comparison_cohort(db,monkeypatch):
     add_source(db)
     cars=[vehicle(vin='WBA1234567890123'+str(i),url='https://fixture.invalid/car/'+str(i),price_lakh=price) for i,price in enumerate([20,30,40])]
@@ -279,6 +297,15 @@ def test_partial_inventory_paginates_without_repricing_comparison_cohort(db,monk
     last=post_search(monkeypatch,{'query':'BMW X1','page_size':1,'page':3},['Fixture Dealer','Missing Dealer'])
     assert not last['has_more'] and last['total_results']==3
     assert last['results'][0]['comp_median']==30
+
+
+def test_search_reports_every_planned_source_including_missing_inventory(db,monkeypatch):
+    add_source(db)
+    ingest_vehicles([vehicle()])
+    names=['Fixture Dealer']+[f'Missing marketplace {i}' for i in range(20)]
+    payload=post_search(monkeypatch,{'query':'BMW'},names)
+    assert [s['name'] for s in payload['source_plan']]==names
+    assert payload['mode']=='inventory_partial'
 
 
 def test_successful_empty_scan_is_fresh_and_other_model_still_scheduled(db,monkeypatch):

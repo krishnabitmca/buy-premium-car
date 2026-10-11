@@ -1,5 +1,16 @@
 from src.inventory_refresh_planner import _reliability
 from src.inventory_freshness import refresh_priority
+from src.inventory_refresh_planner import baseline_brand_demands
+
+
+def test_baseline_uses_registry_taxonomy_without_picked_example_brands(monkeypatch):
+    monkeypatch.setattr('src.inventory_refresh_planner.load_registry',lambda:[
+        {'brands':['all','Audi','Toyota','Hyundai']},
+        {'brands':['audi','Lexus','*','',None]},
+    ])
+    demands=baseline_brand_demands()
+    assert [d['brand'] for d in demands]==['Audi','Hyundai','Lexus','Toyota']
+    assert all(d['model']=='' and d['condition']=='both' and d['destination_state']=='' for d in demands)
 
 
 def test_reliability_weights_known_health_states():
