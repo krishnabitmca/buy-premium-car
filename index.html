@@ -22,7 +22,7 @@
 </style>
 </head>
 <body>
-<header class="nav"><div class="container navin"><div class="logo">Car<span>Scanner</span></div><nav class="navlinks"><a href="#results">Used Cars</a><a href="#results">Demo Cars</a><a href="#filters">All Filters</a><a href="#compare">Compare</a></nav></div></header>
+<header class="nav"><div class="container navin"><div class="logo">Car<span>Scanner</span></div><nav class="navlinks"><a href="#results" onclick="selectCarType('used')">Used Cars</a><a href="#results" onclick="selectCarType('demo')">Demo Cars</a><a href="#filters">All Filters</a><a href="#market">Market view</a></nav></div></header>
 <section class="hero"><div class="container heroIn">
 <div class="crumb">Home / India / Used & Demonstrator Cars</div>
 <h1>Find the right car at the right price</h1>
@@ -105,6 +105,7 @@ async function loadModels(){
 }
 $('brand').onchange=loadModels;
 async function searchLive(options={}){
+ $('market').classList.remove('show');
  assistantYear=options.manufactureYear||null;
  condition=$('condition').value;const b=$('brand').value,m=$('model').value,min=$('min').value,max=$('max').value,destination=$('destination').value.trim();
  const fmin=$('fmin').value||min,fmax=$('fmax').value||max;
@@ -119,6 +120,7 @@ async function searchLive(options={}){
  finally{clearTimeout(searchTimer);$('search').disabled=false;$('search').textContent='Search cars'}
 }
 function populateRefinements(){const cities=[...new Set(inventory.map(v=>v.location).filter(Boolean))].sort();$('city').innerHTML='<option value="">All India</option>'+cities.map(x=>'<option>'+esc(x)+'</option>').join('')}
+function selectCarType(value){$('condition').value=value;$('condition').onchange();if(!inventory.length)searchLive()}
 function selectedFuels(){return [...document.querySelectorAll('.fuelCheck:checked')].map(x=>x.value)}
 function updateMarketView(){
  const market=$('market');
