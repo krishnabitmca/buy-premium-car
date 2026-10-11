@@ -11,6 +11,14 @@ at-least-once behavior and remaining migration/launch gates.
 ## Architectural principle
 Keep source discovery, source governance, live inventory acquisition, search, deal intelligence, presentation, and future buyer services independently testable.
 
+## Target: fast AI search
+
+[ADR 008](DECISIONS/008-ai-indexed-search.md) defines indexed customer search,
+continuous background acquisition and grounded AI intent/retrieval. This target
+supersedes request-time crawling as a requirement. Existing live fallback remains
+in code and is not yet globally migrated. Validate the runtime against
+[AI search acceptance](docs/AI_SEARCH_ACCEPTANCE.md) before calling it delivered.
+
 ## 1. Source discovery and intelligence
 
 Implemented in src/discovery.py, src/source_intelligence.py, src/source_registry_db.py, config/sources.yaml, PostgreSQL/Supabase migrations, and crawler workflows.

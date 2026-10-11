@@ -39,6 +39,12 @@
 
 # CarScanner Changelog
 
+## 2026-10-11 — AI search acceptance standard
+
+- Record the product-wide speed, all-brand/source acquisition, grounded AI and full-inventory refinement requirements in docs/AI_SEARCH_ACCEPTANCE.md.
+- Define indexed search with background acquisition as the target in ADR 008; preserve source evidence and explicitly distinguish target architecture from incomplete runtime migration.
+- Align the core product promise with this target. No AI model, paid provider or production deployment is implied by this documentation change.
+
 ## 2026-10-11 — Brand-independent coverage baseline
 
 - Schedule each registered brand across all eligible verified sources without requiring prior customer demand; preserve India-wide scope and queue deduplication.
