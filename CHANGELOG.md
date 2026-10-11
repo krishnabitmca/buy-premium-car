@@ -39,6 +39,14 @@
 
 # CarScanner Changelog
 
+## 2026-10-11 — Multi-source BMW and Mercedes coverage
+
+- Restore missing runtime parser/template settings for all existing registry rows while preserving lifecycle and operator overrides; scheduled refreshes repeat the idempotent repair.
+- Add source-scoped CarDekho, CarWale and Cars24 card extraction with individual URLs, years, mileage and asking prices; exclude navigation, EMI, explicit sold cards and unrelated domains.
+- Follow advertised same-source result pages and public BMW/Mercedes scroll groups with bounded page budgets. Include Big Boy Toyz's ordinary collection alongside its demo inventory.
+- Correct partial-inventory pagination and add a load-more control. Preserve database comparison cohorts across API pages instead of recomputing a reference from one page.
+- Nationwide completeness remains unverified: budgets bound scans, some adapters still extract no inventory, and the hosted deployment remains blocked.
+
 ## 2026-10-11 — End-to-end preview repairs
 
 - Restore missing reviewed source parser, catalog and endpoint configuration with an explicit dry-run-first command that preserves existing lifecycle, operator settings and access controls.

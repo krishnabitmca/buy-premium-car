@@ -248,6 +248,11 @@ class handler(BaseHTTPRequestHandler):
             for v in results:
                 key=(str(v.get("brand") or "").strip().lower(),str(v.get("model") or "").strip().lower(),_vehicle_condition(v),str(v.get("price_basis") or "unspecified"))
                 comparable=groups.get(key,[])
+                if search_mode.startswith('inventory'):
+                    ref=v.get('comp_median')
+                    v['discount_pct']=round((float(ref)-float(v['price_lakh']))/float(ref)*100,1) if ref and v.get('price_lakh') is not None and int(v.get('comparable_count') or 0)>=3 else None
+                    v['_search_score']=_score(v)
+                    continue
                 if len(comparable)>=3 and v.get("price_lakh") is not None:
                     ref=round(float(median(comparable)),2)
                     v["comp_median"]=ref
@@ -276,10 +281,10 @@ class handler(BaseHTTPRequestHandler):
                 "sources":sources,
                 "source_strategy":summarize_plan(source_plan),
                 "source_plan":[{k:p.get(k) for k in ("name","source_type","adapter_status","score","query_strategy","query","reasons")} for p in source_plan[:12]],
-                "total_results": int(inventory_total) if search_mode == "inventory" and inventory_total is not None else len(results),
+                "total_results": int(inventory_total) if search_mode.startswith("inventory") and inventory_total is not None else len(results),
                 "page": page,
                 "page_size": page_size,
-                "has_more": ((page * page_size) < int(inventory_total)) if search_mode == "inventory" and inventory_total is not None else False,
+                "has_more": ((page * page_size) < int(inventory_total)) if search_mode.startswith("inventory") and inventory_total is not None else False,
                 "inventory_total": int(inventory_total) if inventory_total is not None else None,
                 "sources_found":len({offer.get("source") for v in results for offer in (v.get("offers") or [{"source":v.get("source")}]) if offer.get("source")}),
                 "search_diagnostics":{

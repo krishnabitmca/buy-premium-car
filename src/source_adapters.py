@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 import time
+import os
+from urllib.parse import urlsplit
 
 from . import live_marketplaces as live_marketplaces
 from .source_intelligence import normalize_condition
@@ -104,7 +106,12 @@ class BuiltinMarketplaceAdapter:
             fetched_urls=[]
             parser_strategy = str(self.source.get("parser_strategy") or (self.source.get("metadata") or {}).get("parser_strategy") or "").strip().lower()
             partial_error = None
+            max_pages=max(1,min(int(os.getenv('CARSCANNER_MAX_PAGES_PER_SOURCE','20')),50))
+            seen_pages=set()
             for endpoint_url in urls:
+                if endpoint_url in seen_pages or len(seen_pages)>=max_pages:
+                    continue
+                seen_pages.add(endpoint_url)
                 if parser_strategy == "sundaram_cards":
                     from .demo_dealers import fetch_sundaram
                     rows, partial_error = fetch_sundaram(endpoint_url, self.source_name, fetch_text)
@@ -123,6 +130,11 @@ class BuiltinMarketplaceAdapter:
                     ))
                     fetched_urls.append(endpoint_url)
                     continue
+                if parser_strategy == 'bmw_cards':
+                    from .oem_inventory import fetch_bmw_inventory
+                    all_parsed.extend(fetch_bmw_inventory(endpoint_url,request.query,self.source_name,fetch_text))
+                    fetched_urls.append(endpoint_url)
+                    continue
                 try:
                     html = fetch_text(endpoint_url)
                 except Exception as exc:
@@ -131,7 +143,10 @@ class BuiltinMarketplaceAdapter:
                     partial_error = (partial_error or "") + f"{endpoint_url}: {type(exc).__name__}: {str(exc)[:100]}; "
                     continue
                 fetched_urls.append(endpoint_url)
-                if parser_strategy == "motozite_cards":
+                if parser_strategy in {'cardekho_cards','carwale_cards','cars24_cards'}:
+                    from .marketplace_cards import parse_marketplace_cards
+                    parsed=parse_marketplace_cards(html,self.source_name,endpoint_url,parser_strategy,request.query)
+                elif parser_strategy == "motozite_cards":
                     parsed = live_marketplaces.parse_motozite_cards(
                         html, self.source_name, endpoint_url, request.query, condition="both"
                     )
@@ -149,6 +164,8 @@ class BuiltinMarketplaceAdapter:
                 else:
                     parsed = parse_live_listings(html, self.source_name, endpoint_url)
                 if not parsed:
+                    parsed=parse_live_listings(html,self.source_name,endpoint_url)
+                if not parsed:
                     parsed = parse_visible_listing_links(
                         html, self.source_name, endpoint_url, request.query
                     )
@@ -157,6 +174,9 @@ class BuiltinMarketplaceAdapter:
                         html, self.source_name, endpoint_url, request.query
                     )
                 all_parsed.extend(parsed)
+                next_url=live_marketplaces._next_page_url(html,endpoint_url)
+                if next_url and next_url not in urls and urlsplit(next_url).hostname==urlsplit(endpoint_url).hostname:
+                    urls.append(next_url)
             if not fetched_urls:
                 raise RuntimeError(partial_error or "No inventory endpoint responded")
             # The same car may be exposed by canonical, dealer and campaign

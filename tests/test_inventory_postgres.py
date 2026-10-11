@@ -266,6 +266,21 @@ def test_scheduler_claim_worker_ingestion_and_http_boundary(db,monkeypatch):
     assert len(payload['results'])==1 and payload['mode']=='inventory'
 
 
+def test_partial_inventory_paginates_without_repricing_comparison_cohort(db,monkeypatch):
+    add_source(db)
+    cars=[vehicle(vin='WBA1234567890123'+str(i),url='https://fixture.invalid/car/'+str(i),price_lakh=price) for i,price in enumerate([20,30,40])]
+    assert ingest_vehicles(cars)['observations']==3
+    first=post_search(monkeypatch,{'query':'BMW X1','page_size':1},['Fixture Dealer','Missing Dealer'])
+    assert first['mode']=='inventory_partial'
+    assert first['total_results']==3 and first['has_more']
+    assert first['results'][0]['comp_median']==30
+    assert first['results'][0]['comparable_count']==3
+    assert first['results'][0]['discount_pct']==33.3
+    last=post_search(monkeypatch,{'query':'BMW X1','page_size':1,'page':3},['Fixture Dealer','Missing Dealer'])
+    assert not last['has_more'] and last['total_results']==3
+    assert last['results'][0]['comp_median']==30
+
+
 def test_successful_empty_scan_is_fresh_and_other_model_still_scheduled(db,monkeypatch):
     add_source(db)
     assert schedule_refreshes()==1

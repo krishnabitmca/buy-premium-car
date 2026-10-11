@@ -52,11 +52,12 @@
 <div class="contentHead"><div><h2>Cars found</h2><div id="meta" class="meta">Search discovered car listings</div></div><select id="sort" class="sort"><option value="match">Recommended</option><option value="price">Lowest price</option><option value="gap">Best market gap</option><option value="km">Lowest mileage</option><option value="year">Newest</option></select></div>
 <div class="livebar"><span><strong>India-wide</strong> Source-backed car search</span><span id="summary">Search to see source observations</span></div>
 <div id="market" class="market"><div class="marketTop"><div><h3 id="marketTitle">Market view</h3><small id="marketSub"></small></div><span class="confidence" id="marketConfidence"></span></div><div class="marketStats"><div class="stat"><b id="marketCount">—</b><span>cars observed</span></div><div class="stat"><b id="marketCities">—</b><span>cities observed</span></div><div class="stat"><b id="marketSources">—</b><span>sources observed</span></div><div class="stat"><b id="marketBelow">—</b><span>below comparable median</span></div></div><div class="marketNote" id="marketNote"></div></div><div id="grid" class="grid"><div class="empty"><b>Search car listings</b>Select a brand/model or budget to compare available source observations.</div></div>
+<button id="more" class="secondary" style="display:none;margin-top:18px" onclick="searchLive({append:true,manufactureYear:assistantYear})">Load more observations</button>
 </section>
 </main>
 <div id="modal" class="modal" onclick="if(event.target===this)closeModal()"><div class="modalbox"><div class="modalhead"><h3 id="modalTitle"></h3><button class="close" onclick="closeModal()">✕</button></div><div id="modalBody" class="modalbody"></div></div></div>
 <script>
-let inventory=[],shown=[],liveAt=null,sourceStatus=[],coverageWarning=null,searchMode='live',quickFilter='',condition='both',assistantYear=null;
+let inventory=[],shown=[],liveAt=null,sourceStatus=[],coverageWarning=null,searchMode='live',quickFilter='',condition='both',assistantYear=null,searchPage=0,searchRequest=null,inventoryTotal=null,hasMore=false;
 const $=id=>document.getElementById(id);
 const money=x=>x==null?'—':'₹'+Number(x).toFixed(2)+'L';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -105,19 +106,23 @@ async function loadModels(){
 }
 $('brand').onchange=loadModels;
 async function searchLive(options={}){
+ const append=options.append===true;
  $('market').classList.remove('show');
  assistantYear=options.manufactureYear||null;
  condition=$('condition').value;const b=$('brand').value,m=$('model').value,min=$('min').value,max=$('max').value,destination=$('destination').value.trim();
  const fmin=$('fmin').value||min,fmax=$('fmax').value||max;
  if(fmin&&fmax&&Number(fmin)>Number(fmax)){alert('Minimum budget cannot exceed maximum budget');return}
+ if(!append){searchPage=0;searchRequest={query:[b,m].filter(Boolean).join(' '),destination,budget_min:fmin||null,budget_max:fmax||null,condition};hasMore=false;$('more').style.display='none'}
+ if(append&&!searchRequest)return;
+ const nextPage=searchPage+1;
  const controller=new AbortController(),searchTimer=setTimeout(()=>controller.abort(),45000);
- $('search').disabled=true;$('search').textContent='Searching…';$('grid').innerHTML='<div class="empty"><b>Searching car listings…</b>CarScanner is checking available source observations.</div>';
+ $('search').disabled=true;$('more').disabled=true;$('search').textContent='Searching…';if(!append)$('grid').innerHTML='<div class="empty"><b>Searching car listings…</b>CarScanner is checking available source observations.</div>';
  try{
-  const r=await fetch('/api/search?ts='+Date.now(),{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({query:[b,m].filter(Boolean).join(' '),destination,budget_min:fmin||null,budget_max:fmax||null,condition})});
+  const r=await fetch('/api/search?ts='+Date.now(),{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({...searchRequest,page:nextPage,page_size:50})});
   if(!r.ok)throw Error((await r.text()).slice(0,150));const p=await r.json();if(!p.ok||p.search_scope!=='india'||!['live','inventory','inventory_partial','live_coverage_fallback','live_fallback'].includes(p.mode))throw Error(p.error||'Search unavailable');
-  searchMode=p.mode;document.querySelector('.livebar>span').textContent=searchMode.startsWith('inventory')?'Verified database observations · '+(searchMode==='inventory_partial'?'partial coverage':'source coverage established'):'● LIVE · Current marketplace query';inventory=p.results||[];liveAt=p.live_at;sourceStatus=p.sources||[];coverageWarning=p.availability_warning||null;populateRefinements();applyResults();
- }catch(e){inventory=[];shown=[];$('grid').innerHTML='<div class="empty"><b>Search is currently unavailable.</b>Please retry. No unverified listings are shown.</div>';$('summary').textContent='Search failed; please retry'}
- finally{clearTimeout(searchTimer);$('search').disabled=false;$('search').textContent='Search cars'}
+  searchMode=p.mode;document.querySelector('.livebar>span').textContent=searchMode.startsWith('inventory')?'Verified database observations · '+(searchMode==='inventory_partial'?'partial coverage':'source coverage established'):'● LIVE · Current marketplace query';inventory=append?[...inventory,...(p.results||[])]:p.results||[];searchPage=nextPage;hasMore=Boolean(p.has_more);inventoryTotal=p.inventory_total??p.total_results??inventory.length;$('more').style.display=hasMore?'block':'none';liveAt=p.live_at;sourceStatus=append?[...new Map([...sourceStatus,...(p.sources||[])].map(s=>[s.name||s.source,s])).values()]:p.sources||[];coverageWarning=p.availability_warning||null;populateRefinements();applyResults();
+ }catch(e){if(!append){inventory=[];shown=[];$('grid').innerHTML='<div class="empty"><b>Search is currently unavailable.</b>Please retry. No unverified listings are shown.</div>'}$('summary').textContent=append?'Additional observations could not load; retry Load more.':'Search failed; please retry'}
+ finally{clearTimeout(searchTimer);$('search').disabled=false;$('more').disabled=false;$('search').textContent='Search cars'}
 }
 function populateRefinements(){const cities=[...new Set(inventory.map(v=>v.location).filter(Boolean))].sort();$('city').innerHTML='<option value="">All India</option>'+cities.map(x=>'<option>'+esc(x)+'</option>').join('')}
 function selectCarType(value){$('condition').value=value;$('condition').onchange();if(!inventory.length)searchLive()}
@@ -146,7 +151,7 @@ function applyResults(){
  const mode=$('sort').value;
  shown.sort((a,b)=>mode==='price'?(a.price_lakh||999)-(b.price_lakh||999):mode==='gap'?(b.discount_pct||-999)-(a.discount_pct||-999):mode==='km'?(a.km||999999)-(b.km||999999):mode==='year'?(b.mfg_year||0)-(a.mfg_year||0):score(b)-score(a));
  $('summary').textContent=shown.length+(searchMode.startsWith('inventory')?' observed result':' live result')+(shown.length===1?'':'s')+' · '+sourceStatus.filter(s=>s.status==='live'||s.status==='inventory').length+(searchMode.startsWith('inventory')?' source(s) represented · ':' source(s) fetched · ')+sourceStatus.filter(s=>Number(s.listings_found)>0).length+' source(s) with matches'+(liveAt?' · response '+new Date(liveAt).toLocaleTimeString('en-IN'):'');
- $('meta').textContent=searchMode.startsWith('inventory')?'Verified database observations. Availability depends on source freshness; coverage may be incomplete.':'Live marketplace results. No offline inventory snapshot is used.';
+ $('meta').textContent=searchMode.startsWith('inventory')?inventory.length+' of '+(inventoryTotal??inventory.length)+' database observations loaded. Filters apply to loaded observations. Availability and source coverage may be incomplete.':'Live marketplace results. No offline inventory snapshot is used.';
  updateMarketView();
  render();
 }

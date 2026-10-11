@@ -58,6 +58,54 @@ def test_oem_host_is_restricted():
         fetch_mercedes_inventory("https://unrelated.example/cars", "", "demo", "OEM")
 
 
+def test_mercedes_scroll_uses_advertised_group_count_and_page_budget(monkeypatch):
+    seen=[]
+    class Response:
+        def __init__(self,text):self.text=text
+        def __enter__(self):return self
+        def __exit__(self,*a):pass
+        def read(self,size):return self.text.encode()
+    class Opener:
+        def open(self,request,timeout):
+            seen.append(request)
+            if request.data is None:return Response(json.dumps({'details':{'security_token1':'public1','security_token2':'public2','security_token2_rand':'public3'}}))
+            fields=parse_qs(request.data.decode())
+            if 'group_no' in fields:return Response(HTML.replace('.html','-second.html'))
+            return Response(HTML+'<input id="tr_load" value="1"><input id="total_groups" value="5">')
+    monkeypatch.setattr('src.oem_inventory.urllib.request.build_opener',lambda *a:Opener())
+    monkeypatch.setenv('CARSCANNER_MAX_PAGES_PER_SOURCE','2')
+    rows=fetch_mercedes_inventory(URL,'','both','OEM')
+    assert len(rows)==4
+    assert len(seen)==4
+    assert parse_qs(seen[-1].data.decode())['group_no']==['1']
+    assert parse_qs(seen[-1].data.decode())['subaction']==['scroll_fltr']
+
+
+def test_bmw_scroll_is_read_only_bounded_and_deduplicated(monkeypatch):
+    from src.oem_inventory import fetch_bmw_inventory
+    html='<form><input id="tr_load" value="1"><input id="total_groups" value="5"><input name="token1" value="public"><input name="action" value="unexpected"></form>'
+    seen=[]
+    row={'url':'https://www.bmwusedcars.in/car/1','price_lakh':30}
+    monkeypatch.setattr('src.oem_inventory.lm.parse_bmw_listing_cards',lambda *a:[dict(row)])
+    monkeypatch.setenv('CARSCANNER_MAX_PAGES_PER_SOURCE','2')
+    class Response:
+        def __enter__(self):return self
+        def __exit__(self,*a):pass
+        def read(self,size):return b'cards'
+    class Initial(Response):
+        def read(self,size):return html.encode()
+    class Opener:
+        def open(self,request,timeout):
+            if request.data is None:return Initial()
+            seen.append(request);return Response()
+    monkeypatch.setattr('src.oem_inventory.urllib.request.build_opener',lambda *a:Opener())
+    rows=fetch_bmw_inventory('https://www.bmwusedcars.in/buy-used-cars','','OEM',lambda _:html)
+    assert rows==[row] and len(seen)==1
+    assert parse_qs(seen[0].data.decode())['action']==['xoxo_fetch_buyusedcars_filtersearch']
+    assert parse_qs(seen[0].data.decode())['group_no']==['1']
+    with pytest.raises(ValueError):fetch_bmw_inventory('https://other.example/stock','','OEM',lambda _:html)
+
+
 def test_adapter_filters_oem_used_cars_out_of_demo_results(monkeypatch):
     source = {"name": "Mercedes-Benz Used Cars", "adapter_status": "live", "url": URL, "parser_strategy": "mercedes_inventory"}
     monkeypatch.setattr("src.source_adapters.adapter_execution_allowed", lambda _: True)

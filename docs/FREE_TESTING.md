@@ -1,5 +1,13 @@
 # Free testing
 
+## Source coverage recovery
+
+Run `python -m src.source_runtime_config --all-existing` to inspect missing runtime settings and add `--apply` to restore reviewed seed parser/template/endpoints on existing sources. This does not enable candidates or change existing operator overrides. The scheduled workflow applies this repair before scheduling.
+
+Source adapters now follow advertised next links and the BMW/Mercedes public showroom scroll groups. `CARSCANNER_MAX_PAGES_PER_SOURCE` bounds acquisition; the free scheduler remains at three pages. A successful bounded scan does not prove an entire marketplace was scanned. Global catalogue pages can omit brand inventory; recorded brand/model demand schedules targeted pages.
+
+Partial database searches expose their total and additional pages. Use **Load more observations** to retrieve additional results; sidebar filters and market statistics apply to loaded observations. Database comparison references retain their full query cohort across pages.
+
 ## Repairing an older source registry
 
 An older database may contain source names without the versioned parser/catalog

@@ -54,13 +54,15 @@ def restore_config(sources, *, apply=False):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--source',action='append',required=True)
+    group=parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--source',action='append')
+    group.add_argument('--all-existing',action='store_true')
     parser.add_argument('--apply',action='store_true')
     args=parser.parse_args()
     path=Path(__file__).resolve().parents[1]/'config/sources.yaml'
     sources=yaml.safe_load(path.read_text(encoding='utf-8'))['known_sources']
-    selected=[s for s in sources if s['name'] in args.source]
-    if set(args.source)-{s['name'] for s in selected}:
+    selected=sources if args.all_existing else [s for s in sources if s['name'] in args.source]
+    if not args.all_existing and set(args.source)-{s['name'] for s in selected}:
         parser.error('unknown source name')
     print(json.dumps(restore_config(selected,apply=args.apply)))
 

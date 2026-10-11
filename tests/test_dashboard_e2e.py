@@ -43,6 +43,32 @@ def test_current_search_first_journey(dashboard_url):
         assert not errors
         browser.close()
 
+
+def test_partial_inventory_loads_more_without_losing_search(dashboard_url):
+    import json
+    with sync_playwright() as p:
+        browser=p.chromium.launch();page=browser.new_page()
+        page.route('**/api/catalog*',lambda route:route.fulfill(status=200,content_type='application/json',body='{"ok":true,"mode":"live","brands":[]}'))
+        requests=[]
+        def respond(route):
+            body=route.request.post_data_json;requests.append(body)
+            number=body['page']
+            payload={'ok':True,'mode':'inventory_partial','search_scope':'india','inventory_total':2,'total_results':2,'has_more':number==1,
+                'sources':[{'name':'Source '+str(number),'status':'inventory','listings_found':1}],
+                'results':[{'brand':'BMW','model':'X1','price_lakh':30+number,'source':'Source '+str(number),'url':'https://example.com/car/'+str(number),'condition_signal':'used'}]}
+            route.fulfill(status=200,content_type='application/json',body=json.dumps(payload))
+        page.route('**/api/search*',respond)
+        page.goto(dashboard_url);page.locator('#search').click()
+        page.locator('#more').wait_for(state='visible')
+        assert page.locator('.card').count()==1
+        page.locator('#more').click()
+        page.wait_for_function("document.querySelectorAll('.card').length===2")
+        assert not page.locator('#more').is_visible()
+        assert [r['page'] for r in requests]==[1,2]
+        assert requests[0]['query']==requests[1]['query']
+        assert '2 of 2' in page.locator('#meta').inner_text()
+        browser.close()
+
 def test_mobile_layout_and_filters_are_present(dashboard_url):
     with sync_playwright() as p:
         browser = p.chromium.launch()
