@@ -1,5 +1,11 @@
 # Free testing
 
+## Indexed search runtime
+
+With PostgreSQL inventory enabled, searches return stored observations by default without waiting for source crawls. Empty or partial results retain coverage gaps and record background demand. `CARSCANNER_ALLOW_LIVE_COVERAGE_FALLBACK=true` explicitly restores the legacy fallback. Database-disabled deployments still use the legacy path.
+
+The pinned `psycopg_pool` dependency reuses connections per process: default maximum four, bounded to eight via `CARSCANNER_DB_POOL_SIZE`; `CARSCANNER_DB_POOL=false` disables pooling. Size the total across deployed processes against the database connection budget. Pool checkout/connect timeouts are five seconds, with a bounded wait queue. Transactions commit or roll back before connections are reused. Source metadata may be reused for at most 15 seconds; listings are never cached by this change.
+
 ## Source coverage recovery
 
 Run `python -m src.source_runtime_config --all-existing` to inspect missing runtime settings and add `--apply` to restore reviewed seed parser/template/endpoints on existing sources. This does not enable candidates or change existing operator overrides. The scheduled workflow applies this repair before scheduling.

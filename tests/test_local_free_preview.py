@@ -36,8 +36,12 @@ def test_catalog_preflight_and_watch_routes(preview):
             assert method == 'GET' and response.status == 200
             response.close()
 
-def test_empty_inventory_respects_disabled_live_fallback(preview, monkeypatch):
-    monkeypatch.setenv('CARSCANNER_ALLOW_LIVE_COVERAGE_FALLBACK', 'false')
+@pytest.mark.parametrize('fallback_setting',[None,'false'])
+def test_empty_inventory_respects_disabled_live_fallback(preview, monkeypatch, fallback_setting):
+    if fallback_setting is None:
+        monkeypatch.delenv('CARSCANNER_ALLOW_LIVE_COVERAGE_FALLBACK',raising=False)
+    else:
+        monkeypatch.setenv('CARSCANNER_ALLOW_LIVE_COVERAGE_FALLBACK', fallback_setting)
     monkeypatch.setattr(search, 'inventory_enabled', lambda: True)
     monkeypatch.setattr(search, 'source_db_enabled', lambda: False)
     monkeypatch.setattr(search, 'load_source_registry', lambda: [])

@@ -136,17 +136,27 @@ def search_inventory(
         group by brand,model,variant,mfg_year,condition,price_basis
       )
     """
-    sql=base+"""select g.*,c.comparable_count,c.comp_median from grouped g join cohorts c
+    projection="""select g.*,c.comparable_count,c.comp_median from grouped g join cohorts c
           on g.brand is not distinct from c.brand and g.model is not distinct from c.model
           and g.variant is not distinct from c.variant and g.mfg_year is not distinct from c.mfg_year
           and g.condition=c.condition and g.price_basis=c.price_basis
           order by g.price_lakh nulls last,g.observed_at desc,g.vehicle_id,g.price_basis limit %s offset %s"""
-    count_sql=base+"""select count(*)::bigint as total_count from grouped"""
+    # One statement gives count and page the same database snapshot, and avoids
+    # repeating the projection and a network round trip. The left join retains
+    # the count even when a page is empty (including offsets beyond the end).
+    sql=base+("""select page.*,totals.total_count
+        from (select count(*)::bigint as total_count from grouped) totals
+        left join lateral ("""+projection+") page on true order by page.price_lakh nulls last,page.observed_at desc,page.vehicle_id,page.price_basis" if return_count else projection)
     with _connect() as conn,conn.cursor() as cur:
         total=None
+        cur.execute(sql,list(params)+[safe_limit,safe_offset])
+        raw=[dict(r) for r in cur.fetchall()]
         if return_count:
-            cur.execute(count_sql,params); total=int(cur.fetchone()["total_count"])
-        cur.execute(sql,list(params)+[safe_limit,safe_offset]); rows=[json_inventory_value(dict(r)) for r in cur.fetchall()]
+            total=int(raw[0]['total_count']) if raw else 0
+            for row in raw:
+                row.pop('total_count',None)
+            raw=[row for row in raw if row.get('vehicle_id') is not None]
+        rows=[json_inventory_value(row) for row in raw]
 
     sources=[]; seen=set()
     for row in rows:

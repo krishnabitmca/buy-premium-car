@@ -1,3 +1,11 @@
+## 2026-10-11 — Fast indexed search foundation
+
+- Default configured PostgreSQL searches to index-only responses; preserve explicit legacy fallback opt-in and background demand recording.
+- Reuse bounded PostgreSQL connections, isolate each caller transaction, and snapshot source metadata per request with at most 15 seconds of metadata reuse. Listing prices, availability and observation times remain fresh database reads.
+- Retrieve total and paginated inventory in one SQL snapshot, including empty/out-of-range pages and deterministic ordering.
+- Verify rollback, broken-connection recovery, request isolation, cache expiry, configuration changes and pagination. Local validation: 1,029 unit tests and 28 PostgreSQL integration tests pass.
+- Measure 20 sequential warm Supabase-backed searches: median 361.77 ms, p95 561.13 ms; first request 2046.01 ms. The 500 ms p95 target and national-load acceptance remain open.
+
 ## 2026-10-10 — Canonical daily acquisition and watch matching
 
 - Route the production daily command through the same Postgres refresh pipeline as the continuous worker; keep broad browser/SQLite reports under an explicit legacy command.

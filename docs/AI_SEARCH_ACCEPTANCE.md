@@ -36,11 +36,8 @@ observation times. Historical reports are never substituted for current inventor
 
 ## Current implementation verdict — 11 October 2026
 
-- **Speed: not achieved.** Recent real API samples were approximately 3.4–4.2
-  seconds. These samples are not a p95 benchmark or a national load test.
-- **Non-blocking acquisition: partial.** PostgreSQL inventory and background jobs
-  exist, and the local preview disables live fallback. The API still defaults to
-  permitting live coverage fallback; index-only behavior is not enforced globally.
+- **Speed: improved, target not achieved.** A local server connected to the existing Supabase Free project measured 20 sequential warm API searches: median 361.77 ms, p95 561.13 ms, with a 2046.01 ms first request. This is not a load test or first-usable-browser latency benchmark. Earlier real samples were approximately 3.4–4.2 seconds.
+- **Non-blocking acquisition: partial implementation.** Configured PostgreSQL searches now default to index-only responses, including empty/partial results, and record demand for background work. Operators can explicitly enable legacy live fallback; database-disabled deployments retain the legacy path. Source metadata is snapshotted per request with a maximum 15-second reuse window; inventory is queried afresh. Connection pooling and one count/page SQL snapshot reduce round trips.
 - **All-brand acquisition: incomplete.** The app exposes 16 registry-derived
   brands; seven returned zero observations in the real audit. Baseline scheduling
   now covers those registered brands, but queueing is not completed acquisition.

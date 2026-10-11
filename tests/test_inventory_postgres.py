@@ -57,12 +57,16 @@ def disposable_database():
                 conn.execute(migration.read_text(encoding='utf-8'))
         yield url
     finally:
+        from src.source_registry_db import close_connection_pool
+        close_connection_pool()
         with psycopg.connect(admin_url,autocommit=True) as admin:
             admin.execute(sql.SQL('drop database {} with (force)').format(sql.Identifier(name)))
 
 
 @pytest.fixture
 def db(disposable_database,monkeypatch):
+    # Test setup changes source metadata between calls inside the cache TTL.
+    monkeypatch.setattr('src.source_intelligence._metadata_cache',None)
     # These fixtures exercise one job at a time; baseline fan-out has its own test.
     monkeypatch.setattr('src.inventory_refresh_planner.baseline_brand_demands',lambda:[])
     monkeypatch.setenv('SOURCE_INTELLIGENCE_DATABASE_URL',disposable_database)
@@ -85,6 +89,22 @@ def add_source(db,name='Fixture Dealer'):
                   values (%s,%s,'verified')""",(source_id,name+'_fixture'))
     db.commit()
     return source_id
+
+
+def test_pooled_connections_roll_back_errors_and_replace_closed_connections(db):
+    from src.source_registry_db import _connect
+    source=add_source(db)
+    before=db.execute('select priority from public.sources where source_id=%s',(source,)).fetchone()['priority']
+    db.commit()
+    with pytest.raises(ValueError):
+        with _connect() as conn:
+            conn.execute('update public.sources set priority=999 where source_id=%s',(source,))
+            raise ValueError('rollback this transaction')
+    assert db.execute('select priority from public.sources where source_id=%s',(source,)).fetchone()['priority']==before
+    with _connect() as conn:
+        conn.close()
+    with _connect() as conn:
+        assert conn.execute('select 1 as n').fetchone()['n']==1
 
 
 def vehicle(**kwargs):
@@ -297,6 +317,8 @@ def test_partial_inventory_paginates_without_repricing_comparison_cohort(db,monk
     last=post_search(monkeypatch,{'query':'BMW X1','page_size':1,'page':3},['Fixture Dealer','Missing Dealer'])
     assert not last['has_more'] and last['total_results']==3
     assert last['results'][0]['comp_median']==30
+    rows, sources, total=search_inventory(query='BMW X1',limit=1,offset=99,return_count=True)
+    assert rows==[] and sources==[] and total==3
 
 
 def test_search_reports_every_planned_source_including_missing_inventory(db,monkeypatch):

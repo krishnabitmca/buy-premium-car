@@ -17,7 +17,7 @@ from src.acquisition import purchase_context
 from src.inventory_db import enabled as inventory_enabled, search_inventory
 from src.india_geo import infer_state
 from src.live_marketplaces import live_inventory, _query_parts, _identity_matches_query, with_brand_identity
-from src.source_intelligence import load_source_registry, plan_sources, summarize_plan
+from src.source_intelligence import load_source_registry, plan_sources, summarize_plan, with_source_registry
 from src.source_registry_db import enabled as source_db_enabled, record_search_demand
 
 def _read_json(handler):
@@ -138,6 +138,7 @@ class handler(BaseHTTPRequestHandler):
             return _response(self,200,{"ok":True,"mode":"live","search_scope":"india","query":query,"condition":condition,"vehicles_count":len(vehicles),"sources":sources})
         except Exception as exc:
             return _response(self,500,{"error":f"Search inventory unavailable: {exc}"})
+    @with_source_registry(metadata_ttl=15)
     @with_brand_identity
     def do_POST(self):
         if urlparse(self.path).path!="/api/search":
@@ -198,7 +199,7 @@ class handler(BaseHTTPRequestHandler):
                     # Once background refresh establishes complete source coverage,
                     # customer traffic becomes inventory-only again.
                     allow_coverage_fallback = os.getenv(
-                        "CARSCANNER_ALLOW_LIVE_COVERAGE_FALLBACK", "true"
+                        "CARSCANNER_ALLOW_LIVE_COVERAGE_FALLBACK", "false"
                     ).lower() not in {"0", "false", "no"}
                     if not allow_coverage_fallback:
                         search_mode = "inventory_partial"
