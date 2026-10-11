@@ -1,5 +1,26 @@
 # Free testing
 
+## Repairing an older source registry
+
+An older database may contain source names without the versioned parser/catalog
+settings. A successful fetch can then parse zero listings. Review missing settings
+before applying the explicit repair command:
+
+```sh
+python -m src.source_runtime_config --source "Big Boy Toyz" --source "AutoBest Emperio" --source "CarDekho Used"
+python -m src.source_runtime_config --source "Big Boy Toyz" --source "AutoBest Emperio" --source "CarDekho Used" --apply
+```
+
+Run with the server database environment configured. The command adds missing
+reviewed runtime keys/endpoints only to existing sources; it does not overwrite
+operator settings, create new sources, promote adapters or alter permissions.
+Next run the normal refresh worker and verify actual database listing counts and
+the browser journey. Parser execution alone is not proof of useful inventory.
+
+The local preview requires its Python server to keep running. Restart it with the
+local launcher after closing Codex or restarting the computer; it is not a hosted
+always-on website.
+
 Use the existing CarScanner Supabase project with a local Python web server. The
 organization currently uses the Free plan with its spend cap enabled. Its project
 is in Seoul; this testing setup does not relocate it or create a paid resource.

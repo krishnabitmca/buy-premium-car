@@ -39,6 +39,14 @@
 
 # CarScanner Changelog
 
+## 2026-10-11 — End-to-end preview repairs
+
+- Restore missing reviewed source parser, catalog and endpoint configuration with an explicit dry-run-first command that preserves existing lifecycle, operator settings and access controls.
+- Match whole model identity tokens in stored inventory, including dealer trim names; expose per-source match counts.
+- Correct stored-observation wording throughout results and details, show actual observation timestamps, and bound frontend search waits.
+- Respect model and explicit budget/year in assistant searches; clear all search controls and keep market summaries aligned with visible filters.
+- Verify real dealer acquisition into Supabase and the local customer journey in desktop/mobile browsers. Nationwide coverage and hosted production verification remain separate gates.
+
 ## 2026-10-08
 
 - Restore live dealer inventory from Big Boy Toyz, AutoBest Emperio, Luxury Ride and 9th Gear with card-specific price, mileage, photo and original-link extraction; exclude sold, reserved and zero-price cards.

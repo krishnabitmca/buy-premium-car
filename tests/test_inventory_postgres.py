@@ -111,6 +111,36 @@ def test_budget_cannot_select_an_older_qualifying_price(db,initial,current,filte
     assert len(rows)==1 and rows[0]['price_lakh']==current
 
 
+def test_model_search_matches_trim_and_hyphenated_tokens_without_substrings(db):
+    v=ingest(db,model='X5 xDrive40i M-Sport',title='BMW X5',vin=None)
+    ingest_vehicles([replace(v,model='X50',title='BMW X50',url='https://fixture.invalid/x50')])
+    rows,sources,count=search_inventory(query='BMW X5',return_count=True)
+    assert count==1 and rows[0]['model']=='X5 xDrive40i M-Sport'
+    assert sources[0]['listings_found']==1
+    rows,_=search_inventory(query='BMW M Sport')
+    assert len(rows)==1
+
+
+def test_runtime_config_repair_preserves_governance_and_existing_settings(db):
+    from src.source_runtime_config import restore_config
+    sid=add_source(db)
+    db.execute("update public.sources set enabled=false,adapter_status='candidate',metadata=%s::jsonb where source_id=%s",
+               (json.dumps({'query_url_template':'https://custom.invalid','operator_note':'keep'}),sid))
+    db.commit()
+    source={'name':'Fixture Dealer','parser_strategy':'bbt_cards',
+            'query_url_template':'https://seed.invalid',
+            'endpoints':[{'url':'https://fixture.invalid/demo','condition':'demo'}]}
+    assert restore_config([source],apply=False)
+    assert db.execute('select metadata from public.sources where source_id=%s',(sid,)).fetchone()['metadata'].get('parser_strategy') is None
+    restore_config([source],apply=True)
+    row=db.execute('select * from public.sources where source_id=%s',(sid,)).fetchone()
+    assert row['enabled'] is False and row['adapter_status']=='candidate'
+    assert row['metadata']['parser_strategy']=='bbt_cards'
+    assert row['metadata']['query_url_template']=='https://custom.invalid'
+    assert row['metadata']['operator_note']=='keep'
+    assert restore_config([source],apply=True)==[]
+
+
 @pytest.mark.parametrize('live_verified,sold_signal',[(False,False),(False,True),(True,True)])
 def test_latest_negative_observation_cannot_resurrect_available_history(db,live_verified,sold_signal):
     ingest(db)

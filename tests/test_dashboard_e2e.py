@@ -70,6 +70,47 @@ def test_current_evidence_action_is_wired(dashboard_url):
         browser.close()
 
 
+def test_stored_inventory_assistant_and_filters_are_honest(dashboard_url):
+    import json
+    with sync_playwright() as p:
+        browser=p.chromium.launch()
+        page=browser.new_page()
+        page.route('**/api/catalog*',lambda route:route.fulfill(content_type='application/json',body=json.dumps({
+            'ok':True,'mode':'live','brands':[{'name':'BMW'}],'models':[{'name':'X5'}]})))
+        requests=[]
+        def search(route):
+            requests.append(route.request.post_data_json)
+            route.fulfill(content_type='application/json',body=json.dumps({
+                'ok':True,'mode':'inventory_partial','search_scope':'india',
+                'sources':[{'name':'Test dealer','status':'inventory','listings_found':1}],
+                'results':[{'brand':'BMW','model':'X5 xDrive40i','price_lakh':79,
+                    'mfg_year':2024,'km':10000,'fuel':'Petrol','source':'Test dealer',
+                    'url':'https://example.invalid/x5','live_verified':True,
+                    'data_consistent':True,'condition_signal':'demo',
+                    'observed_at':'2026-10-10T08:00:00Z'}]}))
+        page.route('**/api/search*',search)
+        page.goto(dashboard_url)
+        page.locator('#aiPrompt').fill('2024 BMW X5 under ₹80 lakh')
+        page.locator('#askSearch').click()
+        page.locator('.card').wait_for()
+        assert requests[-1]['query']=='BMW X5'
+        assert requests[-1]['budget_min'] is None
+        assert requests[-1]['budget_max']=='80'
+        assert '1 source(s) with matches' in page.locator('#summary').inner_text()
+        page.locator('.secondary').click()
+        assert 'Stored marketplace observation' in page.locator('#modalBody').inner_text()
+        assert 'Observation time' in page.locator('#modalBody').inner_text()
+        page.locator('.close').click()
+        page.locator('#fmax').fill('50')
+        assert page.locator('.card').count()==0
+        assert not page.locator('#market').is_visible()
+        page.locator('#clear').click()
+        assert page.locator('#brand').input_value()==''
+        assert page.locator('#max').input_value()==''
+        assert page.locator('.card').count()==1
+        browser.close()
+
+
 def test_empty_demo_search_distinguishes_fetched_sources_from_matches(dashboard_url):
     import json
     with sync_playwright() as p:

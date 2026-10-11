@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .source_registry_db import enabled as source_db_enabled, _connect, require_database
-from .live_marketplaces import _query_parts
+from .live_marketplaces import _query_parts, _identity_tokens
 from .inventory_contract import json_inventory_value
 
 
@@ -53,7 +53,15 @@ def search_inventory(
     if brand:
         predicates.append("lower(v.brand) = lower(%s)"); params.append(brand)
     if model:
-        predicates.append("lower(v.model) = lower(%s)"); params.append(model)
+        # Dealer model fields often include the trim. Match complete identity
+        # tokens, as live adapters do: X5 matches X5 xDrive40i, never X50.
+        model_tokens=_identity_tokens(model)
+        if model_tokens:
+            pattern='(^| )'+' '.join(model_tokens)+'($| )'
+            predicates.append("""(regexp_replace(lower(v.model),'[^a-z0-9]+',' ','g') ~ %s
+                or regexp_replace(lower(v.variant),'[^a-z0-9]+',' ','g') ~ %s
+                or regexp_replace(lower(l.title),'[^a-z0-9]+',' ','g') ~ %s)""")
+            params.extend([pattern]*3)
     if condition in {"used", "demo"}:
         predicates.append("v.condition = %s"); params.append(condition)
     if budget_min is not None:
@@ -159,7 +167,8 @@ def search_inventory(
         for offer in offers:
             name=offer.get("source")
             if name and name not in seen:
-                seen.add(name); sources.append({"name":name,"status":"inventory","mode":"inventory"})
+                seen.add(name); sources.append({"name":name,"status":"inventory","mode":"inventory",
+                    "listings_found":sum(1 for r in rows if any(o.get('source')==name for o in r.get('offers') or []))})
     return (rows,sources,total) if return_count else (rows,sources)
 
 
