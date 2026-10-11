@@ -284,7 +284,45 @@ def record_health(source_name: str, *, status: str, http_status: int | None = No
                select source_id,%s,%s,%s,%s,%s,%s,%s
                from public.sources where name=%s""",
             (status, http_status, latency_ms, listings_found, parser_ok,
-            …420 tokens truncated…        )
+             inventory_verified, error_message, source_name)
+        )
+        cur.execute(
+            "update public.sources set last_validated_at=now() where name=%s",
+            (source_name,)
+        )
+        conn.commit()
+
+
+def promote_discovery(discovery: dict[str, Any], *, listings_found: int) -> str | None:
+    """Promote a validated discovery into the live source registry.
+
+    Promotion is deliberately evidence-based: the caller must have fetched the
+    endpoint and proven that it exposes extractable inventory before calling
+    this function. Existing YAML/DB sources are never overwritten by a discovery.
+    """
+    if not enabled() or listings_found < 1:
+        return None
+
+    url = str(discovery.get("url") or "").strip()
+    domain = str(discovery.get("domain") or urlparse(url).netloc).lower().removeprefix("www.")
+    if not url or not domain:
+        return None
+
+    brand = str(discovery.get("brand_hint") or "").strip()
+    condition = str(discovery.get("condition") or "both").strip().lower()
+    segment = str(discovery.get("segment") or "mass_market").strip().lower()
+    source_type = str(discovery.get("source_type") or "marketplace").strip().lower()
+    name = f"Discovered - {domain}"
+    key = f"discovered_{domain.replace('.', '_').replace('-', '_')}"
+
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """select source_id, name from public.sources
+               where lower(regexp_replace(url, '^https?://(www\\.)?', '')) like %s
+                  or source_key=%s
+               limit 1""",
+            (domain + "%", key),
+        )
         existing = cur.fetchone()
         if existing:
             # A domain is a source identity, not an endpoint identity. Persist
