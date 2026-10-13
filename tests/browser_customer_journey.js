@@ -33,7 +33,8 @@ const testUrl = key => { const u = new URL(base); u.searchParams.set(key, String
     await page.click("#search");
     await page.waitForFunction(() => {
       const grid = document.querySelector("#grid");
-      return grid && !/Searching live inventory/i.test(grid.textContent || "");
+      const button = document.querySelector('#search');
+      return grid && button && !button.disabled && !/Searching (?:live inventory|car listings)/i.test(grid.textContent || "");
     }, null, { timeout: 90000 });
 
     const body = await page.locator("body").innerText();
