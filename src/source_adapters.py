@@ -37,6 +37,7 @@ class AdapterRequest:
     budget_min: float | None = None
     budget_max: float | None = None
     destination: str | None = None
+    continuation: dict[str, Any] | None = None
 
 
 @dataclass
@@ -47,6 +48,8 @@ class AdapterResult:
     latency_ms: int = 0
     error: str | None = None
     query_url: str | None = None
+    continuation: dict[str, Any] | None = None
+    pages_fetched: int = 0
 
 
 class SourceAdapter(Protocol):
@@ -86,7 +89,13 @@ class BuiltinMarketplaceAdapter:
     @live_marketplaces.with_brand_identity
     def fetch(self, request: AdapterRequest) -> AdapterResult:
         started = time.monotonic()
-        urls = self._urls(request)
+        roots = self._urls(request)
+        progress = request.continuation or {}
+        allowed_hosts = {urlsplit(root).hostname for root in roots}
+        urls = list(progress.get("pending_urls") or roots)
+        if progress.get("pending_urls") and any(urlsplit(page).scheme not in {"http", "https"} or
+               urlsplit(page).hostname not in allowed_hosts for page in urls):
+            return AdapterResult(self.source_name, error="invalid continuation URL")
         url = urls[0] if urls else ""
         if not adapter_execution_allowed(self.source_name):
             return AdapterResult(
@@ -108,11 +117,13 @@ class BuiltinMarketplaceAdapter:
             parser_strategy = str(self.source.get("parser_strategy") or (self.source.get("metadata") or {}).get("parser_strategy") or "").strip().lower()
             partial_error = None
             max_pages=max(1,min(int(os.getenv('CARSCANNER_MAX_PAGES_PER_SOURCE','20')),50))
-            seen_pages=set()
+            seen_pages=set(progress.get("visited_urls") or [])
+            fetched_this_batch=0
             for endpoint_url in urls:
-                if endpoint_url in seen_pages or len(seen_pages)>=max_pages:
+                if endpoint_url in seen_pages or fetched_this_batch>=max_pages:
                     continue
                 seen_pages.add(endpoint_url)
+                fetched_this_batch += 1
                 if parser_strategy == "sundaram_cards":
                     from .demo_dealers import fetch_sundaram
                     rows, partial_error = fetch_sundaram(endpoint_url, self.source_name, fetch_text)
@@ -178,6 +189,8 @@ class BuiltinMarketplaceAdapter:
                 next_url=live_marketplaces._next_page_url(html,endpoint_url)
                 if next_url and next_url not in urls and urlsplit(next_url).hostname==urlsplit(endpoint_url).hostname:
                     urls.append(next_url)
+            if partial_error and request.continuation is not None:
+                raise RuntimeError(partial_error)
             if not fetched_urls:
                 raise RuntimeError(partial_error or "No inventory endpoint responded")
             # The same car may be exposed by canonical, dealer and campaign
@@ -249,6 +262,10 @@ class BuiltinMarketplaceAdapter:
                 latency_ms=int((time.monotonic() - started) * 1000),
                 query_url=" | ".join(fetched_urls),
                 error=partial_error,
+                continuation={"pending_urls": [page for page in urls if page not in seen_pages],
+                              "visited_urls": sorted(seen_pages)} if request.continuation is not None
+                              and any(page not in seen_pages for page in urls) else None,
+                pages_fetched=len(fetched_urls),
             )
             record_adapter_execution(
                 self.source_name,

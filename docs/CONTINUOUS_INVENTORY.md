@@ -135,3 +135,10 @@ Offset pagination observes a changing inventory; large-scale workers should move
 to indexed cursors or a consistent database snapshot to avoid skipped/duplicate
 rows during simultaneous price updates. Per-event uniqueness suppresses duplicate
 notification creation, but does not provide a snapshot of all national inventory.
+
+
+## Durable page continuation (13 October 2026)
+
+Background jobs save advertised next-page traversal in queue metadata after successful ingestion. A bounded batch leaves pending/visited URLs and requeues the same intent; the next worker resumes those pages. Successful batches reset the failure budget without resetting claim fencing. Failed batches retain their prior cursor for replay. `last_success_at` advances only when that traversal has no pending pages, rather than after every partial batch. This is traversal exhaustion, not proof of complete marketplace coverage.
+
+Continuation URLs must belong to a registered endpoint host. Cyclic next links stop at visited pages. This increment covers ordinary HTML next links and pending endpoints; source-specific BMW/Mercedes scroll/API traversal still has internal page budgets and needs its own cursor implementation. Region partitions, scan generations and advertised catalogue totals remain open. No new table or public access grant is required; existing server-only queue access is retained.

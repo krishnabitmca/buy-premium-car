@@ -8,6 +8,8 @@ Queue claims are source-isolated and retries are bounded.
 
 import argparse
 import logging
+import json
+from datetime import datetime, timezone
 from typing import Any
 
 from .inventory_ingestion import ingest_vehicles
@@ -51,37 +53,47 @@ def claim_jobs(limit: int = 10) -> list[dict[str, Any]]:
 def recover_jobs() -> int:
     """Retry failures with backoff and recover abandoned 30-minute claims.
 
-    Three attempts exhaust a job. Operators explicitly reset exhausted work
+    Three failures since the last successful batch exhaust a job.
+    Operators explicitly reset exhausted work
     after inspecting the source; the scheduler cannot retry it indefinitely.
     """
     with _connect() as conn, conn.cursor() as cur:
         cur.execute("""update public.inventory_refresh_queue
-            set status=case when attempt_count < 3 then 'queued' else 'failed' end,
+            set status=case when attempt_count - coalesce((metadata->>'retry_base')::integer,0) < 3 then 'queued' else 'failed' end,
                 completed_at=now(),
                 last_error=case when status='running' then 'worker claim expired'
                                 else last_error end
             where (status='running' and started_at < now()-interval '30 minutes')
-               or (status='failed' and attempt_count < 3
-                   and completed_at < now()-make_interval(mins => 5 * power(2, attempt_count)::int))""")
+               or (status='failed' and attempt_count - coalesce((metadata->>'retry_base')::integer,0) < 3
+                   and completed_at < now()-make_interval(mins => 5 * power(2, attempt_count - coalesce((metadata->>'retry_base')::integer,0))::int))""")
         recovered = cur.rowcount
         conn.commit()
         return recovered
 
 
 def complete_job(refresh_id: int, *, success: bool, error: str | None = None,
-                 attempt_count: int | None = None) -> None:
+                 attempt_count: int | None = None,
+                 continuation: dict[str, Any] | None = None, pages_fetched: int = 0) -> None:
     if not enabled():
         return
     with _connect() as conn, conn.cursor() as cur:
         cur.execute(
             """update public.inventory_refresh_queue
                set status=%s,completed_at=now(),last_error=%s,
-                   metadata=case when %s then metadata ||
-                       jsonb_build_object('last_success_at',now()) else metadata end
+                   requested_at=case when %s then now() else requested_at end,
+                   metadata=case when %s then
+                     (metadata - 'continuation') || %s::jsonb ||
+                     jsonb_build_object('retry_base',attempt_count) ||
+                     jsonb_build_object('pages_fetched',
+                       coalesce((metadata->>'pages_fetched')::integer,0)+%s)
+                     else metadata end
                where refresh_id=%s and status='running'
                  and (%s::integer is null or attempt_count=%s)""",
-            ("completed" if success else "failed", error, success, refresh_id,
-             attempt_count, attempt_count),
+            ("queued" if success and continuation else "completed" if success else "failed",
+             error, bool(success and continuation), success,
+             json.dumps({"continuation": continuation} if continuation else
+                        {"last_success_at": datetime.now(timezone.utc).isoformat()}),
+             max(0, int(pages_fetched)), refresh_id, attempt_count, attempt_count),
         )
         conn.commit()
 
@@ -107,6 +119,7 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
                 query=query,
                 condition=job.get("condition") or "both",
                 destination=job.get("destination_state") or "",
+                continuation=(job.get("metadata") or {}).get("continuation") or {},
             )
         )
         if result.status != "live":
@@ -135,7 +148,8 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
         ) for v in result.listings]
 
         ingested = ingest_vehicles(normalized)
-        complete_job(int(job["refresh_id"]), success=True, attempt_count=job.get("attempt_count"))
+        complete_job(int(job["refresh_id"]), success=True, attempt_count=job.get("attempt_count"),
+                     continuation=result.continuation, pages_fetched=result.pages_fetched)
         return ingested
     except Exception as exc:
         complete_job(int(job["refresh_id"]), success=False, error=str(exc)[:1000],

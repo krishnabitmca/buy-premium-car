@@ -519,3 +519,44 @@ def test_database_crawl_to_watch_outbox_price_change_and_sold_suppression(db,mon
     assert alerts.process_alerts()['matched']==0
     assert provider.call_count==2
     assert db.execute("select count(*) as n from public.alert_events where status='sent'").fetchone()['n']==2
+
+
+def test_continuation_is_persisted_fenced_and_resumed(db,monkeypatch):
+    add_source(db)
+    schedule_refreshes()
+    first=claim_jobs(1)[0]
+    cursor={'pending_urls':['https://fixture.invalid/page-2'],'visited_urls':['https://fixture.invalid/catalog']}
+    complete_job(first['refresh_id'],success=True,attempt_count=first['attempt_count'],continuation=cursor,pages_fetched=1)
+    row=db.execute('select * from public.inventory_refresh_queue where refresh_id=%s',(first['refresh_id'],)).fetchone()
+    assert row['status']=='queued' and row['metadata']['continuation']==cursor
+    assert 'last_success_at' not in row['metadata']
+    second=claim_jobs(1)[0]
+    assert second['attempt_count']>first['attempt_count']
+    complete_job(first['refresh_id'],success=True,attempt_count=first['attempt_count'])
+    assert db.execute('select status from public.inventory_refresh_queue where refresh_id=%s',(first['refresh_id'],)).fetchone()['status']=='running'
+    requests=[]
+    def fetch(adapter,request):
+        requests.append(request)
+        return AdapterResult(adapter.source_name,[],status='live',pages_fetched=1)
+    monkeypatch.setattr('src.source_adapters.BuiltinMarketplaceAdapter.fetch',fetch)
+    process_job(second)
+    assert requests[0].continuation==cursor
+    row=db.execute('select * from public.inventory_refresh_queue where refresh_id=%s',(first['refresh_id'],)).fetchone()
+    assert row['status']=='completed' and row['metadata']['pages_fetched']==2
+    assert 'continuation' not in row['metadata'] and row['metadata']['last_success_at']
+
+
+def test_continuation_retry_budget_counts_failures_since_last_batch(db):
+    add_source(db)
+    schedule_refreshes()
+    job=claim_jobs(1)[0]
+    cursor={'pending_urls':['https://fixture.invalid/page-9'],'visited_urls':[]}
+    db.execute("update public.inventory_refresh_queue set attempt_count=8 where refresh_id=%s",(job['refresh_id'],));db.commit()
+    complete_job(job['refresh_id'],success=True,attempt_count=8,continuation=cursor,pages_fetched=8)
+    failed=claim_jobs(1)[0]
+    assert failed['attempt_count']==9
+    complete_job(failed['refresh_id'],success=False,error='offline',attempt_count=9)
+    db.execute("update public.inventory_refresh_queue set completed_at=now()-interval '1 day' where refresh_id=%s",(job['refresh_id'],));db.commit()
+    assert recover_jobs()==1
+    retried=claim_jobs(1)[0]
+    assert retried['metadata']['continuation']==cursor and retried['attempt_count']==10

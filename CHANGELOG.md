@@ -1,3 +1,9 @@
+## 2026-10-13 — Durable HTML page traversal
+
+- Persist pending/visited pages on background refresh jobs and resume after bounded batches; checkpoint only after ingestion succeeds.
+- Requeue partial traversal, retain progress on failure, and preserve claim fencing across batches. Retry budgets count failures since the last successful batch.
+- Advance scan freshness only after pending traversal is exhausted; this does not establish catalogue completeness. OEM scroll/API continuation remains outstanding.
+
 ## 2026-10-11 — Fast indexed search foundation
 
 - Default configured PostgreSQL searches to index-only responses; preserve explicit legacy fallback opt-in and background demand recording.

@@ -76,3 +76,31 @@ def test_brand_identity_snapshot_is_bounded_to_each_scan(monkeypatch):
     scan();assert len(calls)==1
     scan();assert len(calls)==2
     assert lm._brand_identity_snapshot.get() is None
+
+
+def test_background_scan_resumes_pending_page_and_breaks_cycle(monkeypatch):
+    seen=[]
+    def fetch(url):
+        seen.append(url)
+        return '<a rel="next" href="/page-2">Next</a>' if url.endswith('/stock') else '<a rel="next" href="/stock">Next</a>'
+    monkeypatch.setattr('src.source_adapters.fetch_text',fetch)
+    monkeypatch.setattr('src.source_adapters.adapter_execution_allowed',lambda _:True)
+    monkeypatch.setattr('src.source_adapters.parse_live_listings',lambda *args:[])
+    monkeypatch.setattr('src.source_adapters.parse_visible_listing_links',lambda *args:[])
+    monkeypatch.setenv('CARSCANNER_MAX_PAGES_PER_SOURCE','1')
+    adapter=BuiltinMarketplaceAdapter({'name':'Test','url':'https://test.example/stock'})
+    first=adapter.fetch(AdapterRequest(continuation={}))
+    assert first.status=='live' and first.pages_fetched==1
+    assert first.continuation['pending_urls']==['https://test.example/page-2']
+    second=adapter.fetch(AdapterRequest(continuation=first.continuation))
+    assert second.status=='live' and second.continuation is None
+    assert seen==['https://test.example/stock','https://test.example/page-2']
+    rejected=adapter.fetch(AdapterRequest(continuation={'pending_urls':['https://other.example/stock']}))
+    assert rejected.status=='unavailable' and len(seen)==2
+
+
+def test_failed_endpoint_does_not_publish_advanced_progress(monkeypatch):
+    monkeypatch.setattr('src.source_adapters.adapter_execution_allowed',lambda _:True)
+    monkeypatch.setattr('src.source_adapters.fetch_text',lambda url:(_ for _ in ()).throw(RuntimeError('offline')))
+    result=BuiltinMarketplaceAdapter({'name':'Test','url':'https://test.example/stock'}).fetch(AdapterRequest(continuation={}))
+    assert result.status=='unavailable' and result.continuation is None

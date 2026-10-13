@@ -145,7 +145,9 @@ def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
                          end,
                          attempt_count=case when public.inventory_refresh_queue.status='completed'
                                             then 0 else public.inventory_refresh_queue.attempt_count end,
-                         metadata=public.inventory_refresh_queue.metadata || excluded.metadata""",
+                         metadata=(case when public.inventory_refresh_queue.status='completed'
+                           then public.inventory_refresh_queue.metadata - 'retry_base' - 'pages_fetched'
+                           else public.inventory_refresh_queue.metadata end) || excluded.metadata""",
                     (
                         source["source_id"], brand, model, condition, state,
                         priority, reason,
