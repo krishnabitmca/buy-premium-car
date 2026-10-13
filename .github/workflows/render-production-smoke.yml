@@ -9,6 +9,11 @@ jobs:
   render-smoke:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - name: Wait for the released commit
+        env:
+          EXPECTED_DEPLOYMENT_SHA: ${{ github.sha }}
+        run: python3 scripts/wait_for_deployment.py
       - name: Verify Render homepage
         run: |
           set -euo pipefail
@@ -51,18 +56,21 @@ jobs:
           print("PASS: live brand catalog + Audi/BMW model catalogs + navigation-artifact regression")
           PY
 
-      - name: Verify live search GET contract
+      - name: Verify indexed search POST contract
         run: |
           set -euo pipefail
           python - <<'PY'
           import json, urllib.request
-          url = "https://buy-premium-car1.onrender.com/api/search?ts=render-smoke"
-          req = urllib.request.Request(url, headers={"Cache-Control": "no-cache"})
+          url = "https://buy-premium-car1.onrender.com/api/search"
+          req = urllib.request.Request(url, data=json.dumps({"query":"BMW","condition":"both","page_size":10}).encode(), headers={"Cache-Control": "no-cache", "Content-Type":"application/json"})
           with urllib.request.urlopen(req, timeout=60) as r:
               assert r.status == 200, r.status
               p = json.load(r)
           assert p.get("ok") is True, p
-          assert p.get("mode") == "live", p
+          assert p.get("mode") in ("inventory", "inventory_partial"), p.get("mode")
           assert isinstance(p.get("sources"), list), p
-          print("PASS: live search GET contract; sources=", len(p["sources"]))
+          assert isinstance(p.get("results"), list), p
+          if p.get("mode") == "inventory_partial":
+              assert p.get("availability_warning"), "partial coverage warning is missing"
+          print("PASS: indexed search POST contract; sources=", len(p["sources"]))
           PY

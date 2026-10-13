@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import json
+import re
 from http.server import SimpleHTTPRequestHandler
 from pathlib import Path
 
@@ -28,6 +30,15 @@ class RenderHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split("?", 1)[0]
+        if path == '/api/version':
+            commit = os.getenv('RENDER_GIT_COMMIT', '')
+            raw = json.dumps({'ok': True, 'commit': commit if re.fullmatch(r'[0-9a-f]{40}', commit) else None}).encode()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Cache-Control', 'no-store')
+            self.end_headers()
+            self.wfile.write(raw)
+            return
         if path == "/api/catalog":
             return CatalogHandler.do_GET(self)
         if path == "/api/search":

@@ -34,6 +34,7 @@ jobs:
         env:
           CARSCANNER_BASE_URL: https://buy-premium-car1.onrender.com/
         run: |
+          EXPECTED_DEPLOYMENT_SHA="${{ github.event_name == 'push' && github.sha || '' }}" python scripts/wait_for_deployment.py
           npm init -y >/dev/null 2>&1
           npm install --no-save playwright >/dev/null 2>&1
           npx playwright install --with-deps chromium >/dev/null 2>&1
@@ -68,7 +69,9 @@ jobs:
         env:
           CARSCANNER_BASE_URL: https://buy-premium-car1.onrender.com/
           QA_REPORT_DIR: qa-reports
-        run: node tests/qa_customer_journey.js
+        run: |
+          EXPECTED_DEPLOYMENT_SHA="${{ github.event_name == 'push' && github.sha || '' }}" python3 scripts/wait_for_deployment.py
+          node tests/qa_customer_journey.js
       - name: Upload QA report and failure evidence
         if: always()
         uses: actions/upload-artifact@v4
