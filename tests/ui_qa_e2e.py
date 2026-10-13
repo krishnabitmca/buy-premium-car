@@ -149,11 +149,13 @@ async def main():
 
         # Natural language search.
         await page.locator("#aiPrompt").fill("BMW X5 under ₹55 lakh")
-        await page.locator("#askSearch").click()
+        async with page.expect_response(lambda response: '/api/search' in response.url and response.request.method == 'POST'):
+            await page.locator("#askSearch").click()
         await page.locator(".card").first.wait_for()
         assert await page.locator("#max").input_value() == "55"
 
         # Market intelligence and evidence modal.
+        await page.locator('#market').wait_for(state='visible', timeout=10000)
         assert await page.locator("#market").is_visible()
         assert "reference" in (await page.locator("#marketNote").inner_text()).lower()
         await page.locator(".card button.secondary").first.click()

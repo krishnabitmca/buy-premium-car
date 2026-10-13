@@ -18,6 +18,15 @@ def preview():
     server.server_close()
     thread.join()
 
+
+@pytest.mark.parametrize('commit', ['a' * 40, 'unexpected-private-value'])
+def test_version_reports_only_a_valid_public_commit(preview, monkeypatch, commit):
+    monkeypatch.setenv('RENDER_GIT_COMMIT', commit)
+    with urlopen(preview + '/api/version', timeout=5) as response:
+        assert response.headers['Cache-Control'] == 'no-store'
+        payload = json.load(response)
+    assert payload == {'ok': True, 'commit': commit if len(commit) == 40 else None}
+
 @pytest.mark.parametrize('path', ['/.env', '/src/inventory_db.py', '/.git/config', '/supabase/migrations/001_deal_watch.sql'])
 def test_preview_does_not_expose_server_files(preview, path):
     with pytest.raises(HTTPError) as exc:

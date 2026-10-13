@@ -1,3 +1,9 @@
+## 2026-10-13 — Render release verification
+
+- Release to the existing free Render service with indexed PostgreSQL search and dry-run alerts.
+- Expose only the valid public release commit at /api/version and wait for that commit before push-triggered hosted checks, avoiding tests against a rolling deployment.
+- Test the customer POST indexed-search contract instead of crawl-heavy legacy GET; wait for the completed market render in the adversarial UI check.
+
 ## 2026-10-13 — Search timing and optional shared cache
 
 - Add request-isolated Server-Timing stages and reproducible mixed-query/concurrency and exact-query EXPLAIN scripts.
