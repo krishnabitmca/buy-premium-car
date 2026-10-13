@@ -119,6 +119,7 @@ class BuiltinMarketplaceAdapter:
             max_pages=max(1,min(int(os.getenv('CARSCANNER_MAX_PAGES_PER_SOURCE','20')),50))
             seen_pages=set(progress.get("visited_urls") or [])
             fetched_this_batch=0
+            oem_cursors=dict(progress.get('oem_cursors') or {})
             for endpoint_url in urls:
                 if endpoint_url in seen_pages or fetched_this_batch>=max_pages:
                     continue
@@ -135,16 +136,28 @@ class BuiltinMarketplaceAdapter:
                     all_parsed.extend(parse_gurudev(fetch_text(endpoint_url), self.source_name, endpoint_url))
                     fetched_urls.append(endpoint_url)
                     continue
-                if parser_strategy == "mercedes_inventory":
-                    from .oem_inventory import fetch_mercedes_inventory
-                    all_parsed.extend(fetch_mercedes_inventory(
-                        endpoint_url, request.query, normalize_condition(request.condition), self.source_name
-                    ))
-                    fetched_urls.append(endpoint_url)
-                    continue
-                if parser_strategy == 'bmw_cards':
-                    from .oem_inventory import fetch_bmw_inventory
-                    all_parsed.extend(fetch_bmw_inventory(endpoint_url,request.query,self.source_name,fetch_text))
+                if parser_strategy in {'mercedes_inventory', 'bmw_cards'}:
+                    from .oem_inventory import fetch_mercedes_inventory, fetch_bmw_inventory
+                    kwargs = {} if request.continuation is None else {
+                        'continuation': oem_cursors.get(endpoint_url) or {},
+                        'page_budget': max_pages - fetched_this_batch + 1,
+                    }
+                    if parser_strategy == 'mercedes_inventory':
+                        batch = fetch_mercedes_inventory(endpoint_url, request.query,
+                            normalize_condition(request.condition), self.source_name, **kwargs)
+                    else:
+                        batch = fetch_bmw_inventory(endpoint_url, request.query,
+                            self.source_name, fetch_text, **kwargs)
+                    if request.continuation is None:
+                        all_parsed.extend(batch)
+                    else:
+                        all_parsed.extend(batch.listings)
+                        fetched_this_batch += batch.pages_fetched - 1
+                        if batch.continuation:
+                            oem_cursors[endpoint_url] = batch.continuation
+                            seen_pages.remove(endpoint_url)
+                        else:
+                            oem_cursors.pop(endpoint_url, None)
                     fetched_urls.append(endpoint_url)
                     continue
                 try:
@@ -263,9 +276,10 @@ class BuiltinMarketplaceAdapter:
                 query_url=" | ".join(fetched_urls),
                 error=partial_error,
                 continuation={"pending_urls": [page for page in urls if page not in seen_pages],
-                              "visited_urls": sorted(seen_pages)} if request.continuation is not None
+                              "visited_urls": sorted(seen_pages),
+                              "oem_cursors": oem_cursors} if request.continuation is not None
                               and any(page not in seen_pages for page in urls) else None,
-                pages_fetched=len(fetched_urls),
+                pages_fetched=fetched_this_batch,
             )
             record_adapter_execution(
                 self.source_name,

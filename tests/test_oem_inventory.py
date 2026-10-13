@@ -115,3 +115,60 @@ def test_adapter_filters_oem_used_cars_out_of_demo_results(monkeypatch):
     result = BuiltinMarketplaceAdapter(source).fetch(AdapterRequest(query="Mercedes-Benz E-Class", condition="demo"))
     assert len(result.listings) == 2
     assert all(r["condition_signal"] == "demo" for r in result.listings)
+
+
+@pytest.mark.parametrize('kind', ['bmw', 'mercedes'])
+def test_oem_adapter_resumes_all_scroll_groups_without_persisting_tokens(monkeypatch, kind):
+    host = 'www.bmwusedcars.in' if kind == 'bmw' else 'www.mercedes-benzusedcar.in'
+    url = 'https://' + host + '/buy-used-cars'
+    metadata = '<form><input id="tr_load" value="1"><input id="total_groups" value="5"><input name="token1" value="session-only"></form>'
+    groups = []
+    class Response:
+        def __init__(self, text): self.text = text
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def read(self, size): return self.text.encode()
+    class Opener:
+        def open(self, request, timeout):
+            if request.data is None:
+                if 'get_tokens' in request.full_url:
+                    return Response(json.dumps({'details': dict(security_token1='session-only', security_token2='two', security_token2_rand='three')}))
+                return Response(HTML + metadata)
+            fields = parse_qs(request.data.decode())
+            if 'group_no' not in fields: return Response(HTML + metadata)
+            group = int(fields['group_no'][0])
+            groups.append(group)
+            return Response(HTML.replace('.html', f'-group-{group}.html') + f'<!--group-{group}-->')
+    monkeypatch.setattr('src.oem_inventory.urllib.request.build_opener', lambda *a: Opener())
+    monkeypatch.setattr('src.source_adapters.fetch_text', lambda _: HTML + metadata)
+    monkeypatch.setattr('src.oem_inventory.lm.parse_bmw_listing_cards', lambda html, *args: [
+        {'url': url + '/' + ('0' if '<!--group-' not in html else html.split('<!--group-')[1].split('-->')[0]),
+         'brand': 'BMW', 'model': 'X1', 'price_lakh': 30, 'condition_signal': 'used'}])
+    monkeypatch.setattr('src.source_adapters.adapter_execution_allowed', lambda _: True)
+    monkeypatch.setattr('src.source_adapters.record_adapter_execution', lambda *a, **kw: None)
+    monkeypatch.setenv('CARSCANNER_MAX_PAGES_PER_SOURCE', '2')
+    adapter = BuiltinMarketplaceAdapter({'name': 'OEM', 'url': url,
+        'parser_strategy': 'bmw_cards' if kind == 'bmw' else 'mercedes_inventory'})
+    progress = {}
+    pages = 0
+    listings = []
+    for _ in range(3):
+        result = adapter.fetch(AdapterRequest(continuation=progress))
+        assert result.status == 'live' and result.pages_fetched <= 2
+        pages += result.pages_fetched
+        listings.extend(result.listings)
+        progress = result.continuation
+        assert 'session-only' not in json.dumps(progress)
+        if progress is None: break
+    assert progress is None and pages == 5 and groups == [1, 2, 3, 4]
+    assert len({row['url'] for row in listings}) == (5 if kind == 'bmw' else 10)
+
+
+def test_missing_or_empty_scroll_metadata_cannot_complete_a_resume():
+    from bs4 import BeautifulSoup
+    from src.oem_inventory import _scroll_batch
+    with pytest.raises(RuntimeError, match='metadata disappeared'):
+        _scroll_batch([], BeautifulSoup('', 'html.parser'), {'next_group': 2}, 2, lambda _: '', lambda _: [])
+    soup = BeautifulSoup('<input id="tr_load" value="1"><input id="total_groups" value="5">', 'html.parser')
+    with pytest.raises(RuntimeError, match='empty content'):
+        _scroll_batch([], soup, {'next_group': 2}, 2, lambda _: '', lambda _: [])

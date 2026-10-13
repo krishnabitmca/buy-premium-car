@@ -1,3 +1,11 @@
+## 2026-10-13 — OEM scroll continuation
+
+- Resume BMW and Mercedes public inventory scroll groups across background batches, sharing the configured page budget across endpoints.
+- Save endpoint/group positions after ingestion; obtain fresh session tokens on every invocation without persisting tokens in queue metadata.
+- Fail a resumed traversal when pagination metadata disappears or an advertised group returns empty content; retain its prior checkpoint for retry.
+- Verify both OEM transports across successive batches and Mercedes transport → persisted queue → canonical ingestion → indexed HTTP search against disposable PostgreSQL. Marketplace completeness and live catalogue accuracy remain separate validation gates.
+- Local validation: 1,034 unit tests and 31 PostgreSQL integration tests pass.
+
 ## 2026-10-13 — Durable HTML page traversal
 
 - Persist pending/visited pages on background refresh jobs and resume after bounded batches; checkpoint only after ingestion succeeds.

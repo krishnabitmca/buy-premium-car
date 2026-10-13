@@ -560,3 +560,48 @@ def test_continuation_retry_budget_counts_failures_since_last_batch(db):
     assert recover_jobs()==1
     retried=claim_jobs(1)[0]
     assert retried['metadata']['continuation']==cursor and retried['attempt_count']==10
+
+
+def test_oem_transport_to_persisted_resume_ingestion_and_index(db, monkeypatch):
+    from urllib.parse import parse_qs
+    source_id = add_source(db, 'Fixture OEM')
+    url = 'https://www.mercedes-benzusedcar.in/buy-used-cars'
+    db.execute("update public.sources set url=%s,metadata=%s::jsonb where source_id=%s",
+               (url, json.dumps({'parser_strategy': 'mercedes_inventory'}), source_id))
+    db.execute("update public.source_capabilities set capability_value='Mercedes-Benz' where source_id=%s", (source_id,))
+    db.commit()
+    html = Path('tests/fixtures/mercedes_demo_cards.html').read_text(encoding='utf-8')
+    groups = []
+    class Response:
+        def __init__(self, text): self.text = text
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def read(self, size): return self.text.encode()
+    class Opener:
+        def open(self, request, timeout):
+            if request.data is None:
+                return Response(json.dumps({'details': dict(security_token1='session-only', security_token2='two', security_token2_rand='three')}))
+            fields = parse_qs(request.data.decode())
+            if 'group_no' not in fields:
+                return Response(html + '<input id="tr_load" value="1"><input id="total_groups" value="3">')
+            group = int(fields['group_no'][0])
+            groups.append(group)
+            return Response(html.replace('.html', f'-group-{group}.html'))
+    monkeypatch.setattr('src.oem_inventory.urllib.request.build_opener', lambda *args: Opener())
+    monkeypatch.setenv('CARSCANNER_MAX_PAGES_PER_SOURCE', '2')
+    schedule_refreshes()
+    first = claim_jobs(1)[0]
+    assert process_job(first)['observations'] == 4
+    row = db.execute('select * from public.inventory_refresh_queue where refresh_id=%s', (first['refresh_id'],)).fetchone()
+    assert row['status'] == 'queued'
+    assert row['metadata']['continuation']['oem_cursors'][url] == {'next_group': 2}
+    assert 'session-only' not in json.dumps(row['metadata'])
+    second = claim_jobs(1)[0]
+    assert process_job(second)['observations'] == 2
+    row = db.execute('select * from public.inventory_refresh_queue where refresh_id=%s', (first['refresh_id'],)).fetchone()
+    assert row['status'] == 'completed' and row['metadata']['pages_fetched'] == 3
+    assert groups == [1, 2]
+    assert db.execute('select count(*) as n from public.listings').fetchone()['n'] == 6
+    db.commit()
+    payload = post_search(monkeypatch, {'query': 'Mercedes-Benz', 'condition': 'demo'}, ['Fixture OEM'])
+    assert payload['results'] and all(row['brand'] == 'Mercedes-Benz' for row in payload['results'])

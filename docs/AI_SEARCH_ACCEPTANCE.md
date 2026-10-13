@@ -41,8 +41,10 @@ observation times. Historical reports are never substituted for current inventor
 - **All-brand acquisition: incomplete.** The app exposes 16 registry-derived
   brands; seven returned zero observations in the real audit. Baseline scheduling
   now covers those registered brands, but queueing is not completed acquisition.
-- **Source depth: incomplete.** Adapters have bounded page budgets without durable
-  continuation. Full source-plan display exposes gaps; it does not fill them.
+- **Source depth: partial implementation.** Background jobs persist ordinary HTML
+  next-page progress and BMW/Mercedes scroll-group positions across bounded batches.
+  Other source-specific APIs, scan generations, regional traversal and measured
+  catalogue completeness remain open. Source-plan display exposes gaps; it does not fill them.
 - **AI: not delivered.** `index.html`'s `runAssistant` uses string/regex rules and
   catalog lookups. It is not validated AI intent interpretation or semantic search.
 - **Full-inventory refinements: incomplete.** Browser filters and market summaries
