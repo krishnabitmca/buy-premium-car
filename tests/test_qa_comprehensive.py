@@ -1,4 +1,5 @@
 import json
+import os
 import socket
 import threading
 import unittest
@@ -509,6 +510,8 @@ class TestHTTPContracts(unittest.TestCase):
         self.assertEqual(body["total_results"],2)
 
     def test_inventory_partial_source_coverage_falls_back_to_live_sources(self):
+        # Legacy diagnostic mode is opt-in, never the default indexed path.
+        self.enterContext(patch.dict(os.environ, {'CARSCANNER_ALLOW_LIVE_COVERAGE_FALLBACK':'true'}))
         inventory_rows=[{
             "brand":"Audi","model":"Q5","price_lakh":45,
             "source":"CarDekho Used","condition_signal":"used",

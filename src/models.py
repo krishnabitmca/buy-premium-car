@@ -55,6 +55,8 @@ class Vehicle:
     lowest_observed_price_lakh: Optional[float]=None
     highest_observed_price_lakh: Optional[float]=None
     identity_confidence: float=0.0
+    source_listing_id: Optional[str]=None
+    price_basis: Optional[str]=None
     def __post_init__(self):
         if not self.source_listings:
             self.source_listings=[{"source":self.source_name,"url":self.url,"price_lakh":self.price_lakh,"location":self.location,"tier":self.source_tier}]

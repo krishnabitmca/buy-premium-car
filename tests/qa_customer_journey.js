@@ -105,9 +105,11 @@ async function runSearch(page,spec){
     throw new Error("customer-facing error text detected");
   if(!searchResponse)throw new Error("did not capture /api/search response");
 
-  const validModes=["live","inventory","live_coverage_fallback","live_fallback"];
+  const validModes=["live","inventory","inventory_partial","live_coverage_fallback","live_fallback"];
   if(!searchResponse.ok||searchResponse.search_scope!=="india"||!validModes.includes(searchResponse.mode))
     throw new Error("invalid search contract: "+JSON.stringify({ok:searchResponse.ok,scope:searchResponse.search_scope,mode:searchResponse.mode}));
+  if(searchResponse.mode === 'inventory_partial' && !searchResponse.availability_warning)
+    throw new Error('Partial inventory coverage must disclose its availability warning');
 
   const results=Array.isArray(searchResponse.results)?searchResponse.results:[];
   const identityTokens=value=>String(value||"").toLowerCase().match(/[a-z0-9]+/g)||[];

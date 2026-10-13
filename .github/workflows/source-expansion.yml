@@ -39,7 +39,7 @@ jobs:
 
       - name: Discover and promote validated sources
         env:
-          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
+          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.CARSCANNER_FREE_TEST_DATABASE_URL || secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
         run: |
           test -n "$SOURCE_INTELLIGENCE_DATABASE_URL"
-          python scripts/discover_and_promote_sources.py             --config config/settings.yaml             --max-candidates 120             --min-confidence 0.55
+          python scripts/discover_and_promote_sources.py             --config config/settings.yaml             --max-candidates 5             --min-confidence 0.55

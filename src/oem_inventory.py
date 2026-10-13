@@ -7,6 +7,9 @@ import re
 import urllib.parse
 import urllib.request
 import urllib.error
+import os
+from dataclasses import dataclass
+from bs4 import BeautifulSoup
 from html.parser import HTMLParser
 
 from . import live_marketplaces as lm
@@ -101,7 +104,45 @@ def parse_mercedes_cards(html, source, base_url, query=""):
     return rows
 
 
-def fetch_mercedes_inventory(url, query, condition, source):
+@dataclass
+class OEMInventoryBatch:
+    listings: list
+    continuation: dict | None
+    pages_fetched: int
+
+
+def _scroll_batch(rows, soup, continuation, page_budget, read_page, parse_page):
+    """Persist public positions only; session tokens belong to each fresh session."""
+    first = not continuation
+    pages = 1 if first else 0
+    rows = rows if first else []
+    start = soup.find('input', id='tr_load')
+    total = soup.find('input', id='total_groups')
+    if not start or not total:
+        if not first:
+            raise RuntimeError('OEM pagination metadata disappeared during resume')
+        return OEMInventoryBatch(rows, None, pages)
+    group = int((continuation or {}).get('next_group', start.get('value', '1')))
+    groups = int(total.get('value', '1'))
+    if group < 1 or groups < 0:
+        raise ValueError('Invalid OEM pagination position')
+    while group < groups and pages < page_budget:
+        page = read_page(group)
+        if not page.strip():
+            raise RuntimeError('OEM scroll returned empty content before advertised end')
+        rows.extend(parse_page(page))
+        pages += 1
+        group += 1
+    pending = {'next_group': group} if group < groups else None
+    return OEMInventoryBatch(list({row['url']: row for row in rows}.values()), pending, pages)
+
+
+def _page_budget(value):
+    return max(1, min(int(value if value is not None else
+                          os.getenv('CARSCANNER_MAX_PAGES_PER_SOURCE', '20')), 50))
+
+
+def fetch_mercedes_inventory(url, query, condition, source, *, continuation=None, page_budget=None):
     """Perform the same read-only inventory request as the public showroom UI."""
     origin = urllib.parse.urlsplit(url)
     if origin.scheme != "https" or origin.hostname != "www.mercedes-benzusedcar.in":
@@ -132,4 +173,69 @@ def fetch_mercedes_inventory(url, query, condition, source):
     if model:
         fields["model"] = model.replace("-", " ")
     html = read(urllib.request.Request(url, data=urllib.parse.urlencode(fields).encode(), headers=headers))
-    return parse_mercedes_cards(html, source, url, query)
+    rows=parse_mercedes_cards(html, source, url, query)
+    soup=BeautifulSoup(html,'html.parser')
+    def scroll(group):
+        tokens=json.loads(read(urllib.request.Request(base+'/?action=get_tokens&ajax_type=json',headers=headers))).get('details') or {}
+        fields.update({key:tokens[key] for key in ('security_token1','security_token2','security_token2_rand')})
+        fields.update(subaction='scroll_fltr',group_no=str(group))
+        return read(urllib.request.Request(url,data=urllib.parse.urlencode(fields).encode(),headers=headers))
+    batch = _scroll_batch(rows, soup, continuation, _page_budget(page_budget), scroll,
+                          lambda page: parse_mercedes_cards(page, source, url, query))
+    return batch if continuation is not None else batch.listings
+
+
+def fetch_bmw_inventory(url, query, source, fetch_text, *, continuation=None, page_budget=None):
+    """Follow the public showroom's advertised read-only scroll requests."""
+    def no_pagination(rows):
+        if continuation:
+            raise RuntimeError('BMW pagination form disappeared during resume')
+        return OEMInventoryBatch(rows, None, 1) if continuation is not None else rows
+    if continuation is not None and urlsplit_host(url) != 'www.bmwusedcars.in':
+        raise ValueError('BMW pagination requires the verified OEM host')
+    html=fetch_text(url)
+    rows=lm.parse_bmw_listing_cards(html,source,url,query)
+    soup=BeautifulSoup(html,'html.parser')
+    start=soup.find('input',id='tr_load');total=soup.find('input',id='total_groups')
+    if not start or not total:return no_pagination(rows)
+    form=start.find_parent('form')
+    if form is None:return no_pagination(rows)
+    if urlsplit_host(url)!='www.bmwusedcars.in':
+        raise ValueError('BMW pagination requires the verified OEM host')
+    opener=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+    headers={'User-Agent':lm.USER_AGENT,'Referer':url,'X-Requested-With':'XMLHttpRequest'}
+    def read(request):
+        with opener.open(request,timeout=lm.TIMEOUT) as response:
+            raw=response.read(lm.MAX_BODY_BYTES+1)
+            if len(raw)>lm.MAX_BODY_BYTES:raise ValueError('BMW inventory response exceeds body limit')
+            return raw.decode('utf8','replace')
+    # The form token belongs to this public browsing session.
+    html=read(urllib.request.Request(url,headers=headers))
+    soup=BeautifulSoup(html,'html.parser');start=soup.find('input',id='tr_load');total=soup.find('input',id='total_groups')
+    if not start or not total:return no_pagination(rows)
+    form=start.find_parent('form')
+    if form is None:return no_pagination(rows)
+    rows=lm.parse_bmw_listing_cards(html,source,url,query)
+    fields={}
+    for node in form.find_all(['input','select']):
+        name=node.get('name')
+        if not name or name=='ordertype':continue
+        if node.name=='input':
+            if node.get('type') in {'radio','checkbox'} and not node.has_attr('checked'):continue
+            fields[name]=node.get('value','')
+        else:
+            selected=node.find('option',selected=True) or node.find('option')
+            if selected:fields[name]=selected.get('value','')
+    fields['action']='xoxo_fetch_buyusedcars_filtersearch'
+    def scroll(group):
+        fields['group_no']=str(group)
+        req=urllib.request.Request('https://www.bmwusedcars.in/buy-used-cars',data=urllib.parse.urlencode(fields).encode(),headers=headers)
+        return read(req)
+    batch = _scroll_batch(rows, soup, continuation, _page_budget(page_budget), scroll,
+                          lambda page: lm.parse_bmw_listing_cards(page, source, url, query))
+    return batch if continuation is not None else batch.listings
+
+
+def urlsplit_host(url):
+    parts=urllib.parse.urlsplit(url)
+    return parts.hostname if parts.scheme=='https' else None

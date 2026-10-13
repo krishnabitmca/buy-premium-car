@@ -37,10 +37,12 @@ Example: a buyer in Bengaluru looking for a ₹30–40 lakh premium car should b
 - Front end: index.html
 - Search API: api/search.py
 - Deal intent engine: src/deal_engine.py
-- Inventory sample/current data: data/latest.json
+- Persistent inventory: Postgres vehicles/listings/observations; data/latest.json is a legacy report
 - Source configuration/crawlers: config/, src/
 - Supabase schema: supabase/migrations/001_deal_watch.sql
 - Daily crawl workflow: .github/workflows/daily-crawl.yml
+- Daily and continuous acquisition: src/main.py and src/inventory_service.py; both use canonical ingestion
+- Watch inventory reads: scripts/process_alerts.py, through src/inventory_db.py, with no flat-file fallback
 
 The current front end has been redesigned around the India-wide search journey and calls /api/search.
 

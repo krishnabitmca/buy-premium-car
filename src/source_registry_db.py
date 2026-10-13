@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+import atexit
+from threading import Lock
 from typing import Any, Iterable
 from urllib.parse import urlparse
 
@@ -14,6 +16,27 @@ except ImportError:
     psycopg = None
     dict_row = None
 
+try:
+    from psycopg_pool import ConnectionPool
+except ImportError:
+    ConnectionPool = None
+
+_pool = None
+_pool_key = None
+_pool_lock = Lock()
+
+
+def close_connection_pool():
+    global _pool, _pool_key
+    with _pool_lock:
+        if _pool is not None:
+            _pool.close()
+        _pool = None
+        _pool_key = None
+
+
+atexit.register(close_connection_pool)
+
 
 def database_url() -> str | None:
     return os.getenv("SOURCE_INTELLIGENCE_DATABASE_URL") or os.getenv("DATABASE_URL")
@@ -22,10 +45,36 @@ def enabled() -> bool:
     return bool(database_url())
 
 
+def require_database() -> None:
+    """Background commands must not silently succeed in optional-DB mode."""
+    if not enabled():
+        raise RuntimeError("Set SOURCE_INTELLIGENCE_DATABASE_URL or DATABASE_URL before running inventory refresh")
+
+
 def _connect():
+    global _pool, _pool_key
     if psycopg is None:
         raise RuntimeError("PostgreSQL is configured but psycopg is not installed")
-    return psycopg.connect(database_url(), row_factory=dict_row)
+    # Keep credentials/roles isolated when the configured database changes.
+    # Each caller retains its own transaction; returned connections are not
+    # shared concurrently. Inventory itself is never cached by this pool.
+    if ConnectionPool is None or os.getenv('CARSCANNER_DB_POOL', 'true').lower() in {'0','false','no'}:
+        return psycopg.connect(database_url(), row_factory=dict_row)
+    key = (os.getpid(), database_url())
+    with _pool_lock:
+        if _pool is None or _pool_key != key:
+            if _pool is not None:
+                _pool.close()
+            _pool = ConnectionPool(
+                conninfo=database_url(), min_size=1,
+                max_size=max(1, min(int(os.getenv('CARSCANNER_DB_POOL_SIZE', '4')), 8)),
+                timeout=5, max_waiting=32, max_idle=60,
+                kwargs={'row_factory':dict_row,'connect_timeout':5,'prepare_threshold':None},
+                name='carscanner', open=True,
+            )
+            _pool_key = key
+        pool = _pool
+    return pool.connection()
 
 
 def source_key(source: dict[str, Any]) -> str:

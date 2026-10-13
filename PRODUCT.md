@@ -10,7 +10,9 @@ CarScanner is the system name and customer-facing product name.
 
 **Find the lowest and best possible rate for a used or demonstrator car across the marketplaces where that vehicle is listed.**
 
-CarScanner should query available automotive marketplaces and seller sources live at search time, identify comparable vehicles, and help the buyer understand which listing represents the strongest price opportunity based on available evidence.
+CarScanner should continuously discover and refresh automotive marketplace and seller inventory across brands, then return indexed results quickly at search time. AI should interpret the buyer's needs and explain source-backed comparisons. Missing coverage must trigger background acquisition and remain visible; buyers should not wait for every marketplace to be crawled before seeing results.
+
+The product-wide acceptance standard is [AI search acceptance](docs/AI_SEARCH_ACCEPTANCE.md). Its latency and coverage targets are requirements to validate, not claims about the current implementation. See ADR 008 for the target architecture.
 
 "Lowest price" and "best possible rate" must be treated as evidence-based concepts, not absolute guarantees. CarScanner can only compare the inventory and evidence it has discovered.
 

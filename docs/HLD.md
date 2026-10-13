@@ -1,5 +1,10 @@
 # CarScanner — High-Level System Design (HLD)
 
+Background acquisition and watch persistence have evolved since this overview.
+See [ADR 006](../DECISIONS/006-canonical-background-inventory.md) and
+[continuous inventory operations](CONTINUOUS_INVENTORY.md) for the implemented
+Postgres pipeline and outstanding launch gates.
+
 ## 1. Purpose
 
 CarScanner is a PAN-India used and demonstrator vehicle search, price-comparison, and decision-support aggregator. It discovers live vehicle listings from multiple automotive sources, normalizes them, validates identity and freshness, compares comparable vehicles, and presents evidence-backed results while preserving original source links.

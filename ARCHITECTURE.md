@@ -1,7 +1,23 @@
 # CarScanner Architecture
 
+## Continuous inventory operations
+
+`python -m src.inventory_service` runs the PostgreSQL scheduler and source-isolated
+worker outside customer requests. Scan freshness is per source/intent; failures
+have bounded retries and expired claims are recoverable. See
+[continuous inventory operations](docs/CONTINUOUS_INVENTORY.md) for execution,
+at-least-once behavior and remaining migration/launch gates.
+
 ## Architectural principle
 Keep source discovery, source governance, live inventory acquisition, search, deal intelligence, presentation, and future buyer services independently testable.
+
+## Target: fast AI search
+
+[ADR 008](DECISIONS/008-ai-indexed-search.md) defines indexed customer search,
+continuous background acquisition and grounded AI intent/retrieval. This target
+supersedes request-time crawling as a requirement. Existing live fallback remains
+in code and is not yet globally migrated. Validate the runtime against
+[AI search acceptance](docs/AI_SEARCH_ACCEPTANCE.md) before calling it delivered.
 
 ## 1. Source discovery and intelligence
 
@@ -30,10 +46,12 @@ Source intelligence:
 - PostgreSQL/Supabase registry, capabilities, endpoints, health, discoveries
 
 Current inventory:
-- live responses from external marketplaces
+- live responses from external marketplaces and canonical Postgres vehicles/listings/observations
+- Production daily and continuous acquisition share verified adapters and one canonical ingestion path (ADR 006).
+- Watch processing reads the same latest-observation/expiry projection as inventory search; it never loads repository JSON or SQLite.
 
 Historical/reporting:
-- data/latest.json, data/, reports/
+- Optional Postgres-derived workflow exports; explicit `src.legacy_reports` SQLite/JSON reports remain diagnostic artifacts.
 
 A source-intelligence row is source metadata, not a vehicle listing.
 
@@ -51,6 +69,10 @@ Only LIVE adapter sources enter customer search execution.
 
 ## 6. Reliability
 
+- When the existing optional inventory-first path is enabled, select each listing's actual latest observation before applying budget or availability predicates. A newer sold/unverified observation must prevent an older available observation from returning.
+- The database-to-API boundary preserves numeric lakh fields for existing clients, converts UUIDs to strings and timezone-aware timestamps to UTC ISO 8601, and exposes actual observation/verification timestamps per offer. Response creation time is not verification time.
+- Explicit sold evidence can retire an existing source offer; a failed fetch or incomplete scan does not establish that the vehicle is sold. Automatic catalogue-absence reconciliation requires complete scan evidence and is not implemented yet.
+- Scheduled refresh commands require `SOURCE_INTELLIGENCE_DATABASE_URL` (or the existing `DATABASE_URL` fallback) and fail when it is absent. Library functions keep optional-database behavior for existing local callers.
 - A source fetch failure is not zero inventory.
 - Source outages are observable and persistable.
 - One slow source must not serially block all other sources.

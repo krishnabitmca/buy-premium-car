@@ -1,4 +1,6 @@
 psycopg[binary]>=3.2,<4
+psycopg_pool==3.3.3
+redis==8.1.0
 PyYAML>=6.0,<7
 ddgs>=9,<10
 beautifulsoup4>=4.12,<5

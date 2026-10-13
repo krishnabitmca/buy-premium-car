@@ -2,17 +2,21 @@ from __future__ import annotations
 
 """Background refresh worker.
 
-The current adapter bridge reuses the existing live acquisition path and filters
-the result to the requested source. This is intentionally transitional; the
-next adapter version should expose a source-isolated fetch() primitive.
+Execute verified source adapters with their complete database configuration.
+Queue claims are source-isolated and retries are bounded.
 """
 
 import argparse
+import logging
+import json
+from datetime import datetime, timezone
 from typing import Any
 
 from .inventory_ingestion import ingest_vehicles
 from .source_adapters import AdapterRequest, BuiltinMarketplaceAdapter
-from .source_registry_db import _connect, enabled
+from .source_registry_db import _connect, enabled, require_database, load_registry
+
+log = logging.getLogger(__name__)
 
 
 def claim_jobs(limit: int = 10) -> list[dict[str, Any]]:
@@ -46,15 +50,50 @@ def claim_jobs(limit: int = 10) -> list[dict[str, Any]]:
     return rows
 
 
-def complete_job(refresh_id: int, *, success: bool, error: str | None = None) -> None:
+def recover_jobs() -> int:
+    """Retry failures with backoff and recover abandoned 30-minute claims.
+
+    Three failures since the last successful batch exhaust a job.
+    Operators explicitly reset exhausted work
+    after inspecting the source; the scheduler cannot retry it indefinitely.
+    """
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute("""update public.inventory_refresh_queue
+            set status=case when attempt_count - coalesce((metadata->>'retry_base')::integer,0) < 3 then 'queued' else 'failed' end,
+                completed_at=now(),
+                last_error=case when status='running' then 'worker claim expired'
+                                else last_error end
+            where (status='running' and started_at < now()-interval '30 minutes')
+               or (status='failed' and attempt_count - coalesce((metadata->>'retry_base')::integer,0) < 3
+                   and completed_at < now()-make_interval(mins => 5 * power(2, attempt_count - coalesce((metadata->>'retry_base')::integer,0))::int))""")
+        recovered = cur.rowcount
+        conn.commit()
+        return recovered
+
+
+def complete_job(refresh_id: int, *, success: bool, error: str | None = None,
+                 attempt_count: int | None = None,
+                 continuation: dict[str, Any] | None = None, pages_fetched: int = 0) -> None:
     if not enabled():
         return
     with _connect() as conn, conn.cursor() as cur:
         cur.execute(
             """update public.inventory_refresh_queue
-               set status=%s,completed_at=now(),last_error=%s
-               where refresh_id=%s""",
-            ("completed" if success else "failed", error, refresh_id),
+               set status=%s,completed_at=now(),last_error=%s,
+                   requested_at=case when %s then now() else requested_at end,
+                   metadata=case when %s then
+                     (metadata - 'continuation') || %s::jsonb ||
+                     jsonb_build_object('retry_base',attempt_count) ||
+                     jsonb_build_object('pages_fetched',
+                       coalesce((metadata->>'pages_fetched')::integer,0)+%s)
+                     else metadata end
+               where refresh_id=%s and status='running'
+                 and (%s::integer is null or attempt_count=%s)""",
+            ("queued" if success and continuation else "completed" if success else "failed",
+             error, bool(success and continuation), success,
+             json.dumps({"continuation": continuation} if continuation else
+                        {"last_success_at": datetime.now(timezone.utc).isoformat()}),
+             max(0, int(pages_fetched)), refresh_id, attempt_count, attempt_count),
         )
         conn.commit()
 
@@ -68,17 +107,19 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
 
         # Refresh workers execute exactly one verified adapter. They never call
         # the aggregate customer-search path, preventing cross-source crawling.
-        source = {
-            "name": source_name,
-            "adapter_status": "live",
-            "url": str(job.get("source_url") or job.get("metadata", {}).get("source_url") or ""),
-        }
+        # Parser strategy, query templates, tier and active endpoints are part
+        # of the adapter contract; rebuilding only name/URL loses that contract.
+        source = next((s for s in load_registry()
+                       if s.get("source_id") == job.get("source_id")), None)
+        if source is None or source.get("adapter_status") != "live":
+            raise ValueError("refresh source is no longer enabled and live")
         adapter = BuiltinMarketplaceAdapter(source)
         result = adapter.fetch(
             AdapterRequest(
                 query=query,
                 condition=job.get("condition") or "both",
                 destination=job.get("destination_state") or "",
+                continuation=(job.get("metadata") or {}).get("continuation") or {},
             )
         )
         if result.status != "live":
@@ -99,6 +140,7 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
             vin=v.get("vin") or v.get("vehicle_identification_number"),
             chassis_number=v.get("chassis_number"), metadata=dict(v.get("metadata") or {}),
             condition_signal=v.get("condition_signal"),
+            source_listing_id=v.get("source_listing_id"), price_basis=v.get("price_basis"),
             final_url=v.get("final_url"), live_verified=bool(v.get("live_verified")),
             sold_signal=bool(v.get("sold_signal")), data_consistent=bool(v.get("data_consistent", True)),
             identity_confidence=float(v.get("identity_confidence") or 0.0),
@@ -106,19 +148,42 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
         ) for v in result.listings]
 
         ingested = ingest_vehicles(normalized)
-        complete_job(int(job["refresh_id"]), success=True)
+        complete_job(int(job["refresh_id"]), success=True, attempt_count=job.get("attempt_count"),
+                     continuation=result.continuation, pages_fetched=result.pages_fetched)
         return ingested
     except Exception as exc:
-        complete_job(int(job["refresh_id"]), success=False, error=str(exc)[:1000])
+        complete_job(int(job["refresh_id"]), success=False, error=str(exc)[:1000],
+                     attempt_count=job.get("attempt_count"))
         raise
+
+
+def run_batch(limit: int = 10) -> dict[str, int]:
+    """Claim only when ready to execute; isolate marketplace failures."""
+    counts = {"completed": 0, "failed": 0}
+    recover_jobs()
+    for _ in range(max(1, min(int(limit), 100))):
+        jobs = claim_jobs(1)
+        if not jobs:
+            break
+        try:
+            process_job(jobs[0])
+            counts["completed"] += 1
+        except Exception:
+            counts["failed"] += 1
+            log.exception("Refresh failed for job %s", jobs[0]["refresh_id"])
+    return counts
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=10)
     args = parser.parse_args()
-    for job in claim_jobs(args.limit):
-        process_job(job)
+    require_database()
+    logging.basicConfig(level=logging.INFO)
+    result = run_batch(args.limit)
+    print(result)
+    if result["failed"]:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

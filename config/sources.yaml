@@ -7,6 +7,7 @@
 
 known_sources:
 - name: CarDekho Used
+  parser_strategy: cardekho_cards
   url: https://www.cardekho.com/usedCars/
   catalog_url: https://www.cardekho.com/newcars
   # CarDekho's canonical brand catalog route. This is source configuration,
@@ -27,6 +28,7 @@ known_sources:
   vehicle_link_pattern: /used-car-details/[^?#]+\.htm
 
 - name: CarWale Used
+  parser_strategy: carwale_cards
   url: https://www.carwale.com/used/
   tier: 1
   source_type: marketplace
@@ -42,6 +44,7 @@ known_sources:
   vehicle_link_pattern: /used/[^?#]+
 
 - name: Cars24 Luxury Used
+  parser_strategy: cars24_cards
   url: https://www.cars24.com/buy-used-luxury-cars/
   tier: 1
   source_type: used_retailer
@@ -439,6 +442,7 @@ known_sources:
   url: https://www.bigboytoyz.com/
   parser_strategy: bbt_cards
   endpoints:
+  - url: https://www.bigboytoyz.com/collection
   - url: https://www.bigboytoyz.com/collection?demo=1
     condition: demo
   query_url_template: https://www.bigboytoyz.com/buy-used-{brand_slug}-cars

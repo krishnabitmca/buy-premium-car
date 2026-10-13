@@ -14,11 +14,68 @@ treated as live inventory until its adapter has been verified.
 from pathlib import Path
 from typing import Any
 import re
+from contextvars import ContextVar
+from functools import wraps, partial
+from threading import Lock
+from copy import deepcopy
+import time
+from .search_timing import measure_call
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "config" / "sources.yaml"
+_request_registry = ContextVar('carscanner_request_registry', default=None)
+_metadata_cache_lock = Lock()
+_metadata_cache = None
+
+
+def with_source_registry(function=None, *, metadata_ttl=0):
+    """Snapshot source metadata; optional bounded cache never holds inventory."""
+    if function is None:
+        return partial(with_source_registry,metadata_ttl=metadata_ttl)
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+        if _request_registry.get() is not None:
+            return function(*args, **kwargs)
+        token = _request_registry.set(measure_call('registry', _search_registry, metadata_ttl) if metadata_ttl else load_source_registry())
+        try:
+            return function(*args, **kwargs)
+        finally:
+            _request_registry.reset(token)
+    return wrapped
+
+
+def _search_registry(ttl):
+    global _metadata_cache
+    from .source_registry_db import database_url
+    from . import shared_metadata_cache as shared
+    # Config/database changes cannot reuse another environment's snapshot.
+    key=(database_url(),REGISTRY_PATH.stat().st_mtime_ns)
+    import os
+    local_key=(key, os.getenv('CARSCANNER_REDIS_URL'))
+    with _metadata_cache_lock:
+        now=time.monotonic()
+        if _metadata_cache is None or _metadata_cache[0]!=local_key or now>=_metadata_cache[1]:
+            read_started = time.monotonic()
+            hit = shared.get(key) if shared.configured() else None
+            lifetime = min(max(float(ttl), 0), 15)
+            if hit is not None:
+                rows, remaining = hit
+                lifetime = min(lifetime, remaining)
+                expires_at = read_started + lifetime
+            else:
+                loaded_at = time.monotonic()
+                rows=load_source_registry()
+                expires_at = time.monotonic() + lifetime
+                if shared.configured():
+                    from .inventory_contract import json_inventory_value
+                    rows = json_inventory_value(rows)
+                    lifetime = max(0, lifetime - (time.monotonic() - loaded_at))
+                    expires_at = loaded_at + min(max(float(ttl), 0), 15)
+                    shared.put(key, rows, lifetime)
+            _metadata_cache=(local_key,expires_at,deepcopy(rows))
+        return deepcopy(_metadata_cache[2])
 
 SEGMENT_BY_MAX_LAKH = (
     (15.0, "mass_market"),
@@ -33,6 +90,9 @@ def load_source_registry(
     *,
     from_database: bool = True,
 ) -> list[dict[str, Any]]:
+    snapshot = _request_registry.get()
+    if snapshot is not None and from_database and path == REGISTRY_PATH:
+        return snapshot
     # PostgreSQL is the production system of record. YAML remains the bootstrap
     # and deterministic local fallback.
     if from_database:

@@ -16,9 +16,10 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from src.acquisition import purchase_context
 from src.inventory_db import enabled as inventory_enabled, search_inventory
 from src.india_geo import infer_state
-from src.live_marketplaces import live_inventory, _query_parts, _identity_matches_query
-from src.source_intelligence import load_source_registry, plan_sources, summarize_plan
+from src.live_marketplaces import live_inventory, _query_parts, _identity_matches_query, with_brand_identity
+from src.source_intelligence import load_source_registry, plan_sources, summarize_plan, with_source_registry
 from src.source_registry_db import enabled as source_db_enabled, record_search_demand
+from src.search_timing import timed_request, measure_call, server_timing
 
 def _read_json(handler):
     length=int(handler.headers.get("Content-Length","0"))
@@ -26,10 +27,13 @@ def _read_json(handler):
     return json.loads(handler.rfile.read(length).decode("utf-8"))
 
 def _response(handler,status,payload):
-    raw=json.dumps(payload,ensure_ascii=False).encode("utf-8")
+    raw=measure_call('serialization', json.dumps, payload, ensure_ascii=False).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type","application/json; charset=utf-8")
     handler.send_header("Cache-Control","no-store")
+    timing = server_timing()
+    if timing:
+        handler.send_header('Server-Timing', timing)
     handler.send_header("Access-Control-Allow-Origin","*")
     handler.send_header("Access-Control-Allow-Headers","Content-Type")
     handler.send_header("Access-Control-Allow-Methods","GET, POST, OPTIONS")
@@ -51,7 +55,7 @@ def _budget_band(budget_min, budget_max):
 
 def _vehicle_condition(v):
     """Return listing-level condition only; source identity is never evidence."""
-    explicit=str(v.get("condition_signal") or "").strip().lower()
+    explicit=str(v.get("condition_signal") or v.get("condition") or "").strip().lower()
     if explicit in {"demo","demonstrator"}:
         return "demo"
     if explicit=="used":
@@ -138,6 +142,9 @@ class handler(BaseHTTPRequestHandler):
             return _response(self,200,{"ok":True,"mode":"live","search_scope":"india","query":query,"condition":condition,"vehicles_count":len(vehicles),"sources":sources})
         except Exception as exc:
             return _response(self,500,{"error":f"Search inventory unavailable: {exc}"})
+    @timed_request
+    @with_source_registry(metadata_ttl=15)
+    @with_brand_identity
     def do_POST(self):
         if urlparse(self.path).path!="/api/search":
             return _response(self,404,{"error":"Not found"})
@@ -153,7 +160,7 @@ class handler(BaseHTTPRequestHandler):
             condition=str(body.get("condition") or "both")
             page=max(1, int(body.get("page") or 1))
             page_size=max(1, min(int(body.get("page_size") or 50), 200))
-            source_plan=plan_sources(
+            source_plan=measure_call('planning', plan_sources,
                 brand=_query_parts(query)[0],
                 model=_query_parts(query)[1],
                 condition=condition,
@@ -165,7 +172,7 @@ class handler(BaseHTTPRequestHandler):
             search_mode = "live"
             inventory_total = None
             if inventory_enabled():
-                inventory_result = search_inventory(
+                inventory_result = measure_call('inventory', search_inventory,
                     query=query,
                     condition=condition,
                     budget_min=budget_min,
@@ -197,9 +204,9 @@ class handler(BaseHTTPRequestHandler):
                     # Once background refresh establishes complete source coverage,
                     # customer traffic becomes inventory-only again.
                     allow_coverage_fallback = os.getenv(
-                        "CARSCANNER_ALLOW_LIVE_COVERAGE_FALLBACK", "true"
+                        "CARSCANNER_ALLOW_LIVE_COVERAGE_FALLBACK", "false"
                     ).lower() not in {"0", "false", "no"}
-                    if vehicles and not allow_coverage_fallback:
+                    if not allow_coverage_fallback:
                         search_mode = "inventory_partial"
                     else:
                         vehicles, sources = live_inventory(
@@ -224,6 +231,8 @@ class handler(BaseHTTPRequestHandler):
                     source_count=len(sources),
                 )
             availability_warning = None
+            if search_mode == "inventory_partial":
+                availability_warning = "Showing available verified database observations; source coverage is incomplete and no live query was made."
             if not vehicles and sources and _planned_live_sources_unavailable(source_plan, sources):
                 availability_warning = "No configured live source responded for this search; zero results are not an inventory guarantee."
             results=[]
@@ -246,6 +255,11 @@ class handler(BaseHTTPRequestHandler):
             for v in results:
                 key=(str(v.get("brand") or "").strip().lower(),str(v.get("model") or "").strip().lower(),_vehicle_condition(v),str(v.get("price_basis") or "unspecified"))
                 comparable=groups.get(key,[])
+                if search_mode.startswith('inventory'):
+                    ref=v.get('comp_median')
+                    v['discount_pct']=round((float(ref)-float(v['price_lakh']))/float(ref)*100,1) if ref and v.get('price_lakh') is not None and int(v.get('comparable_count') or 0)>=3 else None
+                    v['_search_score']=_score(v)
+                    continue
                 if len(comparable)>=3 and v.get("price_lakh") is not None:
                     ref=round(float(median(comparable)),2)
                     v["comp_median"]=ref
@@ -273,11 +287,11 @@ class handler(BaseHTTPRequestHandler):
                 "live_at":__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
                 "sources":sources,
                 "source_strategy":summarize_plan(source_plan),
-                "source_plan":[{k:p.get(k) for k in ("name","source_type","adapter_status","score","query_strategy","query","reasons")} for p in source_plan[:12]],
-                "total_results": int(inventory_total) if search_mode == "inventory" and inventory_total is not None else len(results),
+                "source_plan":[{k:p.get(k) for k in ("name","source_type","adapter_status","score","query_strategy","query","reasons")} for p in source_plan],
+                "total_results": int(inventory_total) if search_mode.startswith("inventory") and inventory_total is not None else len(results),
                 "page": page,
                 "page_size": page_size,
-                "has_more": ((page * page_size) < int(inventory_total)) if search_mode == "inventory" and inventory_total is not None else False,
+                "has_more": ((page * page_size) < int(inventory_total)) if search_mode.startswith("inventory") and inventory_total is not None else False,
                 "inventory_total": int(inventory_total) if inventory_total is not None else None,
                 "sources_found":len({offer.get("source") for v in results for offer in (v.get("offers") or [{"source":v.get("source")}]) if offer.get("source")}),
                 "search_diagnostics":{

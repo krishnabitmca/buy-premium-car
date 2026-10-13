@@ -1,0 +1,129 @@
+# Free testing
+
+## Indexed search runtime
+
+With PostgreSQL inventory enabled, searches return stored observations by default without waiting for source crawls. Empty or partial results retain coverage gaps and record background demand. `CARSCANNER_ALLOW_LIVE_COVERAGE_FALLBACK=true` explicitly restores the legacy fallback. Database-disabled deployments still use the legacy path.
+
+The pinned `psycopg_pool` dependency reuses connections per process: default maximum four, bounded to eight via `CARSCANNER_DB_POOL_SIZE`; `CARSCANNER_DB_POOL=false` disables pooling. Size the total across deployed processes against the database connection budget. Pool checkout/connect timeouts are five seconds, with a bounded wait queue. Transactions commit or roll back before connections are reused. Source metadata may be reused for at most 15 seconds; listings are never cached by this change.
+
+## Source coverage recovery
+
+Run `python -m src.source_runtime_config --all-existing` to inspect missing runtime settings and add `--apply` to restore reviewed seed parser/template/endpoints on existing sources. This does not enable candidates or change existing operator overrides. The scheduled workflow applies this repair before scheduling.
+
+Source adapters now follow advertised next links and the BMW/Mercedes public showroom scroll groups. `CARSCANNER_MAX_PAGES_PER_SOURCE` bounds acquisition; the free scheduler remains at three pages. A successful bounded scan does not prove an entire marketplace was scanned. Global catalogue pages can omit brand inventory; recorded brand/model demand schedules targeted pages.
+
+Partial database searches expose their total and additional pages. Use **Load more observations** to retrieve additional results; sidebar filters and market statistics apply to loaded observations. Database comparison references retain their full query cohort across pages.
+
+The scheduler also seeds each registered brand across every applicable verified
+source, independent of search traffic. **Marketplace coverage for this search**
+shows the full source plan and gaps in loaded results. Neither a successful
+bounded scan nor the presence of some offers proves source catalogue completeness.
+The free worker budget must be evaluated against the much larger baseline queue;
+it is a testing limit, not a promise of nationwide freshness.
+
+## Repairing an older source registry
+
+An older database may contain source names without the versioned parser/catalog
+settings. A successful fetch can then parse zero listings. Review missing settings
+before applying the explicit repair command:
+
+```sh
+python -m src.source_runtime_config --source "Big Boy Toyz" --source "AutoBest Emperio" --source "CarDekho Used"
+python -m src.source_runtime_config --source "Big Boy Toyz" --source "AutoBest Emperio" --source "CarDekho Used" --apply
+```
+
+Run with the server database environment configured. The command adds missing
+reviewed runtime keys/endpoints only to existing sources; it does not overwrite
+operator settings, create new sources, promote adapters or alter permissions.
+Next run the normal refresh worker and verify actual database listing counts and
+the browser journey. Parser execution alone is not proof of useful inventory.
+
+The local preview requires its Python server to keep running. Restart it with the
+local launcher after closing Codex or restarting the computer; it is not a hosted
+always-on website.
+
+Use the existing CarScanner Supabase project with a local Python web server. The
+organization currently uses the Free plan with its spend cap enabled. Its project
+is in Seoul; this testing setup does not relocate it or create a paid resource.
+
+## Local preview
+
+The ignored `.env` holds the server database URI and Supabase service key. Never
+commit this file. No credential is sent to the frontend. The dedicated
+`carscanner_free_test_runtime` login can read/write the named CarScanner tables
+through policies granted specifically to that backend role. It cannot create
+databases or roles and is not a superuser. The existing administrator password
+was not changed. Watch API calls use the existing server key.
+
+From the repository root, with Python runtime dependencies installed:
+
+```powershell
+python -m scripts.run_local
+```
+
+Open http://127.0.0.1:8000. The server stays on localhost; source files, migrations,
+Git metadata and `.env` return 404. `/health` is a process health check, not proof
+of database readiness. Search uses current database observations and reports
+partial coverage honestly. An empty inventory never starts request-time crawling
+when fallback is disabled. Live brand/model catalog lookups can still request
+the source website.
+
+## Crawler and alerts
+
+To run one small cloud refresh using the local settings:
+
+```powershell
+python -c "from scripts.run_local import load_env; load_env(); from src.inventory_service import run_cycle; print(run_cycle(10))"
+```
+
+To run hourly batches while this computer remains running:
+
+```powershell
+python -c "from scripts.run_local import load_env; load_env(); from src.inventory_service import main; import sys; sys.argv=['inventory_service','--limit','10','--interval-seconds','3600']; main()"
+```
+
+Alerts are tested without provider delivery:
+
+```powershell
+python -c "from scripts.run_local import load_env; load_env(); from scripts.process_alerts import process_alerts; process_alerts(dry_run=True)"
+```
+
+The refresh workflow is configured for minute 17 of each UTC hour, up to ten
+executed jobs per run and three requested pages per source. The planner can queue
+more work than the worker consumes. Source discovery keeps its existing
+three-hour schedule but limits each batch to five candidates. Daily acquisition
+uses ten jobs. Both scheduled alert steps explicitly use `--dry-run`.
+Free limits do not provide a national coverage or continuous uptime guarantee.
+
+Three separate repository secrets were saved with the user's approval:
+
+- `CARSCANNER_FREE_TEST_DATABASE_URL`
+- `CARSCANNER_FREE_TEST_SUPABASE_URL`
+- `CARSCANNER_FREE_TEST_SUPABASE_SERVICE_ROLE_KEY`
+
+The workflows prefer these secrets, with the original production secret names
+as a compatibility fallback. New secret names are not consumed by older code on
+main. GitHub schedules execute workflow code on the default branch: the updated
+hourly schedule becomes active after the reviewed changes are merged. A manual
+run can test the feature branch before merging. No production merge is implied
+by database setup or a passing local preview.
+
+## Database setup and verification
+
+Previously missing watch migrations and vehicle identity migration 015 were
+applied to the existing project. Forward migrations enable queue RLS, create the
+backend role/policies, grant watch server privileges and grant runtime sequence
+usage. The generated login password was provisioned separately and is absent
+from SQL migrations. Anonymous/authenticated clients cannot access the queue.
+The backend policies do not grant those frontend roles access to customer data.
+
+First verification: cloud SQL connection succeeded, the watch REST endpoint
+responded successfully and the alert dry-run reported zero sends. An initial
+three-job cloud refresh completed without errors but discovered no vehicle rows.
+That proves pipeline execution only; it does not establish marketplace coverage
+or absence of available cars. Real source coverage must be expanded and verified
+before a PAN India launch.
+
+The test setup is web-accessible locally. A shareable hosted URL, native mobile
+app, production alert delivery, storage retention and nationwide load validation
+remain separate launch work.

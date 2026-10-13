@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 import time
+import os
+from urllib.parse import urlsplit
 
 from . import live_marketplaces as live_marketplaces
 from .source_intelligence import normalize_condition
@@ -35,6 +37,7 @@ class AdapterRequest:
     budget_min: float | None = None
     budget_max: float | None = None
     destination: str | None = None
+    continuation: dict[str, Any] | None = None
 
 
 @dataclass
@@ -45,6 +48,8 @@ class AdapterResult:
     latency_ms: int = 0
     error: str | None = None
     query_url: str | None = None
+    continuation: dict[str, Any] | None = None
+    pages_fetched: int = 0
 
 
 class SourceAdapter(Protocol):
@@ -81,9 +86,16 @@ class BuiltinMarketplaceAdapter:
                 urls.append(url)
         return urls[:12]
 
+    @live_marketplaces.with_brand_identity
     def fetch(self, request: AdapterRequest) -> AdapterResult:
         started = time.monotonic()
-        urls = self._urls(request)
+        roots = self._urls(request)
+        progress = request.continuation or {}
+        allowed_hosts = {urlsplit(root).hostname for root in roots}
+        urls = list(progress.get("pending_urls") or roots)
+        if progress.get("pending_urls") and any(urlsplit(page).scheme not in {"http", "https"} or
+               urlsplit(page).hostname not in allowed_hosts for page in urls):
+            return AdapterResult(self.source_name, error="invalid continuation URL")
         url = urls[0] if urls else ""
         if not adapter_execution_allowed(self.source_name):
             return AdapterResult(
@@ -104,7 +116,15 @@ class BuiltinMarketplaceAdapter:
             fetched_urls=[]
             parser_strategy = str(self.source.get("parser_strategy") or (self.source.get("metadata") or {}).get("parser_strategy") or "").strip().lower()
             partial_error = None
+            max_pages=max(1,min(int(os.getenv('CARSCANNER_MAX_PAGES_PER_SOURCE','20')),50))
+            seen_pages=set(progress.get("visited_urls") or [])
+            fetched_this_batch=0
+            oem_cursors=dict(progress.get('oem_cursors') or {})
             for endpoint_url in urls:
+                if endpoint_url in seen_pages or fetched_this_batch>=max_pages:
+                    continue
+                seen_pages.add(endpoint_url)
+                fetched_this_batch += 1
                 if parser_strategy == "sundaram_cards":
                     from .demo_dealers import fetch_sundaram
                     rows, partial_error = fetch_sundaram(endpoint_url, self.source_name, fetch_text)
@@ -116,11 +136,28 @@ class BuiltinMarketplaceAdapter:
                     all_parsed.extend(parse_gurudev(fetch_text(endpoint_url), self.source_name, endpoint_url))
                     fetched_urls.append(endpoint_url)
                     continue
-                if parser_strategy == "mercedes_inventory":
-                    from .oem_inventory import fetch_mercedes_inventory
-                    all_parsed.extend(fetch_mercedes_inventory(
-                        endpoint_url, request.query, normalize_condition(request.condition), self.source_name
-                    ))
+                if parser_strategy in {'mercedes_inventory', 'bmw_cards'}:
+                    from .oem_inventory import fetch_mercedes_inventory, fetch_bmw_inventory
+                    kwargs = {} if request.continuation is None else {
+                        'continuation': oem_cursors.get(endpoint_url) or {},
+                        'page_budget': max_pages - fetched_this_batch + 1,
+                    }
+                    if parser_strategy == 'mercedes_inventory':
+                        batch = fetch_mercedes_inventory(endpoint_url, request.query,
+                            normalize_condition(request.condition), self.source_name, **kwargs)
+                    else:
+                        batch = fetch_bmw_inventory(endpoint_url, request.query,
+                            self.source_name, fetch_text, **kwargs)
+                    if request.continuation is None:
+                        all_parsed.extend(batch)
+                    else:
+                        all_parsed.extend(batch.listings)
+                        fetched_this_batch += batch.pages_fetched - 1
+                        if batch.continuation:
+                            oem_cursors[endpoint_url] = batch.continuation
+                            seen_pages.remove(endpoint_url)
+                        else:
+                            oem_cursors.pop(endpoint_url, None)
                     fetched_urls.append(endpoint_url)
                     continue
                 try:
@@ -131,7 +168,10 @@ class BuiltinMarketplaceAdapter:
                     partial_error = (partial_error or "") + f"{endpoint_url}: {type(exc).__name__}: {str(exc)[:100]}; "
                     continue
                 fetched_urls.append(endpoint_url)
-                if parser_strategy == "motozite_cards":
+                if parser_strategy in {'cardekho_cards','carwale_cards','cars24_cards'}:
+                    from .marketplace_cards import parse_marketplace_cards
+                    parsed=parse_marketplace_cards(html,self.source_name,endpoint_url,parser_strategy,request.query)
+                elif parser_strategy == "motozite_cards":
                     parsed = live_marketplaces.parse_motozite_cards(
                         html, self.source_name, endpoint_url, request.query, condition="both"
                     )
@@ -149,6 +189,8 @@ class BuiltinMarketplaceAdapter:
                 else:
                     parsed = parse_live_listings(html, self.source_name, endpoint_url)
                 if not parsed:
+                    parsed=parse_live_listings(html,self.source_name,endpoint_url)
+                if not parsed:
                     parsed = parse_visible_listing_links(
                         html, self.source_name, endpoint_url, request.query
                     )
@@ -157,6 +199,11 @@ class BuiltinMarketplaceAdapter:
                         html, self.source_name, endpoint_url, request.query
                     )
                 all_parsed.extend(parsed)
+                next_url=live_marketplaces._next_page_url(html,endpoint_url)
+                if next_url and next_url not in urls and urlsplit(next_url).hostname==urlsplit(endpoint_url).hostname:
+                    urls.append(next_url)
+            if partial_error and request.continuation is not None:
+                raise RuntimeError(partial_error)
             if not fetched_urls:
                 raise RuntimeError(partial_error or "No inventory endpoint responded")
             # The same car may be exposed by canonical, dealer and campaign
@@ -228,6 +275,11 @@ class BuiltinMarketplaceAdapter:
                 latency_ms=int((time.monotonic() - started) * 1000),
                 query_url=" | ".join(fetched_urls),
                 error=partial_error,
+                continuation={"pending_urls": [page for page in urls if page not in seen_pages],
+                              "visited_urls": sorted(seen_pages),
+                              "oem_cursors": oem_cursors} if request.continuation is not None
+                              and any(page not in seen_pages for page in urls) else None,
+                pages_fetched=fetched_this_batch,
             )
             record_adapter_execution(
                 self.source_name,
