@@ -605,3 +605,21 @@ def test_oem_transport_to_persisted_resume_ingestion_and_index(db, monkeypatch):
     db.commit()
     payload = post_search(monkeypatch, {'query': 'Mercedes-Benz', 'condition': 'demo'}, ['Fixture OEM'])
     assert payload['results'] and all(row['brand'] == 'Mercedes-Benz' for row in payload['results'])
+
+
+def test_shared_registry_cache_cannot_hide_price_updates_or_disabled_sources(db, monkeypatch):
+    url = os.getenv('CARSCANNER_TEST_REDIS_URL')
+    if not url: pytest.skip('Disposable Redis is required')
+    from urllib.parse import urlsplit
+    assert urlsplit(url).hostname in {'127.0.0.1', 'localhost', '::1'}
+    monkeypatch.setenv('CARSCANNER_REDIS_URL', url)
+    v = ingest(db)
+    initial = post_search(monkeypatch, {'query': 'BMW X1', 'condition': 'used'}, ['Fixture Dealer'])
+    assert initial['results'][0]['price_lakh'] == 30
+    ingest_vehicles([replace(v, price_lakh=45)])
+    current = post_search(monkeypatch, {'query': 'BMW X1', 'condition': 'used'}, ['Fixture Dealer'])
+    assert current['results'][0]['price_lakh'] == 45
+    db.execute('update public.sources set enabled=false')
+    db.commit()
+    disabled = post_search(monkeypatch, {'query': 'BMW X1', 'condition': 'used'}, ['Fixture Dealer'])
+    assert disabled['results'] == []

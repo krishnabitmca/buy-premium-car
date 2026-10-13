@@ -19,6 +19,7 @@ from src.india_geo import infer_state
 from src.live_marketplaces import live_inventory, _query_parts, _identity_matches_query, with_brand_identity
 from src.source_intelligence import load_source_registry, plan_sources, summarize_plan, with_source_registry
 from src.source_registry_db import enabled as source_db_enabled, record_search_demand
+from src.search_timing import timed_request, measure_call, server_timing
 
 def _read_json(handler):
     length=int(handler.headers.get("Content-Length","0"))
@@ -26,10 +27,13 @@ def _read_json(handler):
     return json.loads(handler.rfile.read(length).decode("utf-8"))
 
 def _response(handler,status,payload):
-    raw=json.dumps(payload,ensure_ascii=False).encode("utf-8")
+    raw=measure_call('serialization', json.dumps, payload, ensure_ascii=False).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type","application/json; charset=utf-8")
     handler.send_header("Cache-Control","no-store")
+    timing = server_timing()
+    if timing:
+        handler.send_header('Server-Timing', timing)
     handler.send_header("Access-Control-Allow-Origin","*")
     handler.send_header("Access-Control-Allow-Headers","Content-Type")
     handler.send_header("Access-Control-Allow-Methods","GET, POST, OPTIONS")
@@ -138,6 +142,7 @@ class handler(BaseHTTPRequestHandler):
             return _response(self,200,{"ok":True,"mode":"live","search_scope":"india","query":query,"condition":condition,"vehicles_count":len(vehicles),"sources":sources})
         except Exception as exc:
             return _response(self,500,{"error":f"Search inventory unavailable: {exc}"})
+    @timed_request
     @with_source_registry(metadata_ttl=15)
     @with_brand_identity
     def do_POST(self):
@@ -155,7 +160,7 @@ class handler(BaseHTTPRequestHandler):
             condition=str(body.get("condition") or "both")
             page=max(1, int(body.get("page") or 1))
             page_size=max(1, min(int(body.get("page_size") or 50), 200))
-            source_plan=plan_sources(
+            source_plan=measure_call('planning', plan_sources,
                 brand=_query_parts(query)[0],
                 model=_query_parts(query)[1],
                 condition=condition,
@@ -167,7 +172,7 @@ class handler(BaseHTTPRequestHandler):
             search_mode = "live"
             inventory_total = None
             if inventory_enabled():
-                inventory_result = search_inventory(
+                inventory_result = measure_call('inventory', search_inventory,
                     query=query,
                     condition=condition,
                     budget_min=budget_min,

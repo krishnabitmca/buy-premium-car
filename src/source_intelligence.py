@@ -19,6 +19,7 @@ from functools import wraps, partial
 from threading import Lock
 from copy import deepcopy
 import time
+from .search_timing import measure_call
 
 import yaml
 
@@ -37,7 +38,7 @@ def with_source_registry(function=None, *, metadata_ttl=0):
     def wrapped(*args, **kwargs):
         if _request_registry.get() is not None:
             return function(*args, **kwargs)
-        token = _request_registry.set(_search_registry(metadata_ttl) if metadata_ttl else load_source_registry())
+        token = _request_registry.set(measure_call('registry', _search_registry, metadata_ttl) if metadata_ttl else load_source_registry())
         try:
             return function(*args, **kwargs)
         finally:
@@ -48,13 +49,32 @@ def with_source_registry(function=None, *, metadata_ttl=0):
 def _search_registry(ttl):
     global _metadata_cache
     from .source_registry_db import database_url
+    from . import shared_metadata_cache as shared
     # Config/database changes cannot reuse another environment's snapshot.
     key=(database_url(),REGISTRY_PATH.stat().st_mtime_ns)
+    import os
+    local_key=(key, os.getenv('CARSCANNER_REDIS_URL'))
     with _metadata_cache_lock:
         now=time.monotonic()
-        if _metadata_cache is None or _metadata_cache[0]!=key or now>=_metadata_cache[1]:
-            rows=load_source_registry()
-            _metadata_cache=(key,time.monotonic()+min(max(float(ttl),0),15),deepcopy(rows))
+        if _metadata_cache is None or _metadata_cache[0]!=local_key or now>=_metadata_cache[1]:
+            read_started = time.monotonic()
+            hit = shared.get(key) if shared.configured() else None
+            lifetime = min(max(float(ttl), 0), 15)
+            if hit is not None:
+                rows, remaining = hit
+                lifetime = min(lifetime, remaining)
+                expires_at = read_started + lifetime
+            else:
+                loaded_at = time.monotonic()
+                rows=load_source_registry()
+                expires_at = time.monotonic() + lifetime
+                if shared.configured():
+                    from .inventory_contract import json_inventory_value
+                    rows = json_inventory_value(rows)
+                    lifetime = max(0, lifetime - (time.monotonic() - loaded_at))
+                    expires_at = loaded_at + min(max(float(ttl), 0), 15)
+                    shared.put(key, rows, lifetime)
+            _metadata_cache=(local_key,expires_at,deepcopy(rows))
         return deepcopy(_metadata_cache[2])
 
 SEGMENT_BY_MAX_LAKH = (

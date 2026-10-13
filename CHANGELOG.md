@@ -1,3 +1,10 @@
+## 2026-10-13 — Search timing and optional shared cache
+
+- Add request-isolated Server-Timing stages and reproducible mixed-query/concurrency and exact-query EXPLAIN scripts.
+- Add optional Redis-backed public source metadata reuse with bounded TTL/size, remaining-life-aware local reuse, short operation timeouts and outage fallback. Listing prices and availability remain fresh PostgreSQL reads.
+- Materialize comparison cohorts after a real plan showed repeated aggregate execution. Sampled BMW server execution improved from 90.576 to 22.146 ms; API p95 remains above target.
+- Add disposable Redis CI coverage for cross-process reads, expiry/corruption recovery and fresh price/source-disable behavior. Document the implementation and remaining performance gates in docs/SEARCH_PERFORMANCE.md.
+
 ## 2026-10-13 — OEM scroll continuation
 
 - Resume BMW and Mercedes public inventory scroll groups across background batches, sharing the configured page budget across endpoints.

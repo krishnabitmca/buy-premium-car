@@ -7,6 +7,8 @@ Select the actual latest observation before applying price/availability filters.
 """
 
 import os
+import time
+from .search_timing import measure_call, record_duration
 from datetime import datetime, timezone
 from typing import Any
 
@@ -30,6 +32,7 @@ def search_inventory(
     offset: int = 0,
     return_count: bool = False,
     require_persistence: bool = False,
+    explain: bool = False,
 ):
     if require_persistence:
         require_database()
@@ -125,7 +128,7 @@ def search_inventory(
         from latest_listing
         group by vehicle_id,brand,model,variant,mfg_year,registration_year,condition,condition_signal,fuel,
                  transmission,vehicle_location,seller_state,identity_confidence,price_basis
-      ), cohorts as (
+      ), cohorts as materialized (
         select brand,model,variant,mfg_year,condition,price_basis,
                (count(*) filter (where data_consistent))::int as comparable_count,
                case when count(*) filter (where data_consistent) >= 3
@@ -147,9 +150,15 @@ def search_inventory(
     sql=base+("""select page.*,totals.total_count
         from (select count(*)::bigint as total_count from grouped) totals
         left join lateral ("""+projection+") page on true order by page.price_lakh nulls last,page.observed_at desc,page.vehicle_id,page.price_basis" if return_count else projection)
+    pool_started = time.perf_counter()
     with _connect() as conn,conn.cursor() as cur:
+        record_duration('pool_wait', time.perf_counter() - pool_started)
         total=None
-        cur.execute(sql,list(params)+[safe_limit,safe_offset])
+        if explain:
+            cur.execute('explain (analyze, buffers, format json) ' + sql,
+                        list(params)+[safe_limit,safe_offset])
+            return cur.fetchone()['QUERY PLAN']
+        measure_call('db_query', cur.execute, sql,list(params)+[safe_limit,safe_offset])
         raw=[dict(r) for r in cur.fetchall()]
         if return_count:
             total=int(raw[0]['total_count']) if raw else 0
