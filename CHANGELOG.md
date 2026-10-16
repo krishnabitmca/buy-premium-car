@@ -1,3 +1,12 @@
+## 2026-10-16 — Authoritative buyer search and guarded Gemini pilot
+
+- Apply typed refinements and deterministic ordering across PostgreSQL inventory before pagination; browser refinements requery the index.
+- Keep comparison cohorts independent of buyer budget/refinements and expose full filtered-index counts/cities/sources.
+- Retain explicit adapter body style and show observed offers, provenance and purchase-context caveats in an accessible evidence dialog.
+- Add all-make taxonomy selection and improve mobile result ordering and control sizes.
+- Add optional consent/review-based Gemini interpretation with durable server-only quota capped at 30/day. Keep buyer AI disabled: live synthetic generation returned provider high-demand errors.
+- Record remaining coverage, grounded explanations, shortlist/watch, mobile and capacity gates in docs/BUYER_EXPERIENCE_REQUIREMENTS.md.
+
 ## 2026-10-16 — Optional Elasticsearch trial integration
 
 - Add nested-offer search with complete generation publication and separate scoped runtime/indexer credentials.

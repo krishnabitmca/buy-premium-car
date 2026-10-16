@@ -21,6 +21,7 @@ class Vehicle:
     price_lakh: Optional[float]=None
     fuel: Optional[str]=None
     transmission: Optional[str]=None
+    body_type: Optional[str]=None
     location: Optional[str]=None
     seller_city: Optional[str]=None
     seller_state: Optional[str]=None

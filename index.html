@@ -19,6 +19,8 @@
 .modal{display:none;position:fixed;inset:0;background:#081326aa;z-index:20;align-items:center;justify-content:center;padding:18px}.modal.show{display:flex}.modalbox{width:min(760px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:12px}.modalhead{padding:14px 17px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}.modalhead h3{margin:0;font-size:15px}.close{border:0;background:#f0f2f5;border-radius:6px;width:30px;height:30px;cursor:pointer}.modalbody{padding:17px}.compare{width:100%;border-collapse:collapse;font-size:10px}.compare th,.compare td{padding:8px;border-bottom:1px solid var(--line);text-align:left}.compare th{color:var(--muted);font-size:9px}
 @media(max-width:1000px){.searchbar{grid-template-columns:1fr 1fr 1fr}.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:720px){.layout{grid-template-columns:1fr}.filters{position:static}.searchbar{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.navlinks{display:none}.hero h1{font-size:28px}}@media(max-width:480px){.searchbar{grid-template-columns:1fr}.heroIn{padding-left:15px;padding-right:15px}.container{padding:0 15px}}
  .aiask{margin-top:10px;display:grid;grid-template-columns:1fr 120px;gap:8px}.aiask input{height:40px;border:1px solid var(--line);border-radius:8px;padding:0 12px;font-size:11px}.aiask button{border:1px solid #cbd8ee;background:var(--bluebg);color:#1555b5;border-radius:8px;font-size:10px;font-weight:850;cursor:pointer}.market{display:none;background:#fff;border:1px solid var(--line);border-radius:11px;margin-bottom:14px;padding:15px}.market.show{display:block}.marketTop{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.market h3{margin:0;font-size:15px}.market small{color:var(--muted);font-size:9px}.marketStats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.stat{background:#f7f8fa;border-radius:8px;padding:10px}.stat b{display:block;font-size:16px}.stat span{font-size:8px;color:var(--muted)}.marketNote{margin-top:10px;font-size:9px;color:#536075;line-height:1.5}.confidence{display:inline-block;margin-top:7px;padding:5px 8px;border-radius:6px;background:var(--greenbg);color:var(--green);font-size:8px;font-weight:800}@media(max-width:720px){.marketStats{grid-template-columns:1fr 1fr}.aiask{grid-template-columns:1fr}} 
+
+.filterJump{display:none}.variant,.location,.priceLabel,.sourceRow,.meta,.livebar{font-size:12px}.aiask button,.close{min-height:44px}.compare,.compare th{font-size:12px}.stat span,.market small,.marketNote,.confidence{font-size:12px}.chip{min-height:36px;font-size:12px}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #155bd7;outline-offset:3px}@media(max-width:720px){.filterJump{display:inline-block;min-height:44px;padding:12px 0;font-size:12px}.filters{order:2}#results{order:1}.aiask button{height:44px}.heroIn{padding-top:20px}.crumb{display:none}}
 </style>
 </head>
 <body>
@@ -28,37 +30,37 @@
 <h1>Find the right car at the right price</h1>
 <p>Compare discovered listings across marketplaces and seller sources. CarScanner compares the market and shows the lowest observed price and the strongest available deal evidence.</p>
 <div class="searchbar">
-<select id="condition"><option value="both">Used + Demo</option><option value="used">Used only</option><option value="demo">Demo only</option></select>
-<select id="brand"><option value="">All brands</option></select>
-<select id="model"><option value="">All models</option></select>
-<input id="min" type="number" min="0" step=".5" placeholder="Min ₹ lakh">
-<input id="max" type="number" min="0" step=".5" placeholder="Max ₹ lakh">
+<select id="condition" aria-label="Vehicle condition"><option value="both">Used + Demo</option><option value="used">Used only</option><option value="demo">Demo only</option></select>
+<select id="brand" aria-label="Brand"><option value="">All brands</option></select>
+<select id="model" aria-label="Model"><option value="">All models</option></select>
+<input id="min" aria-label="Minimum budget in lakh" type="number" min="0" step=".5" placeholder="Min ₹ lakh">
+<input id="max" aria-label="Maximum budget in lakh" type="number" min="0" step=".5" placeholder="Max ₹ lakh">
 <button id="search">Search cars</button>
 </div>
-<div class="aiask"><input id="aiPrompt" placeholder="Try: 2023 BMW X5 under ₹55 lakh, anywhere in India"><button id="askSearch">Ask CarScanner</button></div>
+<div class="aiask"><input id="aiPrompt" aria-label="Describe your car preferences" placeholder="Try: 2023 BMW X5 under ₹55 lakh, anywhere in India"><button id="askSearch">Interpret with AI</button></div><label class="check" style="margin-top:10px"><input type="checkbox" id="aiConsent" style="width:auto;height:auto"> I agree to send car preferences to Gemini’s free testing tier. Google may use this content to improve its products. Do not include contact details or private documents.</label><div id="aiReview" aria-live="polite"></div>
 <div class="chips" id="quickchips"><button class="chip active" data-filter="">All</button><button class="chip" data-filter="petrol">Petrol</button><button class="chip" data-filter="diesel">Diesel</button><button class="chip" data-filter="electric">Electric</button><button class="chip" data-filter="hybrid">Hybrid</button><button class="chip" data-filter="suv">SUV</button><button class="chip" data-filter="sedan">Sedan</button></div>
 </div></section>
 <main class="container layout">
 <aside id="filters" class="filters">
-<div class="filterHead"><b>All Filters</b><button class="clear" id="clear">Clear all</button></div>
+<div class="filterHead"><b>All Filters</b><a href="#results" class="filterJump">See results ↑</a><button class="clear" id="clear">Clear all</button></div>
 <div class="filterSec"><h4>Condition</h4><div class="checklist"><label class="check"><input type="radio" name="cond" value="both" checked> Used + Demonstrator</label><label class="check"><input type="radio" name="cond" value="used"> Used cars</label><label class="check"><input type="radio" name="cond" value="demo"> Demonstrator</label></div></div>
-<div class="filterSec"><h4>Price range</h4><div class="range"><input id="fmin" type="number" placeholder="₹ Min L"><input id="fmax" type="number" placeholder="₹ Max L"></div></div>
+<div class="filterSec"><h4>Price range</h4><div class="range"><input id="fmin" aria-label="Minimum budget refinement in lakh" type="number" placeholder="₹ Min L"><input id="fmax" aria-label="Maximum budget refinement in lakh" type="number" placeholder="₹ Max L"></div></div>
 <div class="filterSec"><h4>Fuel type</h4><div class="checklist"><label class="check"><input type="checkbox" class="fuelCheck" value="petrol"> Petrol</label><label class="check"><input type="checkbox" class="fuelCheck" value="diesel"> Diesel</label><label class="check"><input type="checkbox" class="fuelCheck" value="electric"> Electric</label><label class="check"><input type="checkbox" class="fuelCheck" value="hybrid"> Hybrid</label></div></div>
-<div class="filterSec"><h4>Seller location</h4><select id="city"><option value="">All India</option></select></div>
-<div class="filterSec"><h4>Age</h4><select id="year"><option value="">Any age</option><option value="2">≤ 2 years</option><option value="3">≤ 3 years</option><option value="5">≤ 5 years</option><option value="7">≤ 7 years</option></select></div>
-<div class="filterSec"><h4>Where will you buy/register?</h4><input id="destination" value="" placeholder="City"></div>
+<div class="filterSec"><h4>Vehicle details</h4><label>Transmission<select id="transmission"><option value="">Any transmission</option><option value="automatic">Automatic</option><option value="manual">Manual</option></select></label><label>Body style<select id="bodyType"><option value="">Any body style</option><option value="suv">SUV</option><option value="sedan">Sedan</option><option value="hatchback">Hatchback</option><option value="coupe">Coupe</option><option value="convertible">Convertible</option><option value="mpv">MPV</option><option value="wagon">Wagon</option><option value="pickup">Pickup</option></select></label><label>Maximum km<input id="maxKm" type="number" min="0" placeholder="Any mileage"></label><label>Maximum owners<input id="maxOwners" type="number" min="1" placeholder="Any owners"></label><label>Manufacture year<input id="exactYear" type="number" min="1900" max="2100" placeholder="Any year"></label><p>Unknown details cannot match a selected requirement.</p></div><div class="filterSec"><h4>Seller location</h4><select id="city" aria-label="Seller location restriction"><option value="">All India</option></select></div>
+<div class="filterSec"><h4>Age</h4><select id="year" aria-label="Maximum age in years"><option value="">Any age</option><option value="2">≤ 2 years</option><option value="3">≤ 3 years</option><option value="5">≤ 5 years</option><option value="7">≤ 7 years</option></select></div>
+<div class="filterSec"><h4>Where will you buy/register?</h4><input id="destination" aria-label="Registration destination" value="" placeholder="City"></div>
 </aside>
 <section id="results">
-<div class="contentHead"><div><h2>Cars found</h2><div id="meta" class="meta">Search discovered car listings</div></div><select id="sort" class="sort"><option value="match">Recommended</option><option value="price">Lowest price</option><option value="gap">Best market gap</option><option value="km">Lowest mileage</option><option value="year">Newest</option></select></div>
+<div class="contentHead"><div><h2>Cars found</h2><a href="#filters" class="filterJump">Refine results ↓</a><div id="meta" class="meta">Search discovered car listings</div></div><select id="sort" aria-label="Result order" class="sort"><option value="match">Recommended</option><option value="price">Lowest price</option><option value="gap">Best market gap</option><option value="km">Lowest mileage</option><option value="year">Newest</option></select></div>
 <div class="livebar"><span><strong>India-wide</strong> Source-backed car search</span><span id="summary">Search to see source observations</span></div>
 <details id="coverage" style="display:none;margin:12px 0"><summary>Marketplace coverage for this search</summary><p>Coverage is limited to discovered sources and fetched pages. A source without matches here may have cars that have not been indexed.</p><ul id="coverageSources"></ul></details>
-<div id="market" class="market"><div class="marketTop"><div><h3 id="marketTitle">Market view</h3><small id="marketSub"></small></div><span class="confidence" id="marketConfidence"></span></div><div class="marketStats"><div class="stat"><b id="marketCount">—</b><span>cars observed</span></div><div class="stat"><b id="marketCities">—</b><span>cities observed</span></div><div class="stat"><b id="marketSources">—</b><span>sources observed</span></div><div class="stat"><b id="marketBelow">—</b><span>below comparable median</span></div></div><div class="marketNote" id="marketNote"></div></div><div id="grid" class="grid"><div class="empty"><b>Search car listings</b>Select a brand/model or budget to compare available source observations.</div></div>
+<div id="market" class="market"><div class="marketTop"><div><h3 id="marketTitle">Market view</h3><small id="marketSub"></small></div><span class="confidence" id="marketConfidence"></span></div><div class="marketStats"><div class="stat"><b id="marketCount">—</b><span>cars observed</span></div><div class="stat"><b id="marketCities">—</b><span>cities observed</span></div><div class="stat"><b id="marketSources">—</b><span>sources observed</span></div><div class="stat"><b id="marketBelow">—</b><span>loaded cars below median</span></div></div><div class="marketNote" id="marketNote"></div></div><div id="grid" class="grid"><div class="empty"><b>Search car listings</b>Select a brand/model or budget to compare available source observations.</div></div>
 <button id="more" class="secondary" style="display:none;margin-top:18px" onclick="searchLive({append:true,manufactureYear:assistantYear})">Load more observations</button>
 </section>
 </main>
-<div id="modal" class="modal" onclick="if(event.target===this)closeModal()"><div class="modalbox"><div class="modalhead"><h3 id="modalTitle"></h3><button class="close" onclick="closeModal()">✕</button></div><div id="modalBody" class="modalbody"></div></div></div>
+<div id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" class="modal" onclick="if(event.target===this)closeModal()"><div class="modalbox"><div class="modalhead"><h3 id="modalTitle"></h3><button class="close" aria-label="Close car details" onclick="closeModal()">✕</button></div><div id="modalBody" class="modalbody"></div></div></div>
 <script>
-let inventory=[],shown=[],liveAt=null,sourceStatus=[],sourcePlan=[],coverageWarning=null,searchMode='live',quickFilter='',condition='both',assistantYear=null,searchPage=0,searchRequest=null,inventoryTotal=null,hasMore=false;
+let inventory=[],shown=[],liveAt=null,sourceStatus=[],sourcePlan=[],coverageWarning=null,searchMode='live',quickFilter='',condition='both',assistantYear=null,searchPage=0,searchRequest=null,inventoryTotal=null,hasMore=false,searchSummary=null,activeSearch=null,searchSequence=0;
 const $=id=>document.getElementById(id);
 const money=x=>x==null?'—':'₹'+Number(x).toFixed(2)+'L';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -105,64 +107,61 @@ async function loadModels(){
   $('model').innerHTML='<option value="">Live models unavailable</option>';
  }finally{$('model').disabled=false}
 }
-$('brand').onchange=loadModels;
+$('brand').onchange=()=>{$('aiReview').textContent='';return loadModels()};['min','max'].forEach(id=>$(id).addEventListener('change',()=>{$(id==='min'?'fmin':'fmax').value=''}));
 async function searchLive(options={}){
- const append=options.append===true;
+ const append=options.append===true;const sequence=++searchSequence;activeSearch?.abort();
  $('market').classList.remove('show');
- assistantYear=options.manufactureYear||null;
+ assistantYear=$('exactYear').value?Number($('exactYear').value):null;
  condition=$('condition').value;const b=$('brand').value,m=$('model').value,min=$('min').value,max=$('max').value,destination=$('destination').value.trim();
  const fmin=$('fmin').value||min,fmax=$('fmax').value||max;
  if(fmin&&fmax&&Number(fmin)>Number(fmax)){alert('Minimum budget cannot exceed maximum budget');return}
- if(!append){searchPage=0;searchRequest={query:[b,m].filter(Boolean).join(' '),destination,budget_min:fmin||null,budget_max:fmax||null,condition};hasMore=false;$('more').style.display='none'}
+ if(!append){searchPage=0;searchRequest={query:[b,m].filter(Boolean).join(' '),destination,budget_min:fmin||null,budget_max:fmax||null,condition,fuels:selectedFuels(),body_types:$("bodyType").value?[$("bodyType").value]:[],transmissions:$("transmission").value?[$("transmission").value]:[],max_mileage_km:$("maxKm").value||null,max_owners:$("maxOwners").value||null,seller_city:$("city").value,max_age_years:$("year").value||null,manufacture_year:assistantYear,sort:$("sort").value};hasMore=false;$('more').style.display='none'}
  if(append&&!searchRequest)return;
  const nextPage=searchPage+1;
- const controller=new AbortController(),searchTimer=setTimeout(()=>controller.abort(),45000);
+ const controller=new AbortController();activeSearch=controller;const searchTimer=setTimeout(()=>controller.abort(),45000);
  $('search').disabled=true;$('more').disabled=true;$('search').textContent='Searching…';if(!append){$('coverage').style.display='none';$('grid').innerHTML='<div class="empty"><b>Searching car listings…</b>CarScanner is checking available source observations.</div>'}
  try{
   const r=await fetch('/api/search?ts='+Date.now(),{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({...searchRequest,page:nextPage,page_size:50})});
   if(!r.ok)throw Error((await r.text()).slice(0,150));const p=await r.json();if(!p.ok||p.search_scope!=='india'||!['live','inventory','inventory_partial','live_coverage_fallback','live_fallback'].includes(p.mode))throw Error(p.error||'Search unavailable');
-  searchMode=p.mode;document.querySelector('.livebar>span').textContent=searchMode.startsWith('inventory')?'Verified database observations · '+(searchMode==='inventory_partial'?'partial coverage':'completeness unverified'):'● LIVE · Current marketplace query';inventory=append?[...inventory,...(p.results||[])]:p.results||[];searchPage=nextPage;hasMore=Boolean(p.has_more);inventoryTotal=p.inventory_total??p.total_results??inventory.length;$('more').style.display=hasMore?'block':'none';liveAt=p.live_at;sourceStatus=append?[...new Map([...sourceStatus,...(p.sources||[])].map(s=>[s.name||s.source,s])).values()]:p.sources||[];coverageWarning=p.availability_warning||null;sourcePlan=p.source_plan||[];renderCoverage();populateRefinements();applyResults();
- }catch(e){if(!append){inventory=[];shown=[];$('grid').innerHTML='<div class="empty"><b>Search is currently unavailable.</b>Please retry. No unverified listings are shown.</div>'}$('summary').textContent=append?'Additional observations could not load; retry Load more.':'Search failed; please retry'}
- finally{clearTimeout(searchTimer);$('search').disabled=false;$('more').disabled=false;$('search').textContent='Search cars'}
+  if(sequence!==searchSequence)return;searchSummary=p.search_summary||null;searchMode=p.mode;document.querySelector('.livebar>span').textContent=searchMode.startsWith('inventory')?'Verified database observations · '+(searchMode==='inventory_partial'?'partial coverage':'completeness unverified'):'● LIVE · Current marketplace query';inventory=append?[...inventory,...(p.results||[])]:p.results||[];searchPage=nextPage;hasMore=Boolean(p.has_more);inventoryTotal=p.inventory_total??p.total_results??inventory.length;$('more').style.display=hasMore?'block':'none';liveAt=p.live_at;sourceStatus=append?[...new Map([...sourceStatus,...(p.sources||[])].map(s=>[s.name||s.source,s])).values()]:p.sources||[];coverageWarning=p.availability_warning||null;sourcePlan=p.source_plan||[];renderCoverage();populateRefinements();applyResults();
+ }catch(e){if(sequence!==searchSequence)return;if(!append){inventory=[];shown=[];$('grid').innerHTML='<div class="empty"><b>Search is currently unavailable.</b>Please retry. No unverified listings are shown.</div>'}$('summary').textContent=append?'Additional observations could not load; retry Load more.':'Search failed; please retry'}
+ finally{clearTimeout(searchTimer);if(sequence===searchSequence){$('search').disabled=false;$('more').disabled=false;$('search').textContent='Search cars'}}
 }
 function renderCoverage(){
- const represented=new Set(inventory.flatMap(v=>(v.offers||[{source:v.source}]).map(o=>o.source)));
+ const represented=new Set(searchSummary?.sources||inventory.flatMap(v=>(v.offers||[{source:v.source}]).map(o=>o.source)));
  const status=new Map(sourceStatus.map(s=>[s.name||s.source,s]));
  $('coverage').style.display=sourcePlan.length?'block':'none';
  $('coverageSources').innerHTML=sourcePlan.map(s=>{
   const observed=represented.has(s.name),response=status.get(s.name);
-  const label=observed?'Matching observations loaded':s.adapter_status!=='live'?'Adapter not available for inventory search':response&&['error','unavailable','blocked'].includes(response.status)?'Source could not be fetched':'No matching observations loaded; coverage not established';
+  const label=observed?'Matching observations in filtered index; marketplace completeness unverified':s.adapter_status!=='live'?'Adapter not available for inventory search':response&&['error','unavailable','blocked'].includes(response.status)?'Source could not be fetched':'No matching observations loaded; coverage not established';
   return '<li>'+esc(s.name)+' — '+esc(label)+'</li>';
  }).join('');
 }
-function populateRefinements(){const cities=[...new Set(inventory.map(v=>v.location).filter(Boolean))].sort();$('city').innerHTML='<option value="">All India</option>'+cities.map(x=>'<option>'+esc(x)+'</option>').join('')}
+function populateRefinements(){const selected=$('city').value;const cities=[...new Set((searchSummary?.cities||inventory.map(v=>v.location)).filter(Boolean).concat(selected?[selected]:[]))].sort();$('city').innerHTML='<option value="">All India</option>'+cities.map(x=>'<option>'+esc(x)+'</option>').join('');$('city').value=selected}
 function selectCarType(value){$('condition').value=value;$('condition').onchange();if(!inventory.length)searchLive()}
 function selectedFuels(){return [...document.querySelectorAll('.fuelCheck:checked')].map(x=>x.value)}
 function updateMarketView(){
  const market=$('market');
  if(!shown.length){market.classList.remove('show');return}
  const cities=new Set(shown.map(v=>v.location).filter(Boolean));
- const sources=new Set(shown.map(v=>v.source).filter(Boolean));
+ const sources=new Set(shown.flatMap(v=>(v.offers||[{source:v.source}]).map(o=>o.source)).filter(Boolean));
  const withRef=shown.filter(v=>v.comp_median!=null&&v.discount_pct!=null);
  const below=withRef.filter(v=>Number(v.discount_pct)>0);
  const model={brand:$('brand').value,model:$('model').value};
  $('marketTitle').textContent=model?.model?((model.brand||'')+' '+model.model+' market view'):'Market view';
- $('marketSub').textContent=searchMode.startsWith('inventory')?'Based on stored source observations; check the observation time and seller availability.':'Based only on live observations returned by current source queries.';
- $('marketCount').textContent=shown.length;
- $('marketCities').textContent=cities.size;
- $('marketSources').textContent=sources.size;
+ $('marketSub').textContent=searchMode.startsWith('inventory')?'Counts cover the full filtered index; comparison notes below describe the loaded cars. Confirm seller availability.':'Based only on live observations returned by current source queries.';
+ $('marketCount').textContent=searchSummary?.result_count??shown.length;
+ $('marketCities').textContent=searchSummary?.city_count??cities.size;
+ $('marketSources').textContent=searchSummary?.sources?.length??sources.size;
  $('marketBelow').textContent=withRef.length?below.length:'—';
  $('marketConfidence').textContent=withRef.length>=3?'Comparable evidence available':'Limited comparable evidence';
- $('marketNote').textContent=withRef.length>=3?below.length+' of '+withRef.length+' comparable observed listings are below the observed median. This is a market signal, not a guarantee of condition or final purchase price.':'CarScanner has observed inventory but not enough same-model observations to establish a defensible market reference. We will not invent a valuation.';
+ $('marketNote').textContent=withRef.length>=3?below.length+' of '+withRef.length+' comparable observed listings are below the observed median. This is a market signal, not a guarantee of condition or final purchase price.':'Some or all loaded cars lack sufficient same-variant/year evidence. References shown only where a comparison cohort exists; no valuation is invented.';
  market.classList.add('show');
 }
 function applyResults(){
- const city=$('city').value,y=$('year').value===''?null:Number($('year').value),fuels=selectedFuels(),fmin=$('fmin').value===''?null:Number($('fmin').value),fmax=$('fmax').value===''?null:Number($('fmax').value),selectedCondition=$('condition').value;
- shown=inventory.filter(v=>(!assistantYear||Number(v.mfg_year)===assistantYear)&&(selectedCondition==='both'||conditionOf(v)===selectedCondition)&&(!city||v.location===city)&&(fmin===null||(v.price_lakh!=null&&Number(v.price_lakh)>=fmin))&&(fmax===null||(v.price_lakh!=null&&Number(v.price_lakh)<=fmax))&&(y===null||age(v)<=y)&&(!fuels.length||fuels.includes(String(v.fuel||'').toLowerCase()))&&(quickFilter===''||String(v.fuel||'').toLowerCase()===quickFilter||String(v.body_type||'').toLowerCase()===quickFilter));
- const mode=$('sort').value;
- shown.sort((a,b)=>mode==='price'?(a.price_lakh||999)-(b.price_lakh||999):mode==='gap'?(b.discount_pct||-999)-(a.discount_pct||-999):mode==='km'?(a.km||999999)-(b.km||999999):mode==='year'?(b.mfg_year||0)-(a.mfg_year||0):score(b)-score(a));
+ shown=[...inventory];
  $('summary').textContent=shown.length+(searchMode.startsWith('inventory')?' observed result':' live result')+(shown.length===1?'':'s')+' · '+sourceStatus.filter(s=>s.status==='live'||s.status==='inventory').length+(searchMode.startsWith('inventory')?' source(s) represented · ':' source(s) fetched · ')+sourceStatus.filter(s=>Number(s.listings_found)>0).length+' source(s) with matches'+(liveAt?' · response '+new Date(liveAt).toLocaleTimeString('en-IN'):'');
- $('meta').textContent=searchMode.startsWith('inventory')?inventory.length+' of '+(inventoryTotal??inventory.length)+' database observations loaded. Filters apply to loaded observations. Availability and source coverage may be incomplete.':'Live marketplace results. No offline inventory snapshot is used.';
+ $('meta').textContent=searchMode.startsWith('inventory')?inventory.length+' of '+(inventoryTotal??inventory.length)+' database observations loaded. Filters and sorting apply across the indexed result set before loading pages. Availability and source coverage may be incomplete.':'Live marketplace results. No offline inventory snapshot is used.';
  updateMarketView();
  render();
 }
@@ -172,37 +171,66 @@ function card(v){
  const detailIndex=shown.indexOf(v);
  const images=Array.isArray(v.images)?v.images.filter(Boolean):(v.image?[v.image]:[]);
  const photo=images.length?'<img src="'+esc(images[0])+'" alt="'+esc((v.brand||'')+' '+(v.model||'')+' vehicle photo')+'" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add(\'noimage\');this.remove()"><span>'+(conditionOf(v)==='demo'?'DEMONSTRATOR':'USED')+'</span>':'<span class="photoFallback">Photo unavailable from source</span>';
- return '<article class="card"><div class="photo">'+photo+'</div><div class="cardbody"><div class="title">'+esc((v.brand||'')+' '+(v.model||''))+'</div><div class="variant">'+esc(v.variant||'Variant not established')+'</div><div class="location">📍 '+esc(v.location||'Location not established')+'</div><div class="price">'+money(v.price_lakh)+'</div><div class="priceLabel">'+(v.price_basis==='on_road'?'on-road asking price':(searchMode.startsWith('inventory')?'asking price at last observation':'current asking price observed live'))+'</div>'+(gap!=null?'<div class="deal '+(good?'good':'')+'"><b>'+(good?gap.toFixed(1)+'% below comparable median':'Price advantage not established')+'</b>'+(v.comp_median!=null?'<br>Market reference '+money(v.comp_median):'')+'</div>':'<div class="deal"><b>Market reference unavailable</b><br>CarScanner will not invent a deal signal.</div>')+'<div class="specs"><span class="spec">'+esc(v.mfg_year||'—')+'</span><span class="spec">'+esc(v.km!=null?Number(v.km).toLocaleString('en-IN'):'—')+' km</span><span class="spec">'+esc(v.fuel||'—')+'</span><span class="spec">'+esc(v.transmission||'—')+'</span></div><div class="sourceRow"><span>'+(verified?(searchMode.startsWith('inventory')?'● Observed source':'● Live source'):'⚠ Review source')+' · '+esc(v.source||'Marketplace')+'</span><a href="'+esc(v.url||'#')+'" target="_blank" rel="noopener">Original ↗</a></div><div class="actions"><button class="secondary" onclick="inspectFromCard(this)" data-index="'+detailIndex+'">Why this car?</button><a class="primary" href="'+esc(v.url||'#')+'" target="_blank" rel="noopener">View listing</a></div></div></article>';
+ return '<article class="card"><div class="photo">'+photo+'</div><div class="cardbody"><div class="title">'+esc((v.brand||'')+' '+(v.model||''))+'</div><div class="variant">'+esc(v.variant||'Variant not established')+'</div><div class="location">📍 '+esc(v.location||'Location not established')+'</div><div class="price">'+money(v.price_lakh)+'</div><div class="priceLabel">'+(v.price_basis==='on_road'?'on-road asking price':(searchMode.startsWith('inventory')?'asking price at last observation':'current asking price observed live'))+'</div>'+(gap!=null?'<div class="deal '+(good?'good':'')+'"><b>'+(good?gap.toFixed(1)+'% below comparable median':'Price advantage not established')+'</b>'+(v.comp_median!=null?'<br>Market reference '+money(v.comp_median):'')+'</div>':'<div class="deal"><b>Market reference unavailable</b><br>CarScanner will not invent a deal signal.</div>')+'<div class="specs"><span class="spec">'+esc(v.mfg_year||'—')+'</span><span class="spec">'+esc(v.km!=null?Number(v.km).toLocaleString('en-IN'):'—')+' km</span><span class="spec">'+esc(v.fuel||'—')+'</span><span class="spec">'+esc(v.transmission||'—')+'</span></div><div class="sourceRow"><span>'+(verified?(searchMode.startsWith('inventory')?'● Observed source':'● Live source'):'⚠ Review source')+' · '+esc(v.source||'Marketplace')+'</span><a href="'+esc(safeListingUrl(v.url))+'" target="_blank" rel="noopener">Original ↗</a></div><div class="actions"><button class="secondary" onclick="inspectFromCard(this)" data-index="'+detailIndex+'">Why this car?</button><a class="primary" href="'+esc(safeListingUrl(v.url))+'" target="_blank" rel="noopener">View listing</a></div></div></article>';
 }
+let reviewedIntent=null;
 async function runAssistant(){
- const text=$('aiPrompt').value.trim().toLowerCase();
- if(!text)return;
- const opts=[...$('brand').options].map(o=>o.value).filter(Boolean);
- const brand=opts.find(x=>text.includes(x.toLowerCase()));
- $('brand').value=brand||'';
- $('min').value='';$('max').value='';$('fmin').value='';$('fmax').value='';
- const numbers=[...text.matchAll(/(?:₹|rs\.?|inr)\s*(\d+(?:\.\d+)?)|\b(\d+(?:\.\d+)?)\s*(?:lakh(?:s)?|l)\b|(?:under|below|upto|up to|above|over)\s+(\d+(?:\.\d+)?)/g)].map(m=>Number(m[1]||m[2]||m[3])).filter(n=>n>0&&n<500);
- if(numbers.length>=2){$('min').value=Math.min(...numbers);$('max').value=Math.max(...numbers)}
- else if(numbers.length===1){if(/above|over|more than/.test(text))$('min').value=numbers[0];else $('max').value=numbers[0]}
- const year=text.match(/\b(20\d{2})\b/);
- await loadModels();
- const normalize=x=>x.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
- const tokens=' '+normalize(text)+' ';
- const model=[...$('model').options].map(o=>o.value).filter(Boolean).sort((a,b)=>b.length-a.length).find(x=>tokens.includes(' '+normalize(x)+' '));
- $('model').value=model||'';
- await searchLive({manufactureYear:year?Number(year[1]):null});
+ const prompt=$('aiPrompt').value.trim();if(!prompt)return;
+ if(!$('aiConsent').checked){$('aiReview').textContent='Opt in before sending car preferences to Gemini. You can also use the search filters.';return}
+ $('askSearch').disabled=true;$('aiReview').textContent='Interpreting your preferences…';reviewedIntent=null;
+ try{
+  const response=await fetch('/api/intent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,consent:true}),signal:AbortSignal.timeout(12000)});
+  const result=await response.json();if(!response.ok||!result.ok)throw Error(result.error||'AI is unavailable. Use the search filters.');
+  reviewedIntent=result.intent;
+  const labels={query:'Car',condition:'Condition',destination:'Registering in (search stays India-wide)',seller_city:'Seller city restriction',budget_min:'Minimum ₹ lakh',budget_max:'Maximum ₹ lakh',max_age_years:'Maximum age',manufacture_year:'Manufacture year',max_mileage_km:'Maximum km',max_owners:'Maximum owners',fuels:'Fuel',transmissions:'Transmission',body_types:'Body style',sort:'Sort'};
+  $('aiReview').innerHTML='<p><b>Review AI interpretation before searching</b></p><dl>'+Object.entries(result.intent).filter(([k,v])=>v!==null&&v!==''&&(!Array.isArray(v)||v.length)).map(([k,v])=>'<dt>'+esc(labels[k]||k)+'</dt><dd>'+esc(Array.isArray(v)?v.join(', '):v)+'</dd>').join('')+'</dl>'+
+   (result.clarifications.length?'<p><b>Clarification needed:</b> '+result.clarifications.map(esc).join('; ')+'. Edit your description and interpret again.</p>':'')+
+   (result.unverified_criteria.length?'<p><b>Cannot verify:</b> '+result.unverified_criteria.map(esc).join('; ')+'. These are not search filters or confirmed vehicle facts. Ask the seller and inspect independently.</p>':'')+
+   (!result.clarifications.length?'<button class="primary" id="applyIntent">Search using these criteria'+(result.unverified_criteria.length?' (unverified requirements excluded)':'')+'</button>':'');
+  if($('applyIntent'))$('applyIntent').onclick=applyReviewedIntent;
+ }catch(error){$('aiReview').textContent=error.name==='TimeoutError'?'AI timed out. Use the search filters or try later.':error.message}
+ finally{$('askSearch').disabled=false}
+}
+async function applyReviewedIntent(){
+ if(!reviewedIntent)return;const i=reviewedIntent;
+ const brand=[...$('brand').options].map(o=>o.value).filter(Boolean).sort((a,b)=>b.length-a.length).find(b=>i.query.toLowerCase()===b.toLowerCase()||i.query.toLowerCase().startsWith(b.toLowerCase()+' '));
+ $('brand').value=brand||'';await loadModels();
+ const model=brand?i.query.slice(brand.length).trim():i.query;
+ if(model&&![...$('model').options].some(o=>o.value===model))$('model').add(new Option(model,model));
+ $('model').value=model||'';$('condition').value=i.condition;$('destination').value=i.destination;
+ $('min').value=i.budget_min??'';$('max').value=i.budget_max??'';$('fmin').value='';$('fmax').value='';
+ $('year').value=i.max_age_years??'';
+ if(i.max_age_years!==null&&!$('year').value){$('year').add(new Option('≤ '+i.max_age_years+' years',i.max_age_years));$('year').value=i.max_age_years}
+ $('exactYear').value=i.manufacture_year??'';$('maxKm').value=i.max_mileage_km??'';$('maxOwners').value=i.max_owners??'';
+ $('transmission').value=i.transmissions[0]||'';$('bodyType').value=i.body_types[0]||'';
+ if(i.transmissions.length>1)$('transmission').value='';
+ if(i.body_types.length>1){$('aiReview').textContent='Choose one body style in Vehicle details before searching; multiple body styles cannot yet be edited in this form.';return}
+ document.querySelectorAll('.fuelCheck').forEach(x=>x.checked=i.fuels.includes(x.value));
+ if(i.fuels.some(f=>!['petrol','diesel','electric','hybrid'].includes(f))){$('aiReview').textContent='This fuel is not available in the form yet. Edit your description or use the API; no search was run.';return}
+ if(i.seller_city&&! [...$('city').options].some(o=>o.value===i.seller_city))$('city').add(new Option(i.seller_city,i.seller_city));
+ $('city').value=i.seller_city;$('sort').value=i.sort;quickFilter='';document.querySelectorAll('.chip').forEach((x,n)=>x.classList.toggle('active',n===0));
+ document.querySelectorAll('input[name="cond"]').forEach(x=>x.checked=x.value===i.condition);
+ $('aiReview').textContent='Reviewed criteria applied. Refine them using the filters; unverified requirements remain seller questions.';
+ await searchLive();
 }
 
 function render(){$('grid').innerHTML=shown.length?shown.map(card).join(''):'<div class="empty"><b>No verified matching listings returned.</b>'+(coverageWarning?esc(coverageWarning):'Source coverage may be incomplete. Try another model or filter; this does not establish that no cars are available.')+'</div>'}
 function inspectFromCard(el){inspect(shown[Number(el.dataset.index)]);}
-function inspect(v){$('modalTitle').textContent=(v.brand||'')+' '+(v.model||'');$('modalBody').innerHTML='<div class="deal"><b>'+(searchMode.startsWith('inventory')?'Stored marketplace observation':'Live marketplace observation')+'</b><br>'+(searchMode.startsWith('inventory')?'Confirm current availability with the original seller.':'This listing was returned by a current source query.')+'</div><table class="compare"><tbody>'+[['Asking price',money(v.price_lakh)],['Year',v.mfg_year||'—'],['Mileage',v.km!=null?Number(v.km).toLocaleString('en-IN')+' km':'—'],['Fuel / transmission',(v.fuel||'—')+' / '+(v.transmission||'—')],['Location',v.location||'—'],['Source',v.source||'—'],['Observation time',v.observed_at?new Date(v.observed_at).toLocaleString('en-IN'):'Not provided'],['Verification',v.live_verified?'Source response received':'Not verified']].map(r=>'<tr><th>'+esc(r[0])+'</th><td>'+esc(r[1])+'</td></tr>').join('')+'</tbody></table>';$('modal').classList.add('show')}
-function closeModal(){$('modal').classList.remove('show')}
+let modalReturnFocus=null;
+function inspect(v){modalReturnFocus=document.activeElement;$('modalTitle').textContent=(v.brand||'')+' '+(v.model||'');$('modalBody').innerHTML='<div class="deal"><b>'+(searchMode.startsWith('inventory')?'Stored marketplace observation':'Live marketplace observation')+'</b><br>'+(searchMode.startsWith('inventory')?'Confirm current availability with the original seller.':'This listing was returned by a current source query.')+'</div><table class="compare"><tbody>'+[['Asking price',money(v.price_lakh)],['Year',v.mfg_year||'—'],['Mileage',v.km!=null?Number(v.km).toLocaleString('en-IN')+' km':'—'],['Fuel / transmission',(v.fuel||'—')+' / '+(v.transmission||'—')],['Location',v.location||'—'],['Source',v.source||'—'],['Observation time',v.observed_at?new Date(v.observed_at).toLocaleString('en-IN'):'Not provided'],['Verification',v.live_verified?'Source response received':'Not verified']].map(r=>'<tr><th>'+esc(r[0])+'</th><td>'+esc(r[1])+'</td></tr>').join('')+'</tbody></table>'+offerEvidence(v);$('modal').classList.add('show');document.querySelector('#modal .close').focus()}
+function safeListingUrl(value){try{const u=new URL(value);return ['http:','https:'].includes(u.protocol)?u.href:'#'}catch{return '#'}}
+function offerEvidence(v){
+ const offers=v.offers||[{source:v.source,url:v.url,price_lakh:v.price_lakh,observed_at:v.observed_at}];
+ return '<h4>Observed offers ('+offers.length+')</h4><p>These offers are grouped using recorded identity evidence. Source fetch verification is not a physical inspection. Confirm the VIN, condition and current availability with each seller.</p><table class="compare"><thead><tr><th>Source</th><th>Asking price</th><th>Last observed</th><th>Evidence</th></tr></thead><tbody>'+offers.map(o=>'<tr><td>'+esc(o.source||'Unknown')+'</td><td>'+money(o.price_lakh)+'<br>'+esc(o.price_basis||'Price basis unspecified')+'</td><td>'+esc(o.observed_at?new Date(o.observed_at).toLocaleString('en-IN'):'Time not supplied')+'</td><td><a target="_blank" rel="noopener" href="'+esc(safeListingUrl(o.final_url||o.url))+'">Original offer ↗</a></td></tr>').join('')+'</tbody></table><p><b>Comparable evidence:</b> '+(v.comp_median!=null?money(v.comp_median)+' median across '+Number(v.comparable_count||0)+' comparable vehicles. Asking prices are not transaction values.':'Insufficient comparable evidence; no fair-value claim.')+'</p><p>'+esc(v.purchase_context?.note||'Add your registration destination for local/interstate context.')+'</p><p>Transport, tax, insurance, inspection and final transaction costs are not estimated.</p>';
+}
+function closeModal(){$('modal').classList.remove('show');modalReturnFocus?.focus()}
+document.addEventListener('keydown',e=>{if(!$('modal').classList.contains('show'))return;if(e.key==='Escape'){e.preventDefault();closeModal()}if(e.key==='Tab'){const nodes=[...$('modal').querySelectorAll('button,a[href],input,select,[tabindex="0"]')];const first=nodes[0],last=nodes[nodes.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}});
 $('search').onclick=searchLive;$('askSearch').onclick=runAssistant;$('aiPrompt').addEventListener('keydown',e=>{if(e.key==='Enter')runAssistant()});
-['fmin','fmax'].forEach(id=>$(id).addEventListener('input',()=>{if(inventory.length)applyResults()}));$('sort').onchange=applyResults;$('city').onchange=applyResults;$('year').onchange=applyResults;document.querySelectorAll('.fuelCheck').forEach(x=>x.onchange=applyResults);
-$('condition').onchange=()=>{condition=$('condition').value;document.querySelectorAll('input[name="cond"]').forEach(x=>x.checked=x.value===condition);if(inventory.length)applyResults()};
-document.querySelectorAll('input[name="cond"]').forEach(x=>x.onchange=()=>{$('condition').value=x.value;condition=x.value;applyResults()});
-document.querySelectorAll('.chip').forEach(x=>x.onclick=()=>{document.querySelectorAll('.chip').forEach(y=>y.classList.remove('active'));x.classList.add('active');quickFilter=x.dataset.filter;applyResults()});
-$('clear').onclick=()=>{assistantYear=null;$('brand').value='';$('model').innerHTML='<option value="">All models</option>';$('min').value='';$('max').value='';document.querySelectorAll('.fuelCheck').forEach(x=>x.checked=false);$('city').value='';$('year').value='';$('fmin').value='';$('fmax').value='';$('destination').value='';$('condition').value='both';condition='both';document.querySelectorAll('input[name="cond"]').forEach(x=>x.checked=x.value==='both');quickFilter='';document.querySelectorAll('.chip').forEach((x,i)=>x.classList.toggle('active',i===0));applyResults()};
+['fmin','fmax'].forEach(id=>$(id).addEventListener('input',()=>{if(searchRequest)searchLive()}));['transmission','bodyType','maxKm','maxOwners','exactYear'].forEach(id=>$(id).onchange=()=>searchLive());$('sort').onchange=()=>searchLive();$('city').onchange=()=>searchLive();$('year').onchange=()=>searchLive();document.querySelectorAll('.fuelCheck').forEach(x=>x.onchange=()=>searchLive());
+$('condition').onchange=()=>{condition=$('condition').value;document.querySelectorAll('input[name="cond"]').forEach(x=>x.checked=x.value===condition);if(searchRequest)searchLive()};
+document.querySelectorAll('input[name="cond"]').forEach(x=>x.onchange=()=>{$('condition').value=x.value;condition=x.value;searchLive()});
+document.querySelectorAll('.chip').forEach(x=>x.onclick=()=>{document.querySelectorAll('.chip').forEach(y=>y.classList.remove('active'));x.classList.add('active');quickFilter=x.dataset.filter;if(['petrol','diesel','electric','hybrid'].includes(quickFilter))document.querySelectorAll('.fuelCheck').forEach(f=>f.checked=f.value===quickFilter);if(['suv','sedan'].includes(quickFilter))$('bodyType').value=quickFilter;if(!quickFilter)$('bodyType').value='';searchLive()});
+$('clear').onclick=()=>{assistantYear=null;reviewedIntent=null;$('aiPrompt').value='';$('aiReview').textContent='';['transmission','bodyType','maxKm','maxOwners','exactYear'].forEach(id=>$(id).value='');$('brand').value='';$('model').innerHTML='<option value="">All models</option>';$('min').value='';$('max').value='';document.querySelectorAll('.fuelCheck').forEach(x=>x.checked=false);$('city').value='';$('year').value='';$('fmin').value='';$('fmax').value='';$('destination').value='';$('condition').value='both';condition='both';document.querySelectorAll('input[name="cond"]').forEach(x=>x.checked=x.value==='both');quickFilter='';document.querySelectorAll('.chip').forEach((x,i)=>x.classList.toggle('active',i===0));searchLive()};
 loadCatalog();
 </script>
 </body></html>

@@ -135,6 +135,7 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
             year_manufacture=v.get("mfg_year"), year_registration=v.get("registration_year"),
             mileage_km=v.get("km"), owner_count=v.get("owners"), price_lakh=v.get("price_lakh"),
             fuel=v.get("fuel"), transmission=v.get("transmission"),
+            body_type=v.get('body_type'),
             location=v.get("location"), seller_city=v.get("seller_city"),
             seller_state=v.get("seller_state"), registration_state=v.get("registration_state"),
             vin=v.get("vin") or v.get("vehicle_identification_number"),

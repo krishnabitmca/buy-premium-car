@@ -34,7 +34,23 @@ observation times. Historical reports are never substituted for current inventor
 | Responsive web/mobile | Verify first results, refinements, comparison, seller handoff, loading/failure states and accessibility on mobile and desktop. Both clients use one search contract. |
 | Free testing | Preserve the current free test setup and dry-run alerts. Measure throughput/queue age before declaring national freshness; no paid AI or infrastructure commitment is implied. |
 
-## Current implementation verdict — 11 October 2026
+## Implementation update — 16 October 2026
+
+The earlier snapshot below is historical. The existing Render service at
+https://buy-premium-car1.onrender.com/ was verified serving commit `214c6bb` before
+the buyer-search increment; its earlier Vercel HTTP 402 is not the Render status.
+Optional Elasticsearch and shared metadata caching are implemented, while
+PostgreSQL remains the measured faster default for the current inventory.
+
+PR 47 implements whole-index typed refinements/ranking, broader comparison
+cohorts, global result summaries, offer evidence and a guarded Gemini intent
+pilot. See [buyer requirements](BUYER_EXPERIENCE_REQUIREMENTS.md) for validation
+and remaining launch gates. Branch tests do not establish production release.
+Gemini generation is not verified: synthetic calls returned provider high-demand
+errors, and buyer AI remains disabled. Broader source coverage and national
+capacity remain incomplete; no speed or completeness target is declared met.
+
+## Historical implementation snapshot — 11 October 2026
 
 - **Speed: improved, target not achieved.** A local server connected to the existing Supabase Free project measured 20 sequential warm API searches: median 361.77 ms, p95 561.13 ms, with a 2046.01 ms first request. This is not a load test or first-usable-browser latency benchmark. Earlier real samples were approximately 3.4–4.2 seconds.
 - **Non-blocking acquisition: partial implementation.** Configured PostgreSQL searches now default to index-only responses, including empty/partial results, and record demand for background work. Operators can explicitly enable legacy live fallback; database-disabled deployments retain the legacy path. Source metadata is snapshotted per request with a maximum 15-second reuse window; inventory is queried afresh. Connection pooling and one count/page SQL snapshot reduce round trips.

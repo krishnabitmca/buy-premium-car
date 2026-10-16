@@ -8,6 +8,7 @@ import pytest
 
 playwright = pytest.importorskip("playwright.sync_api", reason="Playwright is required only for E2E tests")
 sync_playwright = playwright.sync_playwright
+expect = playwright.expect
 pytestmark = pytest.mark.e2e
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/6fX0VQAAAABJRU5ErkJggg==")
 
@@ -99,41 +100,41 @@ def test_current_evidence_action_is_wired(dashboard_url):
 def test_stored_inventory_assistant_and_filters_are_honest(dashboard_url):
     import json
     with sync_playwright() as p:
-        browser=p.chromium.launch()
-        page=browser.new_page()
+        browser=p.chromium.launch();page=browser.new_page();requests=[]
         page.route('**/api/catalog*',lambda route:route.fulfill(content_type='application/json',body=json.dumps({
             'ok':True,'mode':'live','brands':[{'name':'BMW'}],'models':[{'name':'X5'}]})))
-        requests=[]
         def search(route):
-            requests.append(route.request.post_data_json)
+            body=route.request.post_data_json;requests.append(body)
+            rows=[] if body.get('budget_max') and float(body['budget_max'])<79 else [{
+                'brand':'BMW','model':'X5','price_lakh':79,'mfg_year':2024,'km':10000,
+                'fuel':'Petrol','source':'Test dealer','url':'https://example.invalid/x5',
+                'live_verified':True,'data_consistent':True,'condition_signal':'demo',
+                'observed_at':'2026-10-10T08:00:00Z'}]
             route.fulfill(content_type='application/json',body=json.dumps({
-                'ok':True,'mode':'inventory_partial','search_scope':'india',
-                'sources':[{'name':'Test dealer','status':'inventory','listings_found':1}],
-                'results':[{'brand':'BMW','model':'X5 xDrive40i','price_lakh':79,
-                    'mfg_year':2024,'km':10000,'fuel':'Petrol','source':'Test dealer',
-                    'url':'https://example.invalid/x5','live_verified':True,
-                    'data_consistent':True,'condition_signal':'demo',
-                    'observed_at':'2026-10-10T08:00:00Z'}]}))
+                'ok':True,'mode':'inventory_partial','search_scope':'india','results':rows,
+                'sources':[{'name':'Test dealer','status':'inventory','listings_found':len(rows)}]}))
         page.route('**/api/search*',search)
-        page.goto(dashboard_url)
-        page.locator('#aiPrompt').fill('2024 BMW X5 under ₹80 lakh')
-        page.locator('#askSearch').click()
-        page.locator('.card').wait_for()
-        assert requests[-1]['query']=='BMW X5'
-        assert requests[-1]['budget_min'] is None
-        assert requests[-1]['budget_max']=='80'
-        assert '1 source(s) with matches' in page.locator('#summary').inner_text()
+        from src.search_intent import SearchIntent
+        interpreted=SearchIntent.parse({'query':'BMW X5','manufacture_year':2024,'budget_max':80}).public()
+        page.route('**/api/intent',lambda route:route.fulfill(content_type='application/json',body=json.dumps({
+            'ok':True,'intent':interpreted,'clarifications':[],'unverified_criteria':[]})))
+        page.goto(dashboard_url);page.locator('#aiPrompt').fill('2024 BMW X5 under ₹80 lakh')
+        page.locator('#askSearch').click();assert not requests
+        assert 'Opt in' in page.locator('#aiReview').inner_text()
+        page.locator('#aiConsent').check();page.locator('#askSearch').click()
+        expect(page.locator('#applyIntent')).to_be_visible();assert not requests
+        page.locator('#applyIntent').click();expect(page.locator('.card')).to_have_count(1)
+        assert requests[-1]['query']=='BMW X5' and requests[-1]['budget_max']=='80'
+        assert requests[-1]['manufacture_year']==2024
         page.get_by_role('button',name='Why this car?',exact=True).click()
         assert 'Stored marketplace observation' in page.locator('#modalBody').inner_text()
         assert 'Observation time' in page.locator('#modalBody').inner_text()
-        page.locator('.close').click()
-        page.locator('#fmax').fill('50')
-        assert page.locator('.card').count()==0
+        assert 'Observed offers' in page.locator('#modalBody').inner_text()
+        page.keyboard.press('Escape');expect(page.locator('#modal')).not_to_be_visible()
+        page.locator('#fmax').fill('50');expect(page.locator('.card')).to_have_count(0)
         assert not page.locator('#market').is_visible()
-        page.locator('#clear').click()
-        assert page.locator('#brand').input_value()==''
-        assert page.locator('#max').input_value()==''
-        assert page.locator('.card').count()==1
+        page.locator('#clear').click();expect(page.locator('.card')).to_have_count(1)
+        assert page.locator('#brand').input_value()=='' and page.locator('#max').input_value()==''
         browser.close()
 
 
