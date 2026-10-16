@@ -607,6 +607,60 @@ def test_oem_transport_to_persisted_resume_ingestion_and_index(db, monkeypatch):
     assert payload['results'] and all(row['brand'] == 'Mercedes-Benz' for row in payload['results'])
 
 
+def test_elastic_revision_fences_price_sold_and_disabled_sources(db, monkeypatch):
+    from src import elastic_inventory as elastic
+    v = ingest(db)
+    row = search_inventory(query='BMW X1')[0][0]
+    now = datetime.now(timezone.utc)
+    rev = elastic.revision(db)
+    db.commit()
+    manifest = dict(schema=1, revision=rev, year=now.year, generation='fixture',
+                    expire_minutes=10080, valid_until=(now+timedelta(hours=1)).isoformat())
+    def provider(method, path, *args, **kwargs):
+        if path == '/_doc/manifest':
+            return {'_source': manifest}
+        return {'hits': {'total': {'value': 1, 'relation': 'eq'}, 'hits': [
+            {'_source': {'vehicle_id': row['vehicle_id'], 'key': elastic.key_of(row)}}]}}
+    monkeypatch.setattr(elastic, 'request', provider)
+    monkeypatch.setenv('CARSCANNER_SEARCH_ENGINE', 'elasticsearch')
+    monkeypatch.setattr(elastic, '_retry_after', 0)
+    assert elastic.search_inventory(query='BMW X1', return_count=True)[2] == 1
+    assert elastic.backend() == 'elasticsearch'
+    ingest_vehicles([replace(v, price_lakh=45)])
+    assert elastic.search_inventory(query='BMW X1', budget_max=40, return_count=True)[2] == 0
+    assert elastic.backend() == 'postgresql'
+    monkeypatch.setattr(elastic, '_retry_after', 0)
+    ingest_vehicles([replace(v, sold_signal=True, live_verified=False)])
+    assert elastic.search_inventory(query='BMW X1', return_count=True)[2] == 0
+    assert elastic.backend() == 'postgresql'
+    monkeypatch.setattr(elastic, '_retry_after', 0)
+    db.execute('update public.sources set enabled=false')
+    db.commit()
+    assert elastic.search_inventory(query='BMW X1', return_count=True)[2] == 0
+    assert elastic.backend() == 'postgresql'
+    # Rollbacks also roll back invalidation; readers never see uncommitted data.
+    before = elastic.revision(db)
+    db.execute('update public.sources set enabled=true')
+    assert elastic.revision(db) > before
+    db.rollback()
+    assert elastic.revision(db) == before
+    db.commit()
+
+
+def test_elastic_failed_bulk_does_not_publish_generation(db, monkeypatch):
+    from src import elastic_inventory as elastic
+    ingest(db)
+    calls = []
+    def provider(method, path, *args, **kwargs):
+        calls.append((method, path))
+        return {'errors': True} if '/_bulk' in path else {}
+    monkeypatch.setattr(elastic, 'request', provider)
+    with pytest.raises(elastic.IndexUnavailable, match='not published'):
+        elastic.rebuild()
+    assert any('/_bulk' in path for _, path in calls)
+    assert not any('/_doc/manifest' in path for _, path in calls)
+
+
 def test_shared_registry_cache_cannot_hide_price_updates_or_disabled_sources(db, monkeypatch):
     url = os.getenv('CARSCANNER_TEST_REDIS_URL')
     if not url: pytest.skip('Disposable Redis is required')

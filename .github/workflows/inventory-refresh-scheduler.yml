@@ -38,6 +38,18 @@ jobs:
           for i in 1; do
             python -m src.inventory_refresh_worker --limit "10" || exit 1
           done
+      - name: Refresh derived Elasticsearch inventory
+        if: always()
+        env:
+          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.CARSCANNER_FREE_TEST_DATABASE_URL || secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
+          CARSCANNER_ELASTICSEARCH_URL: https://my-elasticsearch-project-e2727c.es.us-east4.gcp.elastic.cloud
+          CARSCANNER_ELASTICSEARCH_INDEXER_API_KEY: ${{ secrets.CARSCANNER_ELASTICSEARCH_INDEXER_API_KEY }}
+        run: |
+          if [ -n "$CARSCANNER_ELASTICSEARCH_INDEXER_API_KEY" ]; then
+            python -m src.elastic_inventory
+          else
+            echo 'Elasticsearch indexing is not configured; PostgreSQL remains authoritative.'
+          fi
       - name: Process instant car watches
         env:
           SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.CARSCANNER_FREE_TEST_DATABASE_URL || secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}

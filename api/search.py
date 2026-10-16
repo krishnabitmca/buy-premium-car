@@ -14,7 +14,8 @@ ROOT=Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 
 from src.acquisition import purchase_context
-from src.inventory_db import enabled as inventory_enabled, search_inventory
+from src.inventory_db import enabled as inventory_enabled
+from src.elastic_inventory import search_inventory, backend as inventory_backend
 from src.india_geo import infer_state
 from src.live_marketplaces import live_inventory, _query_parts, _identity_matches_query, with_brand_identity
 from src.source_intelligence import load_source_registry, plan_sources, summarize_plan, with_source_registry
@@ -158,6 +159,9 @@ class handler(BaseHTTPRequestHandler):
             if budget_min is not None and budget_max is not None and budget_min>budget_max:
                 return _response(self,400,{"error":"Minimum budget cannot exceed maximum budget"})
             condition=str(body.get("condition") or "both")
+            preferred_engine=body.get('search_engine')
+            if preferred_engine not in (None, 'postgresql', 'elasticsearch'):
+                return _response(self,400,{'error':'Unsupported search engine'})
             page=max(1, int(body.get("page") or 1))
             page_size=max(1, min(int(body.get("page_size") or 50), 200))
             source_plan=measure_call('planning', plan_sources,
@@ -173,6 +177,7 @@ class handler(BaseHTTPRequestHandler):
             inventory_total = None
             if inventory_enabled():
                 inventory_result = measure_call('inventory', search_inventory,
+                    engine=preferred_engine,
                     query=query,
                     condition=condition,
                     budget_min=budget_min,
@@ -284,6 +289,7 @@ class handler(BaseHTTPRequestHandler):
                 "destination":destination or None,
                 "destination_state":infer_state(destination,destination) if destination else None,
                 "mode":search_mode,
+                "search_engine": inventory_backend() if search_mode.startswith('inventory') else 'live',
                 "live_at":__import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
                 "sources":sources,
                 "source_strategy":summarize_plan(source_plan),

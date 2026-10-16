@@ -86,6 +86,18 @@ RLS is enabled on sources, source_capabilities, source_endpoints, source_health,
 
 ## 8. Scaling path
 
+The optional Elasticsearch trial is described in [ADR 009](DECISIONS/009-elasticsearch-trial.md).
+It provides nested-offer candidate retrieval and totals, guarded by a transactional
+PostgreSQL revision and canonical offer hydration. Set `CARSCANNER_SEARCH_ENGINE`
+to `elasticsearch` only after a successful `python -m src.elastic_inventory`
+rebuild. The default and outage/staleness fallback remain PostgreSQL. Runtime
+uses only `CARSCANNER_ELASTICSEARCH_API_KEY`; the indexer key belongs exclusively
+to local background tooling and encrypted GitHub Actions secrets. Neither enters
+frontend bundles. Hourly refresh publishes complete generations after acquisition.
+The trial API also accepts `search_engine: "elasticsearch"` per POST request.
+Normal requests retain PostgreSQL because the initial cross-region measurement
+was slower; `search_engine` in the response reports the actual engine used.
+
 1. Live source adapters
 2. Source intelligence PostgreSQL control plane
 3. More source adapters
