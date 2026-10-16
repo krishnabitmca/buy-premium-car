@@ -1,5 +1,13 @@
 # CarScanner Architecture
 
+## Authoritative buyer search
+
+[ADR 010](DECISIONS/010-authoritative-buyer-intent.md) defines the typed form/AI
+intent boundary, whole-index filters and ordering, and opt-in Gemini pilot.
+[Buyer requirements](docs/BUYER_EXPERIENCE_REQUIREMENTS.md) tracks implementation,
+provider verification and remaining launch gates. Gemini remains disabled while
+live generation is unavailable; ordinary indexed search does not depend on it.
+
 ## Continuous inventory operations
 
 `python -m src.inventory_service` runs the PostgreSQL scheduler and source-isolated

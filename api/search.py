@@ -21,6 +21,7 @@ from src.live_marketplaces import live_inventory, _query_parts, _identity_matche
 from src.source_intelligence import load_source_registry, plan_sources, summarize_plan, with_source_registry
 from src.source_registry_db import enabled as source_db_enabled, record_search_demand
 from src.search_timing import timed_request, measure_call, server_timing
+from src.search_intent import SearchIntent
 
 def _read_json(handler):
     length=int(handler.headers.get("Content-Length","0"))
@@ -151,6 +152,8 @@ class handler(BaseHTTPRequestHandler):
             return _response(self,404,{"error":"Not found"})
         try:
             body=_read_json(self)
+            intent=SearchIntent.parse(body)
+            body={**body, **intent.public()}
             query=str(body.get("query") or "").strip()
             destination=str(body.get("destination") or "").strip()
             budget_min=float(body["budget_min"]) if body.get("budget_min") not in (None,"") else None
@@ -175,6 +178,7 @@ class handler(BaseHTTPRequestHandler):
             )
             search_mode = "live"
             inventory_total = None
+            search_summary = None
             if inventory_enabled():
                 inventory_result = measure_call('inventory', search_inventory,
                     engine=preferred_engine,
@@ -186,14 +190,17 @@ class handler(BaseHTTPRequestHandler):
                     limit=page_size,
                     offset=(page - 1) * page_size,
                     return_count=True,
+                    with_summary=True,
+                    **intent.refinements(),
                 )
-                vehicles, sources, inventory_total = inventory_result
+                vehicles, sources, inventory_total = inventory_result[:3]
+                search_summary = inventory_result[3] if len(inventory_result)>3 else None
                 expected_live_sources = {
                     str(p.get("name"))
                     for p in source_plan
                     if p.get("adapter_status") == "live"
                 }
-                inventory_sources = {
+                inventory_sources = set((search_summary or {}).get('sources') or []) or {
                     str(s.get("name") or s.get("source"))
                     for s in sources
                     if s.get("name") or s.get("source")
@@ -277,7 +284,19 @@ class handler(BaseHTTPRequestHandler):
                 # Score only after comparable-price enrichment so deal evidence
                 # participates in ranking rather than being calculated too early.
                 v["_search_score"]=_score(v)
-            results.sort(key=lambda x:(-x["_search_score"],x.get("price_lakh") or 9999))
+            if not search_mode.startswith('inventory'):
+                # Legacy live mode has no paginated index. Apply the same hard
+                # refinements here; never silently drop an unsupported constraint.
+                from src.search_intent import matches_refinements
+                results=[v for v in results if matches_refinements(v,intent)]
+                sort_keys={
+                    'price':lambda v:(v.get('price_lakh') is None,v.get('price_lakh') or 0),
+                    'km':lambda v:(v.get('km') is None,v.get('km') or 0),
+                    'year':lambda v:-(v.get('mfg_year') or 0),
+                    'gap':lambda v:(v.get('discount_pct') is None,-(v.get('discount_pct') or 0)),
+                    'match':lambda v:(-v['_search_score'],v.get('price_lakh') or 9999),
+                }
+                results.sort(key=sort_keys[intent.sort])
             for v in results: v.pop("_search_score",None)
             zero_result_reason=_zero_result_reason(
                 result_count=len(results), source_plan=source_plan, sources=sources,
@@ -285,6 +304,8 @@ class handler(BaseHTTPRequestHandler):
             )
             return _response(self,200,{
                 "ok":True,
+                "intent":intent.public(),
+                "search_summary":search_summary,
                 "search_scope":"india",
                 "destination":destination or None,
                 "destination_state":infer_state(destination,destination) if destination else None,
@@ -314,5 +335,5 @@ class handler(BaseHTTPRequestHandler):
             })
         except ValueError as exc:
             return _response(self,400,{"error":str(exc)})
-        except Exception as exc:
-            return _response(self,500,{"error":f"Search failed: {exc}"})
+        except Exception:
+            return _response(self,500,{"error":"Search inventory is temporarily unavailable. Please retry."})

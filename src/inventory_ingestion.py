@@ -121,7 +121,7 @@ def ingest_vehicles(vehicles: list[Vehicle]) -> dict[str,int]:
                  json.dumps({"identity_confidence":max(float(v.identity_confidence),identity_confidence),
                   "identity_evidence":evidence,"image_urls":list(v.image_urls or []),
                   "verification_notes":v.verification_notes,"vin":v.vin,"chassis_number":v.chassis_number,
-                  "source_listing_id":v.source_listing_id,"price_basis":v.price_basis})))
+                  "source_listing_id":v.source_listing_id,"price_basis":v.price_basis,"body_type":v.body_type})))
             listing_id=cur.fetchone()["listing_id"]; counts["listings"]+=1
             cur.execute(
                 """insert into public.vehicle_observations
@@ -134,7 +134,7 @@ def ingest_vehicles(vehicles: list[Vehicle]) -> dict[str,int]:
                  bool(v.data_consistent),max(float(v.identity_confidence),identity_confidence),
                  json.dumps({"url":v.url,"final_url":v.final_url,"title":v.title,"source":v.source_name,
                   "condition":v.condition_signal,"identity_evidence":evidence,"vin":v.vin,"chassis_number":v.chassis_number,
-                  "source_listing_id":v.source_listing_id,"price_basis":v.price_basis})))
+                  "source_listing_id":v.source_listing_id,"price_basis":v.price_basis,"body_type":v.body_type})))
             counts["observations"]+=1
         conn.commit()
     return counts

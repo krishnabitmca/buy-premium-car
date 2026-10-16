@@ -32,15 +32,24 @@ def search_inventory(
     limit: int = 500,
     offset: int = 0,
     return_count: bool = False,
+    with_summary: bool = False,
     require_persistence: bool = False,
     explain: bool = False,
+    fuels=(),
+    transmissions=(),
+    body_types=(),
+    max_mileage_km=None,
+    max_owners=None,
+    manufacture_year=None,
+    seller_city='',
+    sort='price',
     _connection=None,
     _vehicle_ids=None,
 ):
     if require_persistence:
         require_database()
     elif not enabled():
-        return ([], [], 0) if return_count else ([], [])
+        return ([], [], 0, {}) if with_summary else (([], [], 0) if return_count else ([], []))
 
     brand, model = _query_parts(query)
     condition = str(condition or "both").strip().lower()
@@ -70,16 +79,40 @@ def search_inventory(
             params.extend([pattern]*3)
     if condition in {"used", "demo"}:
         predicates.append("v.condition = %s"); params.append(condition)
+    baseline_where=' and '.join(predicates)
+    predicates=[]
     if budget_min is not None:
-        predicates.append("o.price_lakh >= %s"); params.append(float(budget_min))
+        predicates.append("price_lakh >= %s"); params.append(float(budget_min))
     if budget_max is not None:
-        predicates.append("o.price_lakh <= %s"); params.append(float(budget_max))
+        predicates.append("price_lakh <= %s"); params.append(float(budget_max))
     if max_age_years is not None:
-        predicates.append("v.manufacture_year is not null and v.manufacture_year >= %s")
+        predicates.append("mfg_year is not null and mfg_year >= %s")
         params.append(datetime.now(timezone.utc).year - int(max_age_years))
 
+    # These predicates operate on the actual latest source observation, before
+    # grouping, totals and pagination. Missing constrained evidence fails closed.
+    for values, expression in (
+        (fuels, "lower(trim(fuel))"),
+        (transmissions, "case when lower(trim(transmission)) in ('automatic','auto','at','dct','cvt','amt','dsg','tiptronic') then 'automatic' when lower(trim(transmission)) in ('manual','mt') then 'manual' else null end"),
+        (body_types, "lower(trim(body_type))"),
+    ):
+        if values:
+            predicates.append(expression + ' = any(%s::text[])'); params.append(list(values))
+    for value, expression in ((max_mileage_km, 'km <= %s'),
+                              (max_owners, 'owners <= %s'),
+                              (manufacture_year, 'mfg_year = %s')):
+        if value is not None:
+            predicates.append(expression); params.append(value)
+    if seller_city:
+        predicates.append('lower(trim(coalesce(seller_city,vehicle_location))) = lower(%s)')
+        params.append(seller_city)
+    if sort not in {'price', 'match', 'gap', 'km', 'year'}:
+        raise ValueError('Unsupported sort')
+
     safe_limit=max(1,min(int(limit),2000)); safe_offset=max(0,min(int(offset),1_000_000))
-    where=" and ".join(predicates)
+    where=' and '.join(predicates) or 'true'
+    # Buyer constraints select eligible offers, but must not redefine the market
+    # comparison cohort. Build reference prices from the broader query cohort.
     base=f"""
       with latest_listing as (
         select
@@ -91,6 +124,7 @@ def search_inventory(
           o.price_lakh,o.mileage_km as km,o.owner_count as owners,o.observed_at,
           o.live_verified,o.data_consistent,s.name as source,s.tier as source_tier,
           coalesce(o.snapshot->>'price_basis','unspecified') as price_basis,
+          coalesce(o.snapshot->>'body_type',v.metadata->>'body_type') as body_type,
           coalesce(l.metadata->'image_urls',v.metadata->'image_urls','[]'::jsonb) as image_urls
         from public.listings l
         join lateral (
@@ -101,10 +135,12 @@ def search_inventory(
         ) o on true
         join public.vehicles v on v.vehicle_id=l.vehicle_id and v.vehicle_id=o.vehicle_id
         join public.sources s on s.source_id=o.source_id
-        where {where}
+        where {baseline_where}
+      ), eligible_listing as (
+        select * from latest_listing where {where}
       ), grouped as (
         select
-          vehicle_id,brand,model,variant,mfg_year,registration_year,condition,condition_signal,fuel,transmission,
+          vehicle_id,brand,model,variant,mfg_year,registration_year,condition,condition_signal,fuel,transmission,body_type,
           vehicle_location as location,seller_state,identity_confidence,price_basis,
           min(price_lakh) as price_lakh,
           (array_agg(km order by price_lakh nulls last,listing_id))[1] as km,
@@ -120,7 +156,7 @@ def search_inventory(
           (array_agg(final_url order by price_lakh nulls last,listing_id))[1] as final_url,
           (array_agg(listing_name order by price_lakh nulls last,listing_id))[1] as listing_name,
           (array_agg(image_urls order by price_lakh nulls last,listing_id))[1] as image_urls,
-          count(*)::int as source_count,
+          count(distinct source)::int as source_count,
           jsonb_agg(jsonb_build_object(
             'source',source,'source_tier',source_tier,'listing_id',listing_id,
             'url',url,'final_url',final_url,'price_lakh',price_lakh,'price_basis',price_basis,
@@ -128,9 +164,14 @@ def search_inventory(
             'seller_state',listing_seller_state,'last_verified_at',last_verified_at,
             'observed_at',observed_at
           ) order by price_lakh nulls last, source) as offers
-        from latest_listing
+        from eligible_listing
         group by vehicle_id,brand,model,variant,mfg_year,registration_year,condition,condition_signal,fuel,
-                 transmission,vehicle_location,seller_state,identity_confidence,price_basis
+                 transmission,body_type,vehicle_location,seller_state,identity_confidence,price_basis
+      ), baseline as (
+        select vehicle_id,brand,model,variant,mfg_year,condition,price_basis,
+               min(price_lakh) as price_lakh,bool_and(data_consistent) as data_consistent
+        from latest_listing
+        group by vehicle_id,brand,model,variant,mfg_year,condition,price_basis
       ), cohorts as materialized (
         select brand,model,variant,mfg_year,condition,price_basis,
                (count(*) filter (where data_consistent))::int as comparable_count,
@@ -138,7 +179,7 @@ def search_inventory(
                           and mfg_year is not null and condition in ('used','demo') then
                  percentile_cont(0.5) within group (order by price_lakh) filter (where data_consistent)
                else null end as comp_median
-        from grouped
+        from baseline
         group by brand,model,variant,mfg_year,condition,price_basis
       )
     """
@@ -146,17 +187,29 @@ def search_inventory(
     if _vehicle_ids is not None:
         selected = " where g.vehicle_id = any(%s::uuid[])"
         params.append(list(_vehicle_ids))
-    projection="""select g.*,c.comparable_count,c.comp_median from grouped g join cohorts c
+    gap="case when c.comp_median > 0 and c.comparable_count >= 3 then (c.comp_median-g.price_lakh)/c.comp_median*100 else null end"
+    rank=f"4*greatest(-10,least(20,coalesce({gap},0)))+5*least(g.source_count,4)+10*coalesce(g.identity_confidence,0)+case when g.km <= 30000 then 5 else 0 end+case when g.owners=1 then 4 else 0 end"
+    primary={'price':'g.price_lakh asc nulls last','km':'g.km asc nulls last',
+             'year':'g.mfg_year desc nulls last','gap':f'{gap} desc nulls last',
+             'match':f'{rank} desc nulls last'}[sort]
+    order=primary+',g.price_lakh nulls last,g.observed_at desc,g.vehicle_id,g.price_basis'
+    projection="""select g.*,c.comparable_count,c.comp_median,
+          row_number() over (order by """+order+""") as result_order from grouped g join cohorts c
           on g.brand is not distinct from c.brand and g.model is not distinct from c.model
           and g.variant is not distinct from c.variant and g.mfg_year is not distinct from c.mfg_year
           and g.condition=c.condition and g.price_basis=c.price_basis""" + selected + """
-          order by g.price_lakh nulls last,g.observed_at desc,g.vehicle_id,g.price_basis limit %s offset %s"""
+          order by """+order+" limit %s offset %s"
     # One statement gives count and page the same database snapshot, and avoids
     # repeating the projection and a network round trip. The left join retains
     # the count even when a page is empty (including offsets beyond the end).
-    sql=base+("""select page.*,totals.total_count
-        from (select count(*)::bigint as total_count from grouped) totals
-        left join lateral ("""+projection+") page on true order by page.price_lakh nulls last,page.observed_at desc,page.vehicle_id,page.price_basis" if return_count else projection)
+    summary_sql=""",jsonb_build_object(
+        'result_count',count(*),'city_count',count(distinct location),
+        'cities',coalesce(jsonb_agg(distinct location) filter (where location is not null),'[]'::jsonb),
+        'sources',coalesce((select jsonb_agg(distinct offer->>'source') from grouped cross join lateral jsonb_array_elements(offers) offer),'[]'::jsonb),
+        'scope','entire_filtered_index') as search_summary""" if with_summary else ''
+    sql=base+("""select page.*,totals.*
+        from (select count(*)::bigint as total_count"""+summary_sql+""" from grouped) totals
+        left join lateral ("""+projection+") page on true order by page.result_order" if return_count else projection)
     pool_started = time.perf_counter()
     with (nullcontext(_connection) if _connection is not None else _connect()) as conn,conn.cursor() as cur:
         record_duration('pool_wait', time.perf_counter() - pool_started)
@@ -167,10 +220,12 @@ def search_inventory(
             return cur.fetchone()['QUERY PLAN']
         measure_call('db_query', cur.execute, sql,list(params)+[safe_limit,safe_offset])
         raw=[dict(r) for r in cur.fetchall()]
+        summary=raw[0].get('search_summary',{}) if raw and with_summary else {}
         if return_count:
             total=int(raw[0]['total_count']) if raw else 0
             for row in raw:
                 row.pop('total_count',None)
+                row.pop('search_summary',None)
             raw=[row for row in raw if row.get('vehicle_id') is not None]
         rows=[json_inventory_value(row) for row in raw]
 
@@ -189,13 +244,14 @@ def search_inventory(
             }]
         row["offers"]=offers
         row["source_listings"]=offers
-        row["source_count"]=max(int(row.get("source_count") or 0), len(offers))
+        row['source_count']=len({o.get('source') for o in offers if o.get('source')})
+        row['offer_count']=len(offers)
         for offer in offers:
             name=offer.get("source")
             if name and name not in seen:
                 seen.add(name); sources.append({"name":name,"status":"inventory","mode":"inventory",
                     "listings_found":sum(1 for r in rows if any(o.get('source')==name for o in r.get('offers') or []))})
-    return (rows,sources,total) if return_count else (rows,sources)
+    return (rows,sources,total,summary) if with_summary else ((rows,sources,total) if return_count else (rows,sources))
 
 
 def iter_inventory(*, query: str = "", condition: str = "both", page_size: int = 500):

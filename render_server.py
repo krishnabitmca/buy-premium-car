@@ -9,6 +9,7 @@ from pathlib import Path
 from api.catalog import handler as CatalogHandler
 from api.search import handler as SearchHandler
 from api.watch import handler as WatchHandler
+from api.intent import handler as IntentHandler
 
 ROOT = Path(__file__).resolve().parent
 
@@ -23,7 +24,7 @@ class RenderHandler(SimpleHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path == "/api/watch":
             return WatchHandler.do_OPTIONS(self)
-        if path in {"/api/catalog", "/api/search"}:
+        if path in {"/api/catalog", "/api/search", "/api/intent"}:
             return SearchHandler.do_OPTIONS(self)
         self.send_response(204)
         self.end_headers()
@@ -58,6 +59,8 @@ class RenderHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?", 1)[0]
+        if path == '/api/intent':
+            return IntentHandler.do_POST(self)
         if path == "/api/search":
             return SearchHandler.do_POST(self)
         if path == "/api/watch":

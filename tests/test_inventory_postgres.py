@@ -677,3 +677,46 @@ def test_shared_registry_cache_cannot_hide_price_updates_or_disabled_sources(db,
     db.commit()
     disabled = post_search(monkeypatch, {'query': 'BMW X1', 'condition': 'used'}, ['Fixture Dealer'])
     assert disabled['results'] == []
+
+
+def test_whole_index_refinements_and_ordering_precede_pagination(db):
+    source=add_source(db)
+    records=[vehicle(url=f'https://fixture.invalid/whole/{i}',vin=f'WBA{i:014d}',
+                     price_lakh=10+i/10,fuel='diesel' if i<55 else 'petrol',
+                     transmission='Automatic',mileage_km=100000-i*1000,
+                     body_type='suv',owner_count=1) for i in range(65)]
+    ingest_vehicles(records)
+    rows,sources,total,summary=search_inventory(query='BMW',fuels=['petrol'],
+        transmissions=['automatic'],body_types=['suv'],max_mileage_km=46000,
+        limit=3,sort='km',return_count=True,with_summary=True)
+    assert total==10
+    assert [r['km'] for r in rows]==[36000,37000,38000]
+    assert summary['result_count']==10
+    assert summary['sources']==['Fixture Dealer']
+    next_rows,_,next_total=search_inventory(query='BMW',fuels=['petrol'],
+        transmissions=['automatic'],body_types=['suv'],max_mileage_km=46000,
+        limit=3,offset=3,sort='km',return_count=True)
+    assert next_total==10 and [r['km'] for r in next_rows]==[39000,40000,41000]
+    assert not {r['vehicle_id'] for r in rows}&{r['vehicle_id'] for r in next_rows}
+    # Restricting the buyer's budget must not change the comparison reference.
+    cheap,_,_=search_inventory(query='BMW',budget_max=11,return_count=True)
+    assert cheap and all(r['comparable_count']==65 for r in cheap)
+    assert all(float(r['comp_median'])==13.2 for r in cheap)
+
+
+def test_ai_daily_quota_is_atomic_and_durable(db,monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from src.buyer_ai import reserve_call, AIUnavailable
+    db.execute('truncate public.buyer_ai_daily_usage');db.commit()
+    monkeypatch.setenv('CARSCANNER_AI_DAILY_LIMIT','5')
+    def attempt(_):
+        try: reserve_call();return True
+        except AIUnavailable:return False
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        outcomes=list(executor.map(attempt,range(15)))
+    assert sum(outcomes)==5
+    assert db.execute('select calls from public.buyer_ai_daily_usage').fetchone()['calls']==5
+    db.execute('set local role anon')
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        db.execute('select * from public.buyer_ai_daily_usage')
+    db.rollback()

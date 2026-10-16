@@ -97,7 +97,10 @@ def search_inventory(*, engine=None, **kwargs):
     global _retry_after
     _backend.set('postgresql')
     use = (engine or os.getenv('CARSCANNER_SEARCH_ENGINE', 'postgresql')) == 'elasticsearch'
-    if not use or kwargs.get('explain') or not inventory_db.enabled() or time.monotonic() < _retry_after:
+    advanced = kwargs.get('with_summary') or any(kwargs.get(k) not in (None, '', (), []) for k in (
+        'fuels', 'transmissions', 'body_types', 'max_mileage_km', 'max_owners',
+        'manufacture_year', 'seller_city')) or kwargs.get('sort', 'price') != 'price'
+    if advanced or not use or kwargs.get('explain') or not inventory_db.enabled() or time.monotonic() < _retry_after:
         return inventory_db.search_inventory(**kwargs)
     try:
         manifest = measure_call('elastic_manifest', request, 'GET', '/_doc/manifest')['_source']

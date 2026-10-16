@@ -4,6 +4,7 @@ import re
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs,urlparse
 from src.live_marketplaces import live_brands,live_models
+from src.car_catalog import CAR_MAKES
 
 _NON_MODEL_NAMES = {
     "images","image","gallery","galleries","photos","photo","videos","video",
@@ -54,7 +55,13 @@ class handler(BaseHTTPRequestHandler):
             if brand:
                 models=_sanitize_models(live_models(brand))
                 return response(self,200,{"ok":True,"mode":"live","source":"CarDekho current catalog with resilient fallback","brand":brand,"catalog_fallback":any(x.get("catalog_verified")=="fallback" for x in models),"models":models})
-            brands=live_brands()
-            return response(self,200,{"ok":True,"mode":"live","source":"CarDekho current catalog","brands":brands})
+            discovered={b['name']:b for b in live_brands()}
+            brands=[discovered.get(name,{'name':name,'catalog_verified':'taxonomy',
+                                        'inventory_coverage':'unverified'})
+                    for name in sorted(set(CAR_MAKES)|set(discovered))]
+            return response(self,200,{"ok":True,"mode":"live",
+                "source":"India make taxonomy with discovered catalog metadata",
+                "coverage_notice":"A selectable brand does not establish indexed inventory or marketplace coverage.",
+                "brands":brands})
         except Exception as exc:
             return response(self,502,{"ok":False,"mode":"live","error":f"Live catalog unavailable: {exc}"})
