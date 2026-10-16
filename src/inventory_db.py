@@ -8,6 +8,7 @@ Select the actual latest observation before applying price/availability filters.
 
 import os
 import time
+from contextlib import nullcontext
 from .search_timing import measure_call, record_duration
 from datetime import datetime, timezone
 from typing import Any
@@ -33,6 +34,8 @@ def search_inventory(
     return_count: bool = False,
     require_persistence: bool = False,
     explain: bool = False,
+    _connection=None,
+    _vehicle_ids=None,
 ):
     if require_persistence:
         require_database()
@@ -139,10 +142,14 @@ def search_inventory(
         group by brand,model,variant,mfg_year,condition,price_basis
       )
     """
+    selected = ""
+    if _vehicle_ids is not None:
+        selected = " where g.vehicle_id = any(%s::uuid[])"
+        params.append(list(_vehicle_ids))
     projection="""select g.*,c.comparable_count,c.comp_median from grouped g join cohorts c
           on g.brand is not distinct from c.brand and g.model is not distinct from c.model
           and g.variant is not distinct from c.variant and g.mfg_year is not distinct from c.mfg_year
-          and g.condition=c.condition and g.price_basis=c.price_basis
+          and g.condition=c.condition and g.price_basis=c.price_basis""" + selected + """
           order by g.price_lakh nulls last,g.observed_at desc,g.vehicle_id,g.price_basis limit %s offset %s"""
     # One statement gives count and page the same database snapshot, and avoids
     # repeating the projection and a network round trip. The left join retains
@@ -151,7 +158,7 @@ def search_inventory(
         from (select count(*)::bigint as total_count from grouped) totals
         left join lateral ("""+projection+") page on true order by page.price_lakh nulls last,page.observed_at desc,page.vehicle_id,page.price_basis" if return_count else projection)
     pool_started = time.perf_counter()
-    with _connect() as conn,conn.cursor() as cur:
+    with (nullcontext(_connection) if _connection is not None else _connect()) as conn,conn.cursor() as cur:
         record_duration('pool_wait', time.perf_counter() - pool_started)
         total=None
         if explain:

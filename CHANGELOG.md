@@ -1,3 +1,10 @@
+## 2026-10-16 — Optional Elasticsearch trial integration
+
+- Add nested-offer search with complete generation publication and separate scoped runtime/indexer credentials.
+- Fence derived results with a transactional PostgreSQL revision, canonical offer hydration and expiry checks; fall back on changes, partial responses, provider failure or trial expiry.
+- Refresh the projection after hourly background acquisition and expose the actual search engine in API responses. Keep PostgreSQL comparison calculations and source provenance.
+- Document cross-region latency, full-refresh/write-serialization limits and the unapproved paid continuation in ADR 009. This change does not claim national capacity or broader source coverage.
+
 ## 2026-10-13 — Render release verification
 
 - Release to the existing free Render service with indexed PostgreSQL search and dry-run alerts.
