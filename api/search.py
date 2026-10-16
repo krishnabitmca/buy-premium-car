@@ -336,4 +336,4 @@ class handler(BaseHTTPRequestHandler):
         except ValueError as exc:
             return _response(self,400,{"error":str(exc)})
         except Exception:
-            return _response(self,500,{"error":"Search inventory is temporarily unavailable. Please retry."})
+            return _response(self,500,{"error":"Search failed: inventory is temporarily unavailable. Please retry."})
