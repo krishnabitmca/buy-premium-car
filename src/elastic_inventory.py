@@ -107,6 +107,8 @@ def search_inventory(*, engine=None, **kwargs):
         now = datetime.now(timezone.utc)
         if (manifest['schema'] != 1 or manifest['year'] != now.year or
                 manifest['expire_minutes'] != expire_minutes() or
+                manifest.get('demo_expire_minutes',1440) != max(60,int(os.getenv('CARSCANNER_DEMO_EXPIRE_MINUTES','1440'))) or
+                manifest.get('used_expire_minutes',2880) != max(60,int(os.getenv('CARSCANNER_USED_EXPIRE_MINUTES','2880'))) or
                 datetime.fromisoformat(manifest['valid_until']) <= now):
             raise IndexUnavailable('Index freshness policy changed')
         with _connect() as conn:
@@ -179,6 +181,7 @@ def rebuild():
     count = 0
     with _connect() as conn:
         conn.execute('set transaction isolation level repeatable read read only')
+        source_expiry={r['name']:r['expire_after_minutes'] for r in conn.execute('select name,expire_after_minutes from sources')}
         rev = revision(conn)
         offset = 0
         while True:
@@ -190,7 +193,9 @@ def rebuild():
             for row in rows:
                 key = key_of(row)
                 for offer in row['offers']:
-                    until = datetime.fromisoformat(offer['last_verified_at'].replace('Z', '+00:00')) + timedelta(minutes=expire_minutes())
+                    from .inventory_freshness import expiry_minutes
+                    until = datetime.fromisoformat(offer['last_verified_at'].replace('Z', '+00:00')) + timedelta(
+                        minutes=expiry_minutes(row['condition'],source_expiry.get(offer['source'],10080)))
                     valid_until = min(valid_until, until)
                 identity = [' ' + ' '.join(_identity_tokens(str(row.get(field) or ''))) + ' '
                             for field in ('model', 'variant', 'listing_name')]
@@ -215,6 +220,8 @@ def rebuild():
         raise IndexUnavailable('Snapshot expired before publication')
     manifest = {'kind': 'manifest', 'schema': 1, 'generation': generation,
                 'revision': rev, 'year': now.year, 'expire_minutes': expire_minutes(),
+                'demo_expire_minutes':max(60,int(os.getenv('CARSCANNER_DEMO_EXPIRE_MINUTES','1440'))),
+                'used_expire_minutes':max(60,int(os.getenv('CARSCANNER_USED_EXPIRE_MINUTES','2880'))),
                 'valid_until': valid_until.isoformat(), 'built_at': now.isoformat(), 'count': count}
     request('PUT', '/_doc/manifest?refresh=wait_for', manifest, indexer=True)
     # Keep generations for ten minutes so in-flight readers can finish safely.

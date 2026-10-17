@@ -36,11 +36,25 @@ jobs:
           CARSCANNER_MAX_PAGES_PER_SOURCE: "3"
         run: |
           failed=0
-          python -m src.inventory_refresh_worker --limit 2 || failed=1
+          python -m src.inventory_refresh_worker --limit 1 || failed=1
+          python -m src.inventory_refresh_worker --demo-only --limit 1 || failed=1
           python -m src.inventory_refresh_worker --models-only --limit 3 || failed=1
           python -m src.inventory_refresh_worker --continuations-only --limit 3 || failed=1
           python -m src.inventory_refresh_worker --catalogues-only --limit 2 || failed=1
           exit "$failed"
+      - name: Renew existing listings and expire stale offers
+        if: always()
+        env:
+          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.CARSCANNER_FREE_TEST_DATABASE_URL || secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
+        run: python -m src.inventory_lifecycle --limit 10 --report coverage/inventory-lifecycle.json
+      - name: Upload inventory lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: inventory-lifecycle-${{ github.run_number }}
+          path: coverage/inventory-lifecycle.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Refresh derived Elasticsearch inventory
         if: always()
         env:

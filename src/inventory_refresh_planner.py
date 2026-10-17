@@ -56,7 +56,7 @@ def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
     # Customer demand comes first so its priority is retained when it overlaps
     # a baseline job. Brand scans remain India-wide regardless of destination.
     unique_demands = {}
-    for demand in [global_demand] + demands + baseline_brand_demands():
+    for demand in [global_demand,{**global_demand,'condition':'demo'}] + demands + baseline_brand_demands():
         key = tuple(str(demand.get(k) or ('both' if k == 'condition' else '')).strip().lower()
                     for k in ('brand', 'model', 'condition', 'destination_state'))
         unique_demands.setdefault(key, demand)
@@ -99,6 +99,9 @@ def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
                        and q.condition=%s and q.destination_state=%s
                      where s.enabled=true
                        and s.adapter_status='live'
+                       and (%s<>'demo' or %s<>'' or %s<>'' or exists (
+                         select 1 from source_capabilities dc where dc.source_id=s.source_id
+                           and dc.capability_type='condition' and lower(dc.capability_value)='demo'))
                        and (
                          %s=''
                          or exists (
@@ -110,14 +113,15 @@ def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
                        )
                      group by s.source_id,s.name,s.freshness_target_minutes,
                               s.stale_after_minutes,s.expire_after_minutes,sh.status,q.metadata""",
-                (brand, model, condition, state, brand, brand),
+                (brand, model, condition, state,condition,brand,model,brand,brand),
             )
             sources = cur.fetchall()
 
             for source in sources:
                 age_value = source.get("age_minutes")
                 age = 999999 if age_value is None else float(age_value)
-                if age <= float(source.get("target_minutes") or 360):
+                target=min(float(source.get("target_minutes") or 360),180 if condition=='demo' else 360)
+                if age <= target:
                     continue
 
                 freshness = (
