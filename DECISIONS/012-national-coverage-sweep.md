@@ -17,7 +17,9 @@ Reuse the customer search projection so sold, expired or disabled-source listing
 cannot inflate counts. Zero means a coverage gap, never evidence of an empty market.
 Location labels may include neighborhoods; their count is not a normalized city count.
 
-Source-specific make slugs belong in reviewed source configuration. Normalize
-accented make identity and search canonical aliases without rewriting historical
+Source-specific make slugs belong in reviewed source configuration.
+Checkpoints retain their root routes; a reviewed route correction restarts the
+old traversal after host validation, preserving idempotent ingestion.
+Normalize accented make identity and search canonical aliases without rewriting historical
 rows. Follow explicitly advertised aria-label next-page links as well as rel=next.
 Destination remains purchase context, not an implicit geographic boundary.

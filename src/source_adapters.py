@@ -96,6 +96,15 @@ class BuiltinMarketplaceAdapter:
         if progress.get("pending_urls") and any(urlsplit(page).scheme not in {"http", "https"} or
                urlsplit(page).hostname not in allowed_hosts for page in urls):
             return AdapterResult(self.source_name, error="invalid continuation URL")
+        # Reviewed make-route corrections must not keep following checkpoints
+        # from the old route. Validate hosts first, then restart this traversal;
+        # ingestion is idempotent and a restart is not evidence of completeness.
+        previous_roots=progress.get('root_urls')
+        legacy_pages=set(progress.get('visited_urls') or []) | set(progress.get('pending_urls') or [])
+        if (previous_roots is not None and previous_roots != roots) or (
+                previous_roots is None and progress.get('visited_urls') and not set(roots).issubset(legacy_pages)):
+            progress={}
+            urls=list(roots)
         url = urls[0] if urls else ""
         if not adapter_execution_allowed(self.source_name):
             return AdapterResult(
@@ -276,6 +285,7 @@ class BuiltinMarketplaceAdapter:
                 query_url=" | ".join(fetched_urls),
                 error=partial_error,
                 continuation={"pending_urls": [page for page in urls if page not in seen_pages],
+                              "root_urls": roots,
                               "visited_urls": sorted(seen_pages),
                               "oem_cursors": oem_cursors} if request.continuation is not None
                               and any(page not in seen_pages for page in urls) else None,
