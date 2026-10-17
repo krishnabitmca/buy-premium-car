@@ -51,6 +51,7 @@ class AdapterResult:
     continuation: dict[str, Any] | None = None
     pages_fetched: int = 0
     discovered_models: list[dict[str, Any]] = field(default_factory=list)
+    scan_evidence: dict[str, Any] = field(default_factory=dict)
 
 
 class SourceAdapter(Protocol):
@@ -139,6 +140,8 @@ class BuiltinMarketplaceAdapter:
             seen_pages=set(progress.get("visited_urls") or [])
             fetched_this_batch=0
             oem_cursors=dict(progress.get('oem_cursors') or {})
+            catalog_scopes=dict(progress.get('catalog_scopes') or {})
+            advertised_counts=dict(progress.get('advertised_counts') or {})
             for endpoint_url in urls:
                 if endpoint_url in seen_pages or fetched_this_batch>=max_pages:
                     continue
@@ -180,13 +183,20 @@ class BuiltinMarketplaceAdapter:
                     fetched_urls.append(endpoint_url)
                     continue
                 try:
-                    html = fetch_text(endpoint_url)
+                    if parser_strategy == 'luxuryride_cards':
+                        from .dealer_inventory import fetch_luxuryride_catalog_page
+                        html = fetch_luxuryride_catalog_page(endpoint_url,fetch_text)
+                    else:
+                        html = fetch_text(endpoint_url)
                 except Exception as exc:
                     if len(urls) == 1:
                         raise
                     partial_error = (partial_error or "") + f"{endpoint_url}: {type(exc).__name__}: {str(exc)[:100]}; "
                     continue
                 fetched_urls.append(endpoint_url)
+                if parser_strategy == 'luxuryride_cards':
+                    from .catalog_traversal import validate_paged_response
+                    validate_paged_response(html, endpoint_url)
                 if parser_strategy in {'cardekho_cards','carwale_cards','cars24_cards','cartrade_cards'}:
                     from .marketplace_cards import parse_marketplace_cards
                     parsed=parse_marketplace_cards(html,self.source_name,endpoint_url,parser_strategy,request.query)
@@ -218,6 +228,18 @@ class BuiltinMarketplaceAdapter:
                         html, self.source_name, endpoint_url, request.query
                     )
                 all_parsed.extend(parsed)
+                from .catalog_traversal import advertised_scopes,advertised_total
+                if request.continuation is not None and not request.query:
+                    for scope in advertised_scopes(html,self.source,endpoint_url):
+                        catalog_scopes[scope['url']]=scope
+                        if scope['url'] not in urls and scope['url'] not in seen_pages:
+                            urls.append(scope['url'])
+                if parser_strategy in {'cardekho_cards','carwale_cards','cartrade_cards'}:
+                    total=advertised_total(html)
+                    if total is not None:
+                        advertised_counts[endpoint_url]=total
+                        if total>0 and not parsed:
+                            raise RuntimeError('Source advertises inventory but no valid cards were extracted')
                 if request.continuation is not None and parser_strategy in {'cardekho_cards','carwale_cards','cartrade_cards'}:
                     from .used_inventory_frontier import discover_models
                     for discovered in discover_models(html,self.source,endpoint_url,request.query,parsed):
@@ -305,7 +327,13 @@ class BuiltinMarketplaceAdapter:
                               and any(page not in seen_pages for page in urls) else None,
                 pages_fetched=fetched_this_batch,
                 discovered_models=list(discovered_models.values()),
+                scan_evidence={'visited_page_count':len(seen_pages),'scope_count':len(catalog_scopes),
+                    'pending_page_count':sum(page not in seen_pages for page in urls),
+                    'listings_this_batch':len(filtered),'catalog_scopes':list(catalog_scopes.values()),
+                    'advertised_counts':advertised_counts,'coverage_state':'partial_traversal' if any(page not in seen_pages for page in urls) else 'traversal_exhausted_unverified'},
             )
+            if result.continuation is not None:
+                result.continuation.update(catalog_scopes=catalog_scopes,advertised_counts=advertised_counts)
             record_adapter_execution(
                 self.source_name,
                 success=True,

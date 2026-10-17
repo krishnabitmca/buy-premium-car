@@ -52,6 +52,8 @@ jobs:
         run: python scripts/production_e2e.py
 
   qa-agent:
+    # Preview access is limited to branches in this repository, never fork code.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 30
     continue-on-error: false
@@ -60,6 +62,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - uses: actions/setup-python@v5
+        if: github.event_name == 'pull_request'
+        with:
+          python-version: "3.12"
+      - name: Start branch preview against approved test inventory
+        if: github.event_name == 'pull_request'
+        env:
+          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.CARSCANNER_FREE_TEST_DATABASE_URL }}
+          CARSCANNER_INVENTORY_FIRST: 'true'
+          CARSCANNER_ALLOW_LIVE_COVERAGE_FALLBACK: 'false'
+          HOST: '127.0.0.1'
+          PORT: '8000'
+        run: |
+          test -n "$SOURCE_INTELLIGENCE_DATABASE_URL"
+          pip install -r requirements.txt
+          python -u render_server.py > /tmp/carscanner-preview.log 2>&1 &
       - name: Install browser test runtime
         run: |
           npm init -y >/dev/null 2>&1
@@ -67,7 +85,7 @@ jobs:
           npx playwright install --with-deps chromium >/dev/null 2>&1
       - name: Run comprehensive customer journey QA
         env:
-          CARSCANNER_BASE_URL: https://buy-premium-car1.onrender.com/
+          CARSCANNER_BASE_URL: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:8000/' || 'https://buy-premium-car1.onrender.com/' }}
           QA_REPORT_DIR: qa-reports
         run: |
           EXPECTED_DEPLOYMENT_SHA="${{ github.event_name == 'push' && github.sha || '' }}" python3 scripts/wait_for_deployment.py

@@ -10,8 +10,9 @@ jobs from stored source observations; old observations only identify what to cra
 The daily national workflow runs this bootstrap automatically.
 
 Regular scheduling requeues stale completed model jobs without resetting partial
-or failed work. The quarter-hour worker reserves three general, four model and
-three continuation jobs. Use `--models-only` or `--continuations-only` for bounded
+or failed work. The quarter-hour worker reserves two general, three model,
+three continuation and two global catalogue jobs. Use `--models-only`,
+`--catalogues-only` or `--continuations-only` for bounded
 operator runs. All classes retain normal claim locks, source verification and retry
 fences. Audit artifacts now include `model_frontier` source/model progress.
 See ADR 013 for scope and remaining city-only-source/capacity gates.
@@ -189,3 +190,16 @@ Continuation URLs must belong to a registered endpoint host. Cyclic next links s
 BMW and Mercedes background adapters now save `next_group` per endpoint inside the existing queue continuation. A later batch opens a fresh public browsing session, reads the current advertised group count and resumes from that position. The configured inventory-page budget is shared across endpoints; session bootstrap/token requests add transport overhead and are not inventory pages. Tokens and cookies are never checkpointed.
 
 An empty response before the advertised end or missing pagination metadata during resume fails the batch, preserving its previous checkpoint. Successful ingestion precedes checkpoint advancement. A changed catalogue can shift group membership during a multi-batch scan; resumable traversal alone does not prove a snapshot-consistent or exhaustive catalogue. Scan generations, reconciliation, other source-specific APIs and real extraction/coverage audits remain open.
+
+## Advertised city and dealer catalogues
+
+Global both-condition jobs follow reviewed same-host city links and advertised
+dealer stock catalogues, independent of buyer destination. Their existing
+continuations preserve pending/visited pages and scope provenance across runs.
+Coverage reports expose `catalogue_frontier` with last batch/error, discovered
+scopes and advertised counts. `traversal_exhausted_unverified` means advertised
+links were exhausted; it does not assert complete market coverage.
+
+Luxury Ride uses its public filter API for pages after the first. A response
+showing the wrong page is rejected, retaining the previous successful checkpoint.
+See DECISIONS/014-advertised-city-dealer-traversal.md for the reviewed contract.
