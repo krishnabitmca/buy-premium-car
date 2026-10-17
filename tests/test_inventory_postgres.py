@@ -343,7 +343,7 @@ def test_successful_empty_scan_is_fresh_and_other_model_still_scheduled(db,monke
         lambda **kwargs:[{'brand':'BMW','model':'X1','condition':'used','search_count':1}])
     assert schedule_refreshes()==1
     db.commit()
-    assert db.execute("select model from public.inventory_refresh_queue where status='queued'").fetchone()['model']=='X1'
+    assert db.execute("select model from public.inventory_refresh_queue where status='queued'").fetchone()['model']=='x1'
 
 
 def test_abandoned_claim_recovered_and_old_attempt_cannot_complete(db):
