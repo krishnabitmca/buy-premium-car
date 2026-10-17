@@ -104,12 +104,12 @@ def _planned_live_sources_unavailable(source_plan, sources):
 def _zero_result_reason(*, result_count, source_plan, sources, search_mode, availability_warning):
     if result_count:
         return None
+    if search_mode == 'inventory_partial':
+        return 'partial_coverage'
     if availability_warning:
         return "sources_unavailable"
     if not source_plan:
         return "no_eligible_sources"
-    if search_mode == "inventory_partial":
-        return "partial_coverage"
     if search_mode in {"live_fallback", "live_coverage_fallback"} and not sources:
         return "sources_unavailable"
     return "no_matching_inventory"

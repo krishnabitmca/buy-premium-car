@@ -1,3 +1,11 @@
+## 2026-10-17 — Repair mainstream-make acquisition gaps
+
+- Recognize and schedule the independent make taxonomy even when registry brand capabilities are incomplete.
+- Rotate worker service across brands/jobs; preserve queued age and normalize new intent keys so high-priority continuations cannot indefinitely starve other makes.
+- Run bounded background refresh every 15 minutes and support focused verified-source recovery.
+- Show retained search criteria and provide an explicit brand-only retry action. Classify empty partial inventory as a coverage gap.
+- A bounded real recovery indexed 52 Skoda, 53 Mahindra and 55 Hyundai observations from CarDekho and CarWale; Honda's unrestricted used search returned 801. These counts do not establish complete marketplace coverage.
+
 ## 2026-10-17 — Verified Gemini free-tier pilot
 
 - Recheck the live search release and verify whole-index fuel/mileage constraints and global ordering.

@@ -19,23 +19,30 @@ from .source_registry_db import _connect, enabled, require_database, load_regist
 log = logging.getLogger(__name__)
 
 
-def claim_jobs(limit: int = 10) -> list[dict[str, Any]]:
+def claim_jobs(limit: int = 10, *, brands=None, source_names=None) -> list[dict[str, Any]]:
     if not enabled():
         return []
     with _connect() as conn, conn.cursor() as cur:
         cur.execute(
-            """with picked as (
+            """with brand_service as (
+                 select lower(brand) as brand,max(started_at) as last_started
+                 from public.inventory_refresh_queue group by lower(brand)
+               ), picked as (
                  select q.refresh_id
                  from public.inventory_refresh_queue q
                  join public.sources s on s.source_id=q.source_id
+                 join brand_service b on b.brand=lower(q.brand)
                  where q.status='queued'
+                   and (%s::text[] is null or lower(q.brand)=any(%s::text[]))
+                   and (%s::text[] is null or s.name=any(%s::text[]))
                    and s.enabled=true
                    and s.adapter_status='live'
                    and exists (
                      select 1 from public.source_adapters sa
                      where sa.source_id=s.source_id and sa.status='verified'
                    )
-                 order by q.priority desc, q.requested_at asc
+                 order by b.last_started asc nulls first,
+                          q.started_at asc nulls first,q.priority desc,q.requested_at asc,q.refresh_id
                  for update of q skip locked
                  limit %s
                )
@@ -43,7 +50,8 @@ def claim_jobs(limit: int = 10) -> list[dict[str, Any]]:
                set status='running',started_at=now(),attempt_count=attempt_count+1
                from picked where q.refresh_id=picked.refresh_id
                returning q.*, (select s.name from public.sources s where s.source_id=q.source_id) as source_name,\n                       (select s.url from public.sources s where s.source_id=q.source_id) as source_url""",
-            (max(1, min(int(limit), 100)),),
+            ([str(b).strip().lower() for b in brands] if brands else None,)*2 +
+            (list(source_names) if source_names else None,)*2 + (max(1,min(int(limit),100)),),
         )
         rows = [dict(r) for r in cur.fetchall()]
         conn.commit()
@@ -158,12 +166,12 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
         raise
 
 
-def run_batch(limit: int = 10) -> dict[str, int]:
+def run_batch(limit: int = 10, *, brands=None, source_names=None) -> dict[str, int]:
     """Claim only when ready to execute; isolate marketplace failures."""
     counts = {"completed": 0, "failed": 0}
     recover_jobs()
     for _ in range(max(1, min(int(limit), 100))):
-        jobs = claim_jobs(1)
+        jobs = claim_jobs(1,brands=brands,source_names=source_names) if brands or source_names else claim_jobs(1)
         if not jobs:
             break
         try:
@@ -178,10 +186,12 @@ def run_batch(limit: int = 10) -> dict[str, int]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument('--brand',action='append',help='Limit recovery work to this make; repeatable')
+    parser.add_argument('--source',action='append',help='Limit recovery to verified source names; repeatable')
     args = parser.parse_args()
     require_database()
     logging.basicConfig(level=logging.INFO)
-    result = run_batch(args.limit)
+    result = run_batch(args.limit,brands=args.brand,source_names=args.source)
     print(result)
     if result["failed"]:
         raise SystemExit(1)

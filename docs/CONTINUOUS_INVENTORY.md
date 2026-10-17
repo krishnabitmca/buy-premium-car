@@ -23,13 +23,22 @@ python -m src.inventory_service --limit 10 --once
 ```
 
 This service schedules India-wide work even without customer traffic, then
-creates brand-level baseline jobs from every concrete registry brand across
+creates brand-level baseline jobs from the independent make taxonomy plus registry brands across
 all eligible verified sources. It does not wait for a buyer to search that brand.
 The registry's `all` capability is a matching rule, not a brand. Customer demands
-retain priority when they overlap baseline jobs. This expands queue breadth;
-it does not establish that the registry contains every Indian brand or that
+retain priority within fair brand/job rotation when they overlap baseline jobs. This expands queue breadth;
+it does not establish that the taxonomy contains every Indian brand or that
 bounded crawls cover entire source catalogues. Size worker capacity against
 queue age and each source's freshness target before claiming a coverage SLA.
+
+ADR 011 records the starvation repair. Claims prefer the least recently attempted
+brand, then unserved/older jobs within it, then demand priority. Scheduler updates
+preserve queued age; successful partial scans retain their continuation. New keys
+are case-normalized. The GitHub workflow runs ten jobs every 15 minutes.
+For bounded recovery use `python -m src.inventory_refresh_worker --limit 6
+--brand skoda --brand mahindra --brand hyundai --source "CarDekho Used"
+--source "CarWale Used"` after scheduling work. This uses normal claim fencing and
+verified adapter checks; it never substitutes fabricated or historical listings.
 
 The service
 consumes queued source/intent jobs. Multiple processes can use PostgreSQL

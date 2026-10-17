@@ -52,7 +52,7 @@
 </aside>
 <section id="results">
 <div class="contentHead"><div><h2>Cars found</h2><a href="#filters" class="filterJump">Refine results ↓</a><div id="meta" class="meta">Search discovered car listings</div></div><select id="sort" aria-label="Result order" class="sort"><option value="match">Recommended</option><option value="price">Lowest price</option><option value="gap">Best market gap</option><option value="km">Lowest mileage</option><option value="year">Newest</option></select></div>
-<div class="livebar"><span><strong>India-wide</strong> Source-backed car search</span><span id="summary">Search to see source observations</span></div>
+<div id="activeCriteria" class="meta" aria-live="polite" style="margin-bottom:10px"></div><div class="livebar"><span><strong>India-wide</strong> Source-backed car search</span><span id="summary">Search to see source observations</span></div>
 <details id="coverage" style="display:none;margin:12px 0"><summary>Marketplace coverage for this search</summary><p>Coverage is limited to discovered sources and fetched pages. A source without matches here may have cars that have not been indexed.</p><ul id="coverageSources"></ul></details>
 <div id="market" class="market"><div class="marketTop"><div><h3 id="marketTitle">Market view</h3><small id="marketSub"></small></div><span class="confidence" id="marketConfidence"></span></div><div class="marketStats"><div class="stat"><b id="marketCount">—</b><span>cars observed</span></div><div class="stat"><b id="marketCities">—</b><span>cities observed</span></div><div class="stat"><b id="marketSources">—</b><span>sources observed</span></div><div class="stat"><b id="marketBelow">—</b><span>loaded cars below median</span></div></div><div class="marketNote" id="marketNote"></div></div><div id="grid" class="grid"><div class="empty"><b>Search car listings</b>Select a brand/model or budget to compare available source observations.</div></div>
 <button id="more" class="secondary" style="display:none;margin-top:18px" onclick="searchLive({append:true,manufactureYear:assistantYear})">Load more observations</button>
@@ -160,6 +160,14 @@ function updateMarketView(){
 }
 function applyResults(){
  shown=[...inventory];
+ const i=searchRequest||{},criteria=[i.query||'All brands',i.condition||'both'];
+ if(i.budget_min!=null)criteria.push('min ₹'+i.budget_min+' lakh');if(i.budget_max!=null)criteria.push('max ₹'+i.budget_max+' lakh');
+ for(const k of ['fuels','transmissions','body_types'])if(i[k]?.length)criteria.push(i[k].join(', '));
+ if(i.max_mileage_km!=null)criteria.push('≤ '+i.max_mileage_km+' km');if(i.max_owners!=null)criteria.push('≤ '+i.max_owners+' owners');
+ if(i.max_age_years!=null)criteria.push('≤ '+i.max_age_years+' years');if(i.manufacture_year!=null)criteria.push('year '+i.manufacture_year);
+ if(i.seller_city)criteria.push('seller: '+i.seller_city);
+ $('activeCriteria').textContent='Search criteria: '+criteria.join(' · ');
+
  $('summary').textContent=shown.length+(searchMode.startsWith('inventory')?' observed result':' live result')+(shown.length===1?'':'s')+' · '+sourceStatus.filter(s=>s.status==='live'||s.status==='inventory').length+(searchMode.startsWith('inventory')?' source(s) represented · ':' source(s) fetched · ')+sourceStatus.filter(s=>Number(s.listings_found)>0).length+' source(s) with matches'+(liveAt?' · response '+new Date(liveAt).toLocaleTimeString('en-IN'):'');
  $('meta').textContent=searchMode.startsWith('inventory')?inventory.length+' of '+(inventoryTotal??inventory.length)+' database observations loaded. Filters and sorting apply across the indexed result set before loading pages. Availability and source coverage may be incomplete.':'Live marketplace results. No offline inventory snapshot is used.';
  updateMarketView();
@@ -214,7 +222,12 @@ async function applyReviewedIntent(){
  await searchLive();
 }
 
-function render(){$('grid').innerHTML=shown.length?shown.map(card).join(''):'<div class="empty"><b>No verified matching listings returned.</b>'+(coverageWarning?esc(coverageWarning):'Source coverage may be incomplete. Try another model or filter; this does not establish that no cars are available.')+'</div>'}
+function render(){$('grid').innerHTML=shown.length?shown.map(card).join(''):'<div class="empty"><b>No verified matching listings returned.</b>'+(coverageWarning?esc(coverageWarning):'Source coverage may be incomplete. Try another model or filter; this does not establish that no cars are available.')+(searchRequest?.query?'<p><button class="secondary" onclick="searchBrandWithoutRefinements()">Search this brand without refinements</button></p>':'')+'</div>'}
+function searchBrandWithoutRefinements(){
+ ['min','max','fmin','fmax','transmission','bodyType','maxKm','maxOwners','exactYear','city','year'].forEach(id=>$(id).value='');
+ $('model').value='';document.querySelectorAll('.fuelCheck').forEach(x=>x.checked=false);quickFilter='';assistantYear=null;
+ document.querySelectorAll('.chip').forEach((x,n)=>x.classList.toggle('active',n===0));searchLive();
+}
 function inspectFromCard(el){inspect(shown[Number(el.dataset.index)]);}
 let modalReturnFocus=null;
 function inspect(v){modalReturnFocus=document.activeElement;$('modalTitle').textContent=(v.brand||'')+' '+(v.model||'');$('modalBody').innerHTML='<div class="deal"><b>'+(searchMode.startsWith('inventory')?'Stored marketplace observation':'Live marketplace observation')+'</b><br>'+(searchMode.startsWith('inventory')?'Confirm current availability with the original seller.':'This listing was returned by a current source query.')+'</div><table class="compare"><tbody>'+[['Asking price',money(v.price_lakh)],['Year',v.mfg_year||'—'],['Mileage',v.km!=null?Number(v.km).toLocaleString('en-IN')+' km':'—'],['Fuel / transmission',(v.fuel||'—')+' / '+(v.transmission||'—')],['Location',v.location||'—'],['Source',v.source||'—'],['Observation time',v.observed_at?new Date(v.observed_at).toLocaleString('en-IN'):'Not provided'],['Verification',v.live_verified?'Source response received':'Not verified']].map(r=>'<tr><th>'+esc(r[0])+'</th><td>'+esc(r[1])+'</td></tr>').join('')+'</tbody></table>'+offerEvidence(v);$('modal').classList.add('show');document.querySelector('#modal .close').focus()}
