@@ -45,6 +45,36 @@ def test_current_search_first_journey(dashboard_url):
         browser.close()
 
 
+def test_delayed_catalog_preserves_make_and_old_models_cannot_replace_new_make(dashboard_url):
+    import json
+    with sync_playwright() as p:
+        browser=p.chromium.launch();page=browser.new_page()
+        pending={}
+        def catalog_route(route):
+            url=route.request.url
+            if 'brand=BMW' in url: pending['bmw']=route
+            elif 'brand=Tata' in url:
+                route.fulfill(content_type='application/json',body=json.dumps({'ok':True,'mode':'live','models':[{'name':'Nexon'}]}))
+            else: pending['brands']=route
+        page.route('**/api/catalog*',catalog_route)
+        page.goto(dashboard_url,wait_until='domcontentloaded')
+        with page.expect_request('**/api/catalog?brand=BMW*'):
+            page.locator('#brand').select_option('BMW')
+        pending['brands'].fulfill(content_type='application/json',body=json.dumps({
+            'ok':True,'mode':'live','brands':[{'name':b} for b in ['BMW','Tata','Honda']]}))
+        page.wait_for_function("document.querySelectorAll('#brand option').length===4")
+        assert page.locator('#brand').input_value()=='BMW'
+        page.locator('#brand').select_option('Tata')
+        page.locator('#model option',has_text='Nexon').wait_for(state='attached')
+        pending['bmw'].fulfill(content_type='application/json',body=json.dumps({
+            'ok':True,'mode':'live','models':[{'name':'X5'}]}))
+        page.wait_for_load_state('networkidle')
+        assert page.locator('#brand').input_value()=='Tata'
+        assert page.locator('#model option').all_text_contents()==['All models','Nexon']
+        assert page.locator('#model').is_enabled()
+        browser.close()
+
+
 def test_partial_inventory_loads_more_without_losing_search(dashboard_url):
     import json
     with sync_playwright() as p:

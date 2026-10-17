@@ -9,6 +9,8 @@
   India-wide search regardless of registration destination.
 - Reuse successful public model metadata for 15 minutes with bounded storage and
   synchronized loads; prices and availability never enter this cache.
+- Preserve the selected make when the initial catalogue arrives late, and ignore
+  out-of-order model responses after a buyer changes makes.
 - Coverage reports explicitly retain gaps; these changes do not claim exhaustive
   marketplace coverage or guaranteed inventory for every make/condition.
 
