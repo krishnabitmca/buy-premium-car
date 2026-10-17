@@ -104,3 +104,16 @@ def test_failed_endpoint_does_not_publish_advanced_progress(monkeypatch):
     monkeypatch.setattr('src.source_adapters.fetch_text',lambda url:(_ for _ in ()).throw(RuntimeError('offline')))
     result=BuiltinMarketplaceAdapter({'name':'Test','url':'https://test.example/stock'}).fetch(AdapterRequest(continuation={}))
     assert result.status=='unavailable' and result.continuation is None
+
+
+def test_route_correction_restarts_legacy_checkpoint_without_following_wrong_make(monkeypatch):
+    seen=[]
+    monkeypatch.setattr('src.source_adapters.adapter_execution_allowed',lambda _:True)
+    monkeypatch.setattr('src.source_adapters.fetch_text',lambda url:seen.append(url) or '<html></html>')
+    monkeypatch.setattr('src.source_adapters.parse_live_listings',lambda *args:[])
+    monkeypatch.setattr('src.source_adapters.parse_visible_listing_links',lambda *args:[])
+    adapter=BuiltinMarketplaceAdapter({'name':'Test','url':'https://test.example/citroen'})
+    result=adapter.fetch(AdapterRequest(continuation={
+        'visited_urls':['https://test.example/citro-n'],
+        'pending_urls':['https://test.example/citro-n?page=2']}))
+    assert result.status=='live' and seen==['https://test.example/citroen']

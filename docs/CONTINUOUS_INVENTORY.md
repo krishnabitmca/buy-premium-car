@@ -1,5 +1,22 @@
 # Continuous inventory operations
 
+## National make sweep and audit
+
+`National Make Coverage` runs daily at 01:35 UTC using existing GitHub Actions
+secrets. It schedules all supported makes, then reserves up to 100 baseline jobs
+on the reviewed CarDekho/CarWale national adapters, at three pages per job.
+Regular acquisition still handles all other verified sources and continuations.
+Both workflows share their concurrency group. No paid service is added.
+
+Run `python -m src.inventory_refresh_worker --baseline-only --limit 100
+--source "CarDekho Used" --source "CarWale Used"` for the same bounded recovery.
+`python -m src.inventory_coverage --output coverage/national-coverage.json` audits
+current used/demo results, source attribution, seller location labels and scan
+status for every supported make. The daily workflow uploads this report even if
+acquisition fails. A missing report fails the artifact step. Empty or single-source
+coverage remains a gap to fix; neither completed traversal nor a broad make list
+proves complete India-wide inventory. See ADR 012.
+
 The production target is a PostgreSQL-backed acquisition pipeline shared by web
 and mobile clients. Repository JSON and SQLite outputs are reporting/legacy
 artifacts, not a scalable customer inventory database. Production daily acquisition

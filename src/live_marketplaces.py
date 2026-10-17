@@ -8,6 +8,7 @@ import urllib.request
 import urllib.error
 import time
 import socket
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
 from typing import Any
@@ -133,6 +134,7 @@ def _absolute(base: str, href: str) -> str:
     return urllib.parse.urljoin(base, href)
 
 def _slug(value: str) -> str:
+    value=unicodedata.normalize('NFKD',value).encode('ascii','ignore').decode('ascii')
     value=value.lower().strip().replace("&","and")
     value=re.sub(r"[^a-z0-9]+","-",value).strip("-")
     return value
@@ -469,7 +471,8 @@ def live_models(brand: str) -> list[dict[str,str]]:
     return sorted(models,key=lambda x:x["name"].lower())
 
 def _identity_tokens(value: Any) -> list[str]:
-    return re.findall(r"[a-z0-9]+",str(value or "").lower())
+    text=unicodedata.normalize('NFKD',str(value or '')).encode('ascii','ignore').decode('ascii')
+    return re.findall(r"[a-z0-9]+",text.lower())
 
 def _model_identity_matches(requested: str, *candidates: Any) -> bool:
     wanted=_identity_tokens(requested)
@@ -636,17 +639,19 @@ def _infer_brand_model(name: str, brand: Any, model: Any) -> tuple[str|None,str]
     if b and m: return b,m
     clean=" ".join(str(name or "").split())
     for candidate in sorted(_known_brand_names(),key=len,reverse=True):
-        if clean.lower().startswith(candidate.lower()+" "):
+        prefix=clean[:len(candidate)]
+        if _identity_tokens(prefix)==_identity_tokens(candidate) and clean[len(candidate):].startswith(' '):
             return candidate,clean[len(candidate):].strip()
     parts=clean.split(" ",1)
     return (parts[0] if parts else None),(parts[1] if len(parts)>1 else clean)
 
 def _query_parts(query: str) -> tuple[str|None,str|None]:
     q=" ".join(str(query or "").split()).strip()
-    low=q.lower()
+    low=unicodedata.normalize('NFKD',q).encode('ascii','ignore').decode('ascii').lower()
     for brand in sorted(_known_brand_names(),key=len,reverse=True):
-        if brand.lower() in low:
-            model=q[:low.find(brand.lower())]+q[low.find(brand.lower())+len(brand):]
+        folded=unicodedata.normalize('NFKD',brand).encode('ascii','ignore').decode('ascii').lower()
+        if folded in low:
+            model=q[:low.find(folded)]+q[low.find(folded)+len(brand):]
             model=re.sub(r"\\s+"," ",model).strip()
             # The UI may send brand twice when the selected model includes the brand.
             model=re.sub(re.escape(brand), "", model, count=1, flags=re.I).strip()
@@ -708,7 +713,7 @@ def _targeted_source_urls(query: str, condition: str = "both", registry: list[di
             try:
                 values[name] = template.format(
                     brand=urllib.parse.quote(brand_name),
-                    brand_slug=_slug(brand_name),
+                    brand_slug=(source.get('brand_slug_overrides') or metadata.get('brand_slug_overrides') or {}).get(brand_name,_slug(brand_name)),
                     model=urllib.parse.quote(model or ""),
                     model_slug=_slug(model or ""),
                     condition=wanted_condition,
@@ -1437,7 +1442,7 @@ class _NextPageParser(HTMLParser):
         attrs = {str(k).lower(): str(v or "") for k, v in attrs}
         rel = set(str(attrs.get("rel") or "").lower().split())
         label = " ".join(v for v in (attrs.get("aria-label"), attrs.get("title"), attrs.get("data-testid")) if v).lower()
-        if "next" in rel or re.search(r"\\bnext\\b", label):
+        if "next" in rel or re.search(r"\bnext\b", label):
             href = attrs.get("href")
             if href:
                 self.next_href = href

@@ -1,6 +1,9 @@
 from __future__ import annotations
 import json
 import re
+import threading
+import time
+from collections import OrderedDict
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs,urlparse
 from src.live_marketplaces import live_brands,live_models
@@ -11,6 +14,32 @@ _NON_MODEL_NAMES = {
     "reviews","review","news","offers","offer","dealers","dealer","service",
     "compare","accessories","view all models","all models",
 }
+
+# Public catalogue metadata only. Never cache listing prices or availability.
+_model_cache=OrderedDict()
+_model_cache_lock=threading.Lock()
+_model_load_locks=[threading.Lock() for _ in range(16)]
+
+
+def catalog_models(brand):
+    key=brand.strip().casefold()
+    # Fixed lock stripes and a bounded LRU prevent arbitrary query growth.
+    with _model_load_locks[hash(key)%len(_model_load_locks)]:
+        now=time.monotonic()
+        with _model_cache_lock:
+            cached=_model_cache.get(key)
+            if cached and cached[0]>now:
+                _model_cache.move_to_end(key)
+                return [dict(row) for row in cached[1]]
+        models=_sanitize_models(live_models(brand))
+        if models:
+            with _model_cache_lock:
+                _model_cache[key]=(time.monotonic()+900,models)
+                _model_cache.move_to_end(key)
+                while len(_model_cache)>64:
+                    _model_cache.popitem(last=False)
+        # Empty/error responses never poison the successful metadata cache.
+        return [dict(row) for row in models]
 
 def _sanitize_models(models):
     """Defense-in-depth: never expose source navigation as customer models."""
@@ -53,7 +82,7 @@ class handler(BaseHTTPRequestHandler):
             q=parse_qs(urlparse(self.path).query)
             brand=(q.get("brand") or [""])[0].strip()
             if brand:
-                models=_sanitize_models(live_models(brand))
+                models=catalog_models(brand)
                 return response(self,200,{"ok":True,"mode":"live","source":"CarDekho current catalog with resilient fallback","brand":brand,"catalog_fallback":any(x.get("catalog_verified")=="fallback" for x in models),"models":models})
             discovered={b['name']:b for b in live_brands()}
             brands=[discovered.get(name,{'name':name,'catalog_verified':'taxonomy',

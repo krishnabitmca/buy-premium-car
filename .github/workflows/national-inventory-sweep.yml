@@ -1,0 +1,41 @@
+name: National Make Coverage
+
+on:
+  schedule:
+    - cron: "35 1 * * *"
+  workflow_dispatch:
+
+# Share the queue lock with normal acquisition. Never cancel a running crawler.
+concurrency:
+  group: carscanner-inventory-refresh
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.CARSCANNER_FREE_TEST_DATABASE_URL || secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
+      CARSCANNER_MAX_PAGES_PER_SOURCE: "3"
+      CARSCANNER_QUERY_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Schedule every supported make
+        run: |
+          python -m src.source_runtime_config --all-existing --apply
+          python -m src.inventory_refresh_planner --limit 100
+      - name: Sweep reviewed national marketplace adapters
+        run: python -m src.inventory_refresh_worker --baseline-only --source "CarDekho Used" --source "CarWale Used" --limit 100
+      - name: Audit used and demo coverage across every make
+        if: always()
+        run: python -m src.inventory_coverage --output coverage/national-coverage.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: national-make-coverage
+          path: coverage/national-coverage.json
+          if-no-files-found: error

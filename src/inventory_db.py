@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .source_registry_db import enabled as source_db_enabled, _connect, require_database
-from .live_marketplaces import _query_parts, _identity_tokens
+from .live_marketplaces import _query_parts, _identity_tokens, _canonical_brand, BRAND_ALIASES
 from .inventory_contract import json_inventory_value
 
 
@@ -66,7 +66,13 @@ def search_inventory(
         "l.last_verified_at >= now() - make_interval(mins => %s)",
     ]
     if brand:
-        predicates.append("lower(v.brand) = lower(%s)"); params.append(brand)
+        canonical=_canonical_brand(brand)
+        aliases={brand.lower(),canonical.lower()}
+        aliases.update(name.lower() for name,value in BRAND_ALIASES.items() if value.lower()==canonical.lower())
+        if len(aliases)>1:
+            predicates.append("lower(v.brand) = any(%s)"); params.append(sorted(aliases))
+        else:
+            predicates.append("lower(v.brand) = lower(%s)"); params.append(brand)
     if model:
         # Dealer model fields often include the trim. Match complete identity
         # tokens, as live adapters do: X5 matches X5 xDrive40i, never X50.

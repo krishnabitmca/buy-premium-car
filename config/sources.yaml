@@ -7,6 +7,7 @@
 
 known_sources:
 - name: CarDekho Used
+  brand_slug_overrides: {Maruti Suzuki: maruti, MG Motor: mg, Force Motors: force}
   parser_strategy: cardekho_cards
   url: https://www.cardekho.com/usedCars/
   catalog_url: https://www.cardekho.com/newcars
@@ -28,6 +29,7 @@ known_sources:
   vehicle_link_pattern: /used-car-details/[^?#]+\.htm
 
 - name: CarWale Used
+  brand_slug_overrides: {MG Motor: mg}
   parser_strategy: carwale_cards
   url: https://www.carwale.com/used/
   tier: 1
