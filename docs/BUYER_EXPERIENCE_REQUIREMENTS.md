@@ -15,7 +15,7 @@ establish marketplace completeness, availability, inspection or fair value.
 | Stable comparison evidence | Cohorts calculated before buyer refinements | Narrow-budget result retains broader same-variant/year reference |
 | Honest counts and provenance | Full filtered-index totals/cities/sources; distinct source count separate from offer count; original offer links/times in dossier | SQL totals; browser evidence dialogue |
 | All-make selection | Existing India make taxonomy supplements discovered catalog metadata | Taxonomy is selection support, explicitly not inventory coverage |
-| Optional generative interpretation | Server-side Gemini, explicit consent, review before execution, unsupported criteria and clarifications | Mock provider validation/failure tests; live generation gate remains blocked below |
+| Optional generative interpretation | Server-side Gemini, explicit consent, review before execution, unsupported criteria and clarifications | Mock provider validation/failure tests; live generation and browser review/search gate passed on 17 October 2026 |
 | Persistent pilot quota | Atomic PostgreSQL usage reservation, hard maximum 30/day UTC, failed calls count, no prompt storage | Concurrent 15-request test admits exactly configured 5; RLS/grant checks |
 | Usable mobile and keyboard evidence | Results precede long filters on mobile; larger AI control/text; modal labels, focus containment, Escape and return focus | Browser desktop/mobile verification |
 
@@ -34,11 +34,24 @@ Model-list authentication succeeded. Synthetic generation returned provider 503
 UNAVAILABLE/high demand for Gemini 3.8 Flash and 3.1 Flash Lite. A legacy 2.5 Flash
 Lite attempt returned 404. These are not successful interpretation tests.
 
-Keep `CARSCANNER_AI_ENABLED=false` until a synthetic compound-preference test and
-the full consent → interpretation → review → indexed search journey succeed.
-Ordinary search must continue during provider failure. No automatic provider
-retry, paid fallback, web-grounding tool or private document upload is enabled.
+On 17 October 2026 the provider recovered: synthetic generation succeeded,
+then the actual application parser preserved BMW, petrol, automatic, SUV,
+₹40 lakh, 40,000 km and Bengaluru registration context while surfacing accident
+history/warranty as unverified. The real local browser consent → Gemini → review
+→ indexed search flow returned 15 matching petrol automatic BMWs with the budget
+and mileage limit, without a seller-city boundary.
+
+The approved pilot is enabled in Render and ignored local configuration with
+`CARSCANNER_GEMINI_MODEL=gemini-3.8-flash` and
+`CARSCANNER_AI_DAILY_LIMIT=30`. Earlier provider failures remain useful outage
+observations, not the current enablement gate. All app calls reserve the durable
+UTC daily quota, including failed calls. No billing or paid fallback is enabled.
 The UI states Google's free-tier product-improvement use before consent.
+Provider outages still return a clear error while ordinary filters remain usable.
+
+This is a small verified pilot, not an intent-accuracy benchmark or a guarantee
+that free-tier capacity is always available. Grounded generated explanations,
+semantic retrieval and national inventory completeness remain separate gates.
 
 ## Remaining product and national-scale gates
 

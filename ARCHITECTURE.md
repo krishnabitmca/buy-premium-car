@@ -5,8 +5,9 @@
 [ADR 010](DECISIONS/010-authoritative-buyer-intent.md) defines the typed form/AI
 intent boundary, whole-index filters and ordering, and opt-in Gemini pilot.
 [Buyer requirements](docs/BUYER_EXPERIENCE_REQUIREMENTS.md) tracks implementation,
-provider verification and remaining launch gates. Gemini remains disabled while
-live generation is unavailable; ordinary indexed search does not depend on it.
+provider verification and remaining launch gates. The opt-in Gemini free-tier
+pilot passed real interpretation/review/search verification on 17 October 2026;
+ordinary indexed search remains independent of model availability.
 
 ## Continuous inventory operations
 
