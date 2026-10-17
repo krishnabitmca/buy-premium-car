@@ -748,3 +748,20 @@ def test_scheduler_preserves_queue_age_and_normalizes_demand_keys(db,monkeypatch
     after=db.execute('select refresh_id,requested_at from inventory_refresh_queue order by refresh_id').fetchall()
     assert after==before and len(after)==2
     assert db.execute("select brand,model from inventory_refresh_queue where brand<>''").fetchone()=={'brand':'honda','model':'city'}
+
+
+def test_national_sweep_excludes_local_and_model_demand(db):
+    source=add_source(db)
+    for brand,model,state,priority in [('tata','nexon','',100),('tata','','delhi',100),('tata','','',1)]:
+        db.execute("""insert into inventory_refresh_queue(source_id,brand,model,destination_state,priority)
+            values (%s,%s,%s,%s,%s)""",(source,brand,model,state,priority))
+    db.commit()
+    job=claim_jobs(1,baseline_only=True)[0]
+    assert job['brand']=='tata' and job['model']=='' and job['destination_state']==''
+
+
+@pytest.mark.parametrize('stored,query',[('MG Motor','MG'),('Citroën','Citroen')])
+def test_make_aliases_find_current_inventory(db,stored,query):
+    add_source(db)
+    ingest_vehicles([vehicle(brand=stored,model='Test model')])
+    assert search_inventory(query=query,condition='used',return_count=True)[2]==1

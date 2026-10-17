@@ -7,6 +7,7 @@ import yaml
 from .source_registry_db import _connect, require_database, source_key
 
 RUNTIME_KEYS = {
+    'brand_slug_overrides',
     'parser_strategy', 'query_url_template', 'brand_query_url_template',
     'used_query_url_template', 'demo_query_url_template',
     'brand_used_query_url_template', 'brand_demo_query_url_template',

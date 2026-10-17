@@ -31,7 +31,7 @@ def jsonld(name="BMW X5", brand="BMW", model="X5", price="4950000", url="/used/b
 class TestPureFunctions(unittest.TestCase):
     def test_slug_and_brand_aliases(self):
         self.assertEqual(lm._slug("Mercedes-Benz"), "mercedes-benz")
-        self.assertEqual(lm._slug("Citroën C5 Aircross"), "citro-n-c5-aircross")
+        self.assertEqual(lm._slug("Citroën C5 Aircross"), "citroen-c5-aircross")
         self.assertEqual(lm._canonical_brand("MG"), "MG Motor")
         self.assertEqual(lm._canonical_brand("Mercedes Benz"), "Mercedes-Benz")
 

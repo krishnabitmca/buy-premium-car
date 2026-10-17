@@ -1,3 +1,15 @@
+## 2026-10-17 — National all-make acquisition and coverage audit
+
+- Add a daily bounded national baseline sweep alongside the fair 15-minute worker,
+  so model/location demand cannot consume its reserved all-make acquisition slots.
+- Audit every supported make for used/demo eligible results, contributing sources,
+  seller location labels and traversal status; upload the report on crawler failure too.
+- Correct accented make identity, canonical alias search, source-specific make slugs
+  and aria-label next-page traversal. Preserve original listing provenance and
+  India-wide search regardless of registration destination.
+- Coverage reports explicitly retain gaps; these changes do not claim exhaustive
+  marketplace coverage or guaranteed inventory for every make/condition.
+
 ## 2026-10-17 — Repair mainstream-make acquisition gaps
 
 - Recognize and schedule the independent make taxonomy even when registry brand capabilities are incomplete.
