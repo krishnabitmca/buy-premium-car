@@ -10,7 +10,7 @@ from .source_registry_db import _connect
 
 
 def discover_models(html,source,base_url,query,rows):
-    brand,requested_model=lm._query_parts(query)
+    brand,_=lm._query_parts(query)
     if not brand:
         return []
     strategy=source.get('parser_strategy') or (source.get('metadata') or {}).get('parser_strategy')
@@ -38,6 +38,8 @@ def discover_models(html,source,base_url,query,rows):
             model=match[1].replace('-',' ')
             label=anchor.get_text(' ',strip=True)
             count=re.match(r'^([\d,]+)\s+Used\b',label,re.I)
+            if not count and not (lm._model_identity_matches(brand,label) and lm._model_identity_matches(model,label)):
+                continue
             found[model]={'model':model,'evidence_url':url,'discovery_kind':'used_catalog_link',
                 'advertised_count':int(count[1].replace(',','')) if count else None}
     return list(found.values())[:100]
@@ -51,6 +53,9 @@ def enqueue_models(brand,models):
     """
     if not brand or not models:
         return 0
+    # Stored display names may be aliases (MG Motor, Citroën). Use the search
+    # make token so the worker never treats an alias suffix as part of a model.
+    brand=lm._query_parts(brand)[0] or brand
     count=0
     with _connect() as conn,conn.cursor() as cur:
         for item in models:

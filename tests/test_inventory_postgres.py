@@ -789,6 +789,8 @@ def test_discovered_models_fan_out_only_to_verified_model_adapters_and_resume(db
     db.execute("update inventory_refresh_queue set metadata=jsonb_set(metadata,'{last_success_at}',to_jsonb((now()-interval '1 day')::text)) where status='completed'")
     db.commit()
     assert reschedule_models()==1
+    assert enqueue_models('MG Motor',[{**evidence[0],'model':'Hector'}])==2
+    assert db.execute("select distinct brand from inventory_refresh_queue where model='hector'").fetchall()==[{'brand':'mg'}]
 
 
 def test_historical_model_bootstrap_never_restores_expired_inventory(db):

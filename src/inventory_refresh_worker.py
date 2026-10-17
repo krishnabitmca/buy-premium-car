@@ -110,7 +110,10 @@ def complete_job(refresh_id: int, *, success: bool, error: str | None = None,
 
 
 def process_job(job: dict[str, Any]) -> dict[str, int]:
-    query = " ".join(x for x in (job.get("brand"), job.get("model")) if x)
+    from .live_marketplaces import _query_parts
+    brand=job.get('brand') or ''
+    query_brand=_query_parts(brand)[0] or brand
+    query = " ".join(x for x in (query_brand, job.get("model")) if x)
     try:
         source_name = str(job.get("source_name") or "")
         if not source_name:
