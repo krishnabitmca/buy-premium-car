@@ -2,6 +2,7 @@
 import json
 import math
 import re
+from datetime import datetime,timezone,date
 import urllib.request
 from urllib.parse import urlsplit,urljoin
 from bs4 import BeautifulSoup
@@ -53,6 +54,15 @@ def structured_evidence(html,url,brand,model):
             if not isinstance(offers,list):continue
             for offer in offers:
                 if not isinstance(offer,dict) or offer.get('@type')=='AggregateOffer':continue
+                valid_until=offer.get('priceValidUntil') or offer.get('validThrough')
+                if valid_until:
+                    try:
+                        if 'T' in str(valid_until):
+                            deadline=datetime.fromisoformat(str(valid_until).replace('Z','+00:00'))
+                            if deadline.tzinfo is None:deadline=deadline.replace(tzinfo=timezone.utc)
+                            if deadline<datetime.now(timezone.utc):continue
+                        elif date.fromisoformat(str(valid_until))<datetime.now(timezone.utc).date():continue
+                    except (ValueError,TypeError):continue
                 offer_url=offer.get('url')
                 if offer_url and (not isinstance(offer_url,str) or _canonical_url(url,urljoin(url,offer_url))!=target):continue
                 availability=str(offer.get('availability','')).rsplit('/',1)[-1]

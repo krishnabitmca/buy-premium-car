@@ -77,6 +77,7 @@ def db(disposable_database,monkeypatch):
     with psycopg.connect(disposable_database,row_factory=dict_row) as conn:
         conn.execute('truncate public.sources,public.vehicles,public.search_demand restart identity cascade')
         conn.execute('truncate public.inventory_crawl_leases,public.inventory_pipeline_runs')
+        conn.commit()  # External worker connections must not wait on fixture TRUNCATE locks.
         yield conn
 
 
@@ -896,6 +897,19 @@ def test_domain_lease_is_shared_and_stale_release_cannot_clear_new_owner(db):
     release(first)
     assert acquire('https://fixture.invalid/') is None
     release(second)
+
+
+def test_catalogue_renewal_resets_previous_missing_sequence(db):
+    from src.inventory_lifecycle import finish,claim
+    _,job=old_renewal(db)
+    finish(job,{'outcome':'missing','http_status':404})
+    # Previous 404 was yesterday; a catalogue supplied positive evidence eight
+    # hours ago. Today's first missing check must not combine with yesterday's.
+    db.execute("update inventory_listing_refresh set last_checked_at=now()-interval '1 day',due_at=now()")
+    db.execute("update listings set last_verified_at=now()-interval '8 hours'");db.commit()
+    finish(claim('used'),{'outcome':'missing','http_status':404})
+    assert db.execute('select status from listings').fetchone()['status']=='active'
+    assert db.execute('select missing_count from inventory_listing_refresh').fetchone()['missing_count']==1
 
 
 def test_catalogue_tombstone_uses_exact_url_and_cannot_override_newer_observation(db):

@@ -32,9 +32,12 @@ def maintain(limit=1000):
     """Expire offers without deleting history and enroll oldest individual URLs."""
     cap=expiry_minutes()
     with _connect() as conn,conn.cursor() as cur:
-        cur.execute("""update listings l set status='stale',freshness_state='expired'
-            from sources s where s.source_id=l.source_id and l.status='active'
-            and (l.last_verified_at is null or l.last_verified_at<now()-make_interval(mins=>"""+expiry_sql()+"""))""",(cap,cap))
+        cur.execute("""with expired as (
+            select l.listing_id from listings l join sources s using(source_id) where l.status='active'
+            and (l.last_verified_at is null or l.last_verified_at<now()-make_interval(mins=>"""+expiry_sql()+"""))
+            order by l.last_verified_at asc nulls first,l.listing_id limit %s for update of l skip locked)
+            update listings l set status='stale',freshness_state='expired'
+            from expired e where e.listing_id=l.listing_id""",(cap,cap,max(1,min(int(limit),10000))))
         expired=cur.rowcount
         cur.execute("""insert into inventory_listing_refresh(listing_id,due_at)
             select l.listing_id,coalesce(l.last_verified_at,'epoch')+
@@ -64,7 +67,7 @@ def claim(condition):
             select q.listing_id from inventory_listing_refresh q
             join listings l using(listing_id) join sources s using(source_id)
             where q.status in ('queued','failed','completed') and q.due_at<=now()
-              and l.condition=%s and l.status in ('active','stale') and s.enabled and s.adapter_status='live'
+              and l.condition=%s and l.status in ('active','stale') and l.vehicle_id is not null and s.enabled and s.adapter_status='live'
               and exists(select 1 from source_adapters a where a.source_id=s.source_id and a.status='verified')
               and not exists(select 1 from inventory_crawl_leases d
                 where d.domain=substring(lower(l.url) from '^https?://([^/:]+)')
@@ -101,7 +104,10 @@ def finish(job,evidence):
         outcome=evidence['outcome']
         if listing['last_verified_at']!=job['last_verified_at'] or listing['status'] not in {'active','stale'}:
             outcome='superseded'
-        missing_count=job['missing_count']+1 if outcome=='missing' else 0
+        prior_missing=job['missing_count']
+        if job['last_checked_at'] and job['last_verified_at'] and job['last_verified_at']>job['last_checked_at']:
+            prior_missing=0  # A catalogue supplied positive evidence between disappearance checks.
+        missing_count=prior_missing+1 if outcome=='missing' else 0
         if outcome=='available':
             from .inventory_ingestion import ingest_vehicles
             from .models import Vehicle
@@ -155,6 +161,9 @@ def revalidate(job):
             evidence=structured_evidence(html,url,job['brand'],job['model'])
         except HTTPError as exc:
             evidence={'outcome':'missing' if exc.code in {404,410} else 'error','http_status':exc.code,'error':'HTTP '+str(exc.code)}
+            from .live_marketplaces import _canonical_url
+            if _canonical_url(url,exc.url)!=_canonical_url(url,url):
+                evidence={'outcome':'inconclusive','error':'Redirected error page is not disappearance evidence'}
             if exc.code in {403,429,503}:
                 raw=exc.headers.get('Retry-After','') if exc.headers else ''
                 delay=min(86400,max(60,int(raw))) if raw.isdigit() else 900

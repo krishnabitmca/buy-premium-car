@@ -36,6 +36,11 @@ def test_conflicting_prices_fail_closed():
     assert structured_evidence(product(offers=offers),URL,'BMW','X5')['outcome']=='inconclusive'
 
 
+def test_expired_structured_offer_cannot_refresh_availability():
+    offers={'price':7500000,'priceCurrency':'INR','availability':'InStock','priceValidUntil':'2000-01-01'}
+    assert structured_evidence(product(offers=offers),URL,'BMW','X5')['outcome']=='inconclusive'
+
+
 def test_sold_dealer_card_has_exact_link_without_retiring_neighbour():
     html=Path('tests/fixtures/dealer_luxuryride_catalog.html').read_text(encoding='utf-8')
     rows=catalogue_tombstones(html,'https://luxuryrideofficial.com/listing-default/','luxuryride_cards')
@@ -58,3 +63,18 @@ def test_expiry_policy_caps_used_demo_and_stricter_source_targets(monkeypatch):
     assert expiry_minutes('used')==2880
     assert expiry_minutes('demo')==1440
     assert expiry_minutes('used',60)==expiry_minutes('demo',60)==60
+
+
+@pytest.mark.parametrize('code,error_url,outcome',[(429,URL,'error'),(404,URL,'missing'),(404,'https://dealer.example/login','inconclusive')])
+def test_http_errors_respect_retry_after_and_never_invent_disappearance(monkeypatch,code,error_url,outcome):
+    from src import inventory_lifecycle as lifecycle
+    from urllib.error import HTTPError
+    records=[];delays=[]
+    monkeypatch.setattr(lifecycle.crawl_leases,'acquire',lambda url:('dealer.example','token'))
+    monkeypatch.setattr(lifecycle.crawl_leases,'release',lambda lease,delay_seconds=None:delays.append(delay_seconds))
+    monkeypatch.setattr(lifecycle,'finish',lambda job,evidence: records.append(evidence) or True)
+    def fetch(url):raise HTTPError(error_url,code,'test',{'Retry-After':'1200'},None)
+    monkeypatch.setattr(lifecycle,'fetch_listing',fetch)
+    assert lifecycle.revalidate({'url':URL,'source_url':'https://dealer.example/','brand':'BMW','model':'X5'})==outcome
+    assert records[0]['outcome']==outcome
+    if code==429:assert delays==[1200]
