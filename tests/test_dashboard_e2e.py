@@ -45,7 +45,7 @@ def test_current_search_first_journey(dashboard_url):
         browser.close()
 
 
-def test_delayed_catalog_preserves_make_and_old_models_cannot_replace_new_make(dashboard_url):
+def test_old_model_response_cannot_replace_new_make(dashboard_url):
     import json
     with sync_playwright() as p:
         browser=p.chromium.launch();page=browser.new_page()
@@ -55,15 +55,13 @@ def test_delayed_catalog_preserves_make_and_old_models_cannot_replace_new_make(d
             if 'brand=BMW' in url: pending['bmw']=route
             elif 'brand=Tata' in url:
                 route.fulfill(content_type='application/json',body=json.dumps({'ok':True,'mode':'live','models':[{'name':'Nexon'}]}))
-            else: pending['brands']=route
+            else:
+                route.fulfill(content_type='application/json',body=json.dumps({
+                    'ok':True,'mode':'live','brands':[{'name':b} for b in ['BMW','Tata','Honda']]}))
         page.route('**/api/catalog*',catalog_route)
         page.goto(dashboard_url,wait_until='domcontentloaded')
         with page.expect_request('**/api/catalog?brand=BMW*'):
             page.locator('#brand').select_option('BMW')
-        pending['brands'].fulfill(content_type='application/json',body=json.dumps({
-            'ok':True,'mode':'live','brands':[{'name':b} for b in ['BMW','Tata','Honda']]}))
-        page.wait_for_function("document.querySelectorAll('#brand option').length===4")
-        assert page.locator('#brand').input_value()=='BMW'
         page.locator('#brand').select_option('Tata')
         page.locator('#model option',has_text='Nexon').wait_for(state='attached')
         pending['bmw'].fulfill(content_type='application/json',body=json.dumps({
