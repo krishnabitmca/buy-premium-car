@@ -793,6 +793,24 @@ def test_discovered_models_fan_out_only_to_verified_model_adapters_and_resume(db
     assert db.execute("select distinct brand from inventory_refresh_queue where model='hector'").fetchall()==[{'brand':'mg'}]
 
 
+def test_catalogue_reservation_and_saved_evidence(db):
+    from src.catalog_traversal import wake_catalogues
+    add_source(db, 'Catalogue')
+    db.execute("update sources set metadata=%s::jsonb", (json.dumps({'city_catalog_path_pattern':'/used/[a-z-]+'}),))
+    db.execute("insert into inventory_refresh_queue(source_id,brand,model,condition,destination_state,status) select source_id,'','','both','','completed' from sources")
+    db.commit()
+    assert wake_catalogues() == 1
+    first = claim_jobs(1, catalogues_only=True)[0]
+    evidence = {'coverage_state':'partial_traversal', 'visited_page_count':2}
+    cursor = {'pending_urls':['https://fixture.invalid/used/pune']}
+    complete_job(first['refresh_id'], success=True, attempt_count=first['attempt_count'],
+                 continuation=cursor, pages_fetched=2, scan_evidence=evidence)
+    assert wake_catalogues() == 0
+    resumed = claim_jobs(1, catalogues_only=True)[0]
+    assert resumed['metadata']['last_scan_evidence'] == evidence
+    assert resumed['metadata']['continuation'] == cursor
+
+
 def test_historical_model_bootstrap_never_restores_expired_inventory(db):
     from src.used_inventory_frontier import seed_observed_models
     add_source(db)

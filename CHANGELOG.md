@@ -1,3 +1,16 @@
+## 2026-10-17 — Advertised city and dealer catalogue acquisition
+
+- Traverse reviewed marketplace city links and full dealer catalogues with
+  durable breadth-first checkpoints and reserved quarter-hour worker capacity.
+- Parse Luxury Ride's full stock cards, compound crore/lakh prices and stable
+  listing IDs; use its public filter API to follow actual catalogue pagination.
+- Reject stalled dealer pagination and positive-stock pages with no extracted
+  cards. Preserve failed-batch checkpoints for retries.
+- Report scopes, visited/pending pages, advertised counts and last errors without
+  treating traversal exhaustion as proof of complete India-wide inventory.
+- Keep acquisition independent of buyer destination; no UI or paid infrastructure
+  changes.
+
 ## 2026-10-17 — Source-evidenced used-model acquisition
 
 - Discover used/discontinued model families from source cards and used-model links;

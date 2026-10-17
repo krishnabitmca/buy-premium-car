@@ -36,9 +36,10 @@ jobs:
           CARSCANNER_MAX_PAGES_PER_SOURCE: "3"
         run: |
           failed=0
-          python -m src.inventory_refresh_worker --limit 3 || failed=1
-          python -m src.inventory_refresh_worker --models-only --limit 4 || failed=1
+          python -m src.inventory_refresh_worker --limit 2 || failed=1
+          python -m src.inventory_refresh_worker --models-only --limit 3 || failed=1
           python -m src.inventory_refresh_worker --continuations-only --limit 3 || failed=1
+          python -m src.inventory_refresh_worker --catalogues-only --limit 2 || failed=1
           exit "$failed"
       - name: Refresh derived Elasticsearch inventory
         if: always()

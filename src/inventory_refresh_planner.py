@@ -42,6 +42,8 @@ def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
 
     from .used_inventory_frontier import reschedule_models
     reschedule_models()
+    from .catalog_traversal import wake_catalogues
+    wake_catalogues()
 
     demands = load_search_demand(limit=limit, lookback_hours=lookback_hours)
     # Always maintain a global India-wide refresh demand. This bootstraps the

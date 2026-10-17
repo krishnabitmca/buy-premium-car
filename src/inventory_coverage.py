@@ -42,6 +42,14 @@ def coverage_report():
             where q.metadata ? 'model_discovery' and s.enabled and s.adapter_status='live'
             order by q.brand,q.model,s.name""")
         model_scans=[dict(row) for row in cur.fetchall()]
+        cur.execute("""select s.name as source,q.status,q.completed_at as last_batch_at,q.last_error,
+            q.metadata->'last_scan_evidence' as scan_evidence,
+            coalesce((q.metadata->>'pages_fetched')::integer,0) as pages_fetched
+            from inventory_refresh_queue q join sources s using(source_id)
+            where q.brand='' and q.model='' and q.destination_state='' and q.condition='both' and s.enabled
+              and (s.metadata ? 'city_catalog_path_pattern' or s.metadata ? 'catalogue_link_pattern')
+            order by s.name""")
+        catalogues=[dict(row) for row in cur.fetchall()]
     makes=[]
     for demand in baseline_brand_demands():
         brand=demand['brand']
@@ -58,6 +66,7 @@ def coverage_report():
             'scans':[row for (make,_),row in scans.items() if make==brand.lower()]})
     return {'generated_at':datetime.now(timezone.utc).isoformat(),
         'model_frontier':model_scans,
+        'catalogue_frontier':catalogues,
         'scope':'india','complete_market_coverage':False,
         'meaning':'Current eligible indexed results; zero is a coverage gap, not proof of no cars.',
         'brands':makes}

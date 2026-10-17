@@ -24,7 +24,10 @@ def _price(text):
     amount = float(match[1].replace(",", ""))
     unit = (match[2] or "").lower()
     if unit in {"crore", "crores", "cr"}:
-        return amount * 100
+        remainder=text[match.end():]
+        lakhs=re.search(r'([\d,.]+)\s*lakhs?',remainder,re.I)
+        thousands=re.search(r'([\d,.]+)\s*thousand',remainder,re.I)
+        return amount*100+(float(lakhs[1].replace(',','')) if lakhs else 0)+(float(thousands[1].replace(',',''))/100 if thousands else 0)
     if unit in {"l", "lakh", "lakhs"}:
         # Luxury Ride displays e.g. ₹69 Lakhs 75 thousand.
         extra = re.search(r"([\d,.]+)\s*thousand", text[match.end():], re.I)
@@ -61,6 +64,8 @@ def _bbt_state(soup):
 
 def parse_dealer_cards(html, source, base_url, strategy, query=""):
     soup = BeautifulSoup(html, "html.parser")
+    if strategy=='luxuryride_cards' and soup.select('.tfcl-listing-card'):
+        return _luxuryride_catalog(soup,source,base_url,query)
     selectors = {"bbt_cards": "[data-product-id]", "autobest_cards": ".abe__thmb-car-btmtxt", "luxuryride_cards": ".listing-post", "ninthgear_cards": ".main-car"}
     if strategy not in selectors:
         raise ValueError("Unknown dealer card strategy")
@@ -160,4 +165,63 @@ def parse_dealer_cards(html, source, base_url, strategy, query=""):
         if not query or lm._identity_matches_query(row, query):
             seen.add(url)
             rows.append(row)
+    return rows
+
+
+def fetch_luxuryride_catalog_page(url, fetch):
+    """Mirror the public taxonomy.js pager: paged=N becomes queryData=page=N.
+
+    The normal WordPress redirect serves page one; the site's own read-only
+    filter_archive_listing_ajax response carries real cards and pagination.
+    """
+    import json
+    parts=urllib.parse.urlsplit(url)
+    page=urllib.parse.parse_qs(parts.query).get('paged', [])
+    if not page:
+        return fetch(url)
+    if not page[0].isdigit() or not 1<=int(page[0])<=10000:
+        raise ValueError('Invalid dealer catalogue page')
+    params={'action':'filter_archive_listing_ajax','queryData':'page='+page[0],
+            'currentTax':'','currentTerm':'','layoutArchiveListing':'grid','columnLayout':'4'}
+    endpoint=urllib.parse.urlunsplit((parts.scheme,parts.netloc,'/wp-admin/admin-ajax.php',urllib.parse.urlencode(params),''))
+    response=json.loads(fetch(endpoint))
+    html=response.get('html')
+    if not isinstance(html,str) or not html.strip():
+        raise ValueError('Dealer catalogue API returned no cards')
+    soup=BeautifulSoup(html,'html.parser')
+    for anchor in soup.select('.page-numbers[href]'):
+        next_page=urllib.parse.parse_qs(urllib.parse.urlsplit(anchor['href']).query).get('paged')
+        if next_page and next_page[0].isdigit():
+            anchor['href']='?paged='+next_page[0]
+    return str(soup)
+
+
+def _luxuryride_catalog(soup,source,base_url,query):
+    rows=[];seen=set()
+    for card in soup.select('.tfcl-listing-card'):
+        item=card.select_one('.featured-property[data-id]')
+        link=card.select_one('a[href*="/listing/"]')
+        if item is None or link is None:continue
+        text=card.get_text(' ',strip=True)
+        if re.search(r'\b(?:sold|booked|reserved)\b',text,re.I):continue
+        title=re.sub(r'\bMercedes\s*-?\s*Benz\b','Mercedes-Benz',item.get('title',''),flags=re.I)
+        brand,model=lm._infer_brand_model(title,None,None)
+        url=lm._canonical_url(base_url,link['href'])
+        if urllib.parse.urlsplit(url).hostname!=urllib.parse.urlsplit(base_url).hostname or not re.fullmatch(r'/listing/[^/]+',urllib.parse.urlsplit(url).path):continue
+        price=_price(' '.join(item.get(k,'') for k in ['data-price','data-price-suffix']))
+        km=re.fullmatch(r'([\d,.]+)\s*km',item.get('data-mileage',''),re.I)
+        year=item.get('data-year','')
+        if not brand or not model or not price or not km or not re.fullmatch(r'(?:19|20)\d{2}',year):continue
+        image=item.get('data-image')
+        row={'brand':brand,'model':model,'variant':title,'listing_name':title,
+            'source':source,'url':url,'source_listing_id':item['data-id'],
+            'price_lakh':price,'km':float(km[1].replace(',','')),'mfg_year':int(year),
+            'fuel':item.get('data-fuel'),'transmission':item.get('data-trans'),
+            'body_type':item.get('data-condition'),'location':item.get('data-location'),
+            'images':[image] if image else [],'image':image,
+            'condition_signal':'demo' if re.search(r'\b(?:demo|demonstrator)\b',title,re.I) else 'used',
+            'live_verified':True,'data_consistent':True,
+            'provenance':{'source_url':base_url,'original_url':url,'extraction':'luxuryride_catalog_cards','raw_listing':text}}
+        if url in seen or query and not lm._identity_matches_query(row,query):continue
+        seen.add(url);rows.append(row)
     return rows

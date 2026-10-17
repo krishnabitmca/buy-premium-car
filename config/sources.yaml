@@ -29,6 +29,8 @@ known_sources:
   vehicle_link_pattern: /used-car-details/[^?#]+\.htm
 
 - name: CarWale Used
+  city_catalog_path_pattern: /used/[a-z0-9-]+/?
+  city_catalog_title_pattern: Second Hand Cars in (.+)
   brand_slug_overrides: {MG Motor: mg}
   parser_strategy: carwale_cards
   url: https://www.carwale.com/used/
@@ -389,6 +391,8 @@ known_sources:
   vehicle_link_pattern: /used/[^?#]+
 
 - name: CarTrade
+  city_catalog_path_pattern: /second-hand/[a-z0-9-]+/?
+  city_catalog_title_pattern: Used Cars in (.+)
   parser_strategy: cartrade_cards
   query_url_template: https://www.cartrade.com/second-hand/{brand_slug}-{model_slug}/
   brand_query_url_template: https://www.cartrade.com/second-hand/{brand_slug}/
@@ -506,6 +510,7 @@ known_sources:
   vehicle_link_pattern: /(?:pre-owned|used|demo|buy-used)[^?#]+
 
 - name: Luxury Ride
+  catalogue_link_pattern: /listing-default/?
   url: https://luxuryrideofficial.com/
   parser_strategy: luxuryride_cards
   tier: 2
