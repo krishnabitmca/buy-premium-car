@@ -46,8 +46,9 @@ PR 47 implements whole-index typed refinements/ranking, broader comparison
 cohorts, global result summaries, offer evidence and a guarded Gemini intent
 pilot. See [buyer requirements](BUYER_EXPERIENCE_REQUIREMENTS.md) for validation
 and remaining launch gates. Branch tests do not establish production release.
-Gemini generation is not verified: synthetic calls returned provider high-demand
-errors, and buyer AI remains disabled. Broader source coverage and national
+The Gemini free-tier pilot subsequently passed real generation and the local
+consent/review/indexed-search flow on 17 October 2026 and was enabled with a
+30-call daily cap. Earlier high-demand errors remain recorded outage evidence. Broader source coverage and national
 capacity remain incomplete; no speed or completeness target is declared met.
 
 ## Historical implementation snapshot — 11 October 2026

@@ -1,3 +1,10 @@
+## 2026-10-17 — Verified Gemini free-tier pilot
+
+- Recheck the live search release and verify whole-index fuel/mileage constraints and global ordering.
+- Verify real Gemini interpretation of compound buyer preferences, explicit unsupported-criteria disclosure, and browser review before indexed search.
+- Enable the approved Gemini 3.8 Flash pilot in Render and ignored local configuration with the existing durable 30-call daily cap; no billing or paid fallback.
+- Preserve ordinary search and provider-failure handling. This pilot does not establish national source completeness or general model accuracy.
+
 ## 2026-10-16 — Authoritative buyer search and guarded Gemini pilot
 
 - Apply typed refinements and deterministic ordering across PostgreSQL inventory before pagination; browser refinements requery the index.
