@@ -32,6 +32,16 @@ def coverage_report():
         # attempt rather than counting duplicate queue rows as extra coverage.
         for row in cur.fetchall():
             scans.setdefault((row['brand'],row['source']),dict(row))
+        cur.execute("""select q.brand,q.model,s.name as source,q.status,
+            q.started_at,q.completed_at,q.metadata->'model_discovery' as discovery_evidence,
+            q.metadata->'advertised_model_count' as advertised_model_count,
+            coalesce((q.metadata->>'pages_fetched')::integer,0) as pages_fetched,
+            q.metadata ? 'continuation' as traversal_pending,
+            q.last_error is not null as last_attempt_failed
+            from inventory_refresh_queue q join sources s using(source_id)
+            where q.metadata ? 'model_discovery' and s.enabled and s.adapter_status='live'
+            order by q.brand,q.model,s.name""")
+        model_scans=[dict(row) for row in cur.fetchall()]
     makes=[]
     for demand in baseline_brand_demands():
         brand=demand['brand']
@@ -47,6 +57,7 @@ def coverage_report():
         makes.append({'brand':brand,'conditions':conditions,
             'scans':[row for (make,_),row in scans.items() if make==brand.lower()]})
     return {'generated_at':datetime.now(timezone.utc).isoformat(),
+        'model_frontier':model_scans,
         'scope':'india','complete_market_coverage':False,
         'meaning':'Current eligible indexed results; zero is a coverage gap, not proof of no cars.',
         'brands':makes}

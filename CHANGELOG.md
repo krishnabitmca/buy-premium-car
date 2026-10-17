@@ -1,3 +1,13 @@
+## 2026-10-17 — Source-evidenced used-model acquisition
+
+- Discover used/discontinued model families from source cards and used-model links;
+  retain provenance and advertised counts as acquisition evidence, never stock proof.
+- Fan out durable national model jobs across reviewed verified adapters, preserve
+  checkpoints on rediscovery and reschedule completed work by source freshness.
+- Reserve model and continuation capacity within the existing ten-job refresh budget.
+- Add verified CarTrade card extraction and extend operational model-progress reports.
+- No presentation/UI changes or paid infrastructure added.
+
 ## 2026-10-17 — National all-make acquisition and coverage audit
 
 - Add a daily bounded national baseline sweep alongside the fair 15-minute worker,

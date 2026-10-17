@@ -1,5 +1,21 @@
 # Continuous inventory operations
 
+## Used-model frontier
+
+Background scans learn model families from CarDekho/CarTrade cards and national
+CarWale used-model links. Discovery includes discontinued models and retains
+original evidence URLs and advertised counts. Those counts are not our inventory.
+`python -m src.inventory_refresh_planner --seed-observed-models` bootstraps family
+jobs from stored source observations; old observations only identify what to crawl.
+The daily national workflow runs this bootstrap automatically.
+
+Regular scheduling requeues stale completed model jobs without resetting partial
+or failed work. The quarter-hour worker reserves three general, four model and
+three continuation jobs. Use `--models-only` or `--continuations-only` for bounded
+operator runs. All classes retain normal claim locks, source verification and retry
+fences. Audit artifacts now include `model_frontier` source/model progress.
+See ADR 013 for scope and remaining city-only-source/capacity gates.
+
 ## National make sweep and audit
 
 `National Make Coverage` runs daily at 01:35 UTC using existing GitHub Actions

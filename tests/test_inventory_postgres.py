@@ -765,3 +765,40 @@ def test_make_aliases_find_current_inventory(db,stored,query):
     add_source(db)
     ingest_vehicles([vehicle(brand=stored,model='Test model')])
     assert search_inventory(query=query,condition='used',return_count=True)[2]==1
+
+
+def test_discovered_models_fan_out_only_to_verified_model_adapters_and_resume(db):
+    from src.used_inventory_frontier import enqueue_models,reschedule_models
+    for name in ('A','B','Unverified'):
+        add_source(db,name)
+    db.execute("update sources set metadata=%s::jsonb",(json.dumps({'parser_strategy':'carwale_cards','query_url_template':'https://fixture.invalid/{model_slug}'}),))
+    db.execute("update source_capabilities set capability_value='all'")
+    db.execute("update source_adapters set status='draft' where source_id=(select source_id from sources where name='Unverified')")
+    db.commit()
+    evidence=[{'model':'Nano','discovery_kind':'used_catalog_link','evidence_url':'https://fixture.invalid/used/tata-nano/','advertised_count':200}]
+    assert enqueue_models('Tata',evidence)==2
+    first=claim_jobs(1,models_only=True)[0]
+    assert first['model']=='nano' and first['destination_state']==''
+    complete_job(first['refresh_id'],success=True,attempt_count=first['attempt_count'],continuation={'pending_urls':['https://fixture.invalid/page-2']})
+    enqueue_models('Tata',evidence)
+    resumed=claim_jobs(1,continuations_only=True)[0]
+    assert resumed['refresh_id']==first['refresh_id']
+    assert resumed['metadata']['continuation']['pending_urls']==['https://fixture.invalid/page-2']
+    complete_job(resumed['refresh_id'],success=True,attempt_count=resumed['attempt_count'])
+    assert reschedule_models()==0
+    db.execute("update inventory_refresh_queue set metadata=jsonb_set(metadata,'{last_success_at}',to_jsonb((now()-interval '1 day')::text)) where status='completed'")
+    db.commit()
+    assert reschedule_models()==1
+
+
+def test_historical_model_bootstrap_never_restores_expired_inventory(db):
+    from src.used_inventory_frontier import seed_observed_models
+    add_source(db)
+    db.execute("update sources set metadata=%s::jsonb",(json.dumps({'parser_strategy':'cardekho_cards','query_url_template':'https://fixture.invalid/{model_slug}'}),))
+    db.execute("update source_capabilities set capability_value='all'");db.commit()
+    ingest_vehicles([vehicle(brand='Ford',model='Fiesta')])
+    db.execute("update listings set last_verified_at=now()-interval '30 days'");db.commit()
+    assert seed_observed_models()==1
+    job=db.execute("select brand,model,metadata from inventory_refresh_queue where model='fiesta'").fetchone()
+    assert job['brand']=='ford' and job['metadata']['model_discovery']['evidence_url']
+    assert search_inventory(query='Ford Fiesta',condition='used',return_count=True)[2]==0
