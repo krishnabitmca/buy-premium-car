@@ -27,7 +27,7 @@ jobs:
       - name: Schedule every supported make
         run: |
           python -m src.source_runtime_config --all-existing --apply
-          python -m src.inventory_refresh_planner --limit 100
+          python -m src.inventory_refresh_planner --seed-observed-models --limit 100
       - name: Sweep reviewed national marketplace adapters
         run: python -m src.inventory_refresh_worker --baseline-only --source "CarDekho Used" --source "CarWale Used" --limit 100
       - name: Audit used and demo coverage across every make

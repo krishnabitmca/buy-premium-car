@@ -389,10 +389,14 @@ known_sources:
   vehicle_link_pattern: /used/[^?#]+
 
 - name: CarTrade
+  parser_strategy: cartrade_cards
+  query_url_template: https://www.cartrade.com/second-hand/{brand_slug}-{model_slug}/
+  brand_query_url_template: https://www.cartrade.com/second-hand/{brand_slug}/
+  brand_slug_overrides: {MG Motor: mg}
   url: https://www.cartrade.com/second-hand/
   tier: 1
   source_type: marketplace
-  adapter_status: candidate
+  adapter_status: live
   geography: india
   conditions: [used]
   segments: [mass_market, premium, luxury]

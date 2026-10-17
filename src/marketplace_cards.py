@@ -6,6 +6,8 @@ from . import live_marketplaces as lm
 
 
 def parse_marketplace_cards(html, source, base_url, strategy, query=''):
+    if strategy=='cartrade_cards':
+        return parse_cartrade_cards(html,source,base_url,query)
     soup=BeautifulSoup(html,'html.parser')
     rows=[];seen=set()
     for anchor in soup.find_all('a',href=True):
@@ -71,5 +73,43 @@ def parse_marketplace_cards(html, source, base_url, strategy, query=''):
              'source_listing_id':path.rstrip('/').split('/')[-1],
              'provenance':{'source_url':base_url,'original_url':url,'extraction':strategy,'raw_listing':text}}
         if query and not lm._identity_matches_query(row,query):continue
+        seen.add(url);rows.append(row)
+    return rows
+
+
+def parse_cartrade_cards(html,source,base_url,query=''):
+    rows=[];seen=set()
+    for card in BeautifulSoup(html,'html.parser').select('li.card-list-container'):
+        identity=card.select_one('[data-share-make][data-share-model][data-share-mfgyear]')
+        link=card.select_one('a[href] h3')
+        price=card.select_one('.cr_prc')
+        spec=card.select_one('[data-bhrigu-label]')
+        if identity is None or link is None or price is None or spec is None:continue
+        anchor=link.find_parent('a');url=lm._canonical_url(base_url,anchor['href'])
+        if urlsplit(url).hostname!=urlsplit(base_url).hostname or not re.fullmatch(r'/second-hand/[^/]+/[^/]+/[a-z0-9]{8}',urlsplit(url).path,re.I):continue
+        text=card.get_text(' ',strip=True)
+        if re.search(r'\b(?:sold|reserved|booked)\b',text,re.I):continue
+        attributes=dict(x.split('=',1) for x in spec['data-bhrigu-label'].split('|') if '=' in x)
+        raw_price=price.get_text(' ',strip=True)
+        amount=re.search(r'₹\s*([\d,]+(?:\.\d+)?)\s*(Lakh|Crore)?',raw_price,re.I)
+        try:
+            year=int(identity['data-share-mfgyear'])
+            km=float(attributes['kilometers'].replace(',',''))
+            value=float(amount[1].replace(',','')) if amount else 0
+            unit=(amount[2] or '').lower() if amount else ''
+            value=value*100 if unit=='crore' else value if unit=='lakh' else value/100000
+        except (ValueError,KeyError):continue
+        if value<=0 or km<0 or not 1900<=year<=2100:continue
+        title=link.get_text(' ',strip=True)
+        images=[x.get('src') for x in card.select('img[src]') if x.get('alt','').startswith('Used ') and not x['src'].startswith('data:')]
+        row={'brand':lm._canonical_brand(identity['data-share-make']),'model':identity['data-share-model'],
+            'variant':title,'listing_name':title,'url':url,'source':source,'price_lakh':value,
+            'mfg_year':year,'km':km,'fuel':attributes.get('fuel'),
+            'seller_city':identity.get('data-share-cityname'),'location':identity.get('data-share-cityname'),
+            'condition_signal':'demo' if lm._infer_condition({'name':title})=='demo' else 'used',
+            'live_verified':True,'data_consistent':True,'images':images,'image':images[0] if images else None,
+            'source_listing_id':urlsplit(url).path.split('/')[-1],
+            'provenance':{'source_url':base_url,'original_url':url,'extraction':'cartrade_cards','raw_listing':text}}
+        if url in seen or (query and not lm._identity_matches_query(row,query)):continue
         seen.add(url);rows.append(row)
     return rows

@@ -19,7 +19,7 @@ from .source_registry_db import _connect, enabled, require_database, load_regist
 log = logging.getLogger(__name__)
 
 
-def claim_jobs(limit: int = 10, *, brands=None, source_names=None, baseline_only=False) -> list[dict[str, Any]]:
+def claim_jobs(limit: int = 10, *, brands=None, source_names=None, baseline_only=False, models_only=False, continuations_only=False) -> list[dict[str, Any]]:
     if not enabled():
         return []
     with _connect() as conn, conn.cursor() as cur:
@@ -33,6 +33,8 @@ def claim_jobs(limit: int = 10, *, brands=None, source_names=None, baseline_only
                  join public.sources s on s.source_id=q.source_id
                  join brand_service b on b.brand=lower(q.brand)
                  where q.status='queued'
+                   and (not %s or (q.model<>'' and q.metadata ? 'model_discovery'))
+                   and (not %s or q.metadata ? 'continuation')
                    and (not %s or (q.brand<>'' and q.model='' and q.condition='both' and q.destination_state=''))
                    and (%s::text[] is null or lower(q.brand)=any(%s::text[]))
                    and (%s::text[] is null or s.name=any(%s::text[]))
@@ -51,7 +53,7 @@ def claim_jobs(limit: int = 10, *, brands=None, source_names=None, baseline_only
                set status='running',started_at=now(),attempt_count=attempt_count+1
                from picked where q.refresh_id=picked.refresh_id
                returning q.*, (select s.name from public.sources s where s.source_id=q.source_id) as source_name,\n                       (select s.url from public.sources s where s.source_id=q.source_id) as source_url""",
-            (bool(baseline_only),) + ([str(b).strip().lower() for b in brands] if brands else None,)*2 +
+            (bool(models_only),bool(continuations_only),bool(baseline_only)) + ([str(b).strip().lower() for b in brands] if brands else None,)*2 +
             (list(source_names) if source_names else None,)*2 + (max(1,min(int(limit),100)),),
         )
         rows = [dict(r) for r in cur.fetchall()]
@@ -108,7 +110,10 @@ def complete_job(refresh_id: int, *, success: bool, error: str | None = None,
 
 
 def process_job(job: dict[str, Any]) -> dict[str, int]:
-    query = " ".join(x for x in (job.get("brand"), job.get("model")) if x)
+    from .live_marketplaces import _query_parts
+    brand=job.get('brand') or ''
+    query_brand=_query_parts(brand)[0] or brand
+    query = " ".join(x for x in (query_brand, job.get("model")) if x)
     try:
         source_name = str(job.get("source_name") or "")
         if not source_name:
@@ -158,6 +163,10 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
         ) for v in result.listings]
 
         ingested = ingest_vehicles(normalized)
+        if result.discovered_models:
+            from .used_inventory_frontier import enqueue_models
+            brand=job.get('brand') or ''
+            enqueue_models(brand,result.discovered_models)
         complete_job(int(job["refresh_id"]), success=True, attempt_count=job.get("attempt_count"),
                      continuation=result.continuation, pages_fetched=result.pages_fetched)
         return ingested
@@ -167,12 +176,13 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
         raise
 
 
-def run_batch(limit: int = 10, *, brands=None, source_names=None, baseline_only=False) -> dict[str, int]:
+def run_batch(limit: int = 10, *, brands=None, source_names=None, baseline_only=False, models_only=False, continuations_only=False) -> dict[str, int]:
     """Claim only when ready to execute; isolate marketplace failures."""
     counts = {"completed": 0, "failed": 0}
     recover_jobs()
     for _ in range(max(1, min(int(limit), 100))):
-        jobs = claim_jobs(1,brands=brands,source_names=source_names,baseline_only=baseline_only) if brands or source_names or baseline_only else claim_jobs(1)
+        jobs = claim_jobs(1,brands=brands,source_names=source_names,baseline_only=baseline_only,
+            models_only=models_only,continuations_only=continuations_only) if brands or source_names or baseline_only or models_only or continuations_only else claim_jobs(1)
         if not jobs:
             break
         try:
@@ -190,10 +200,13 @@ def main() -> None:
     parser.add_argument('--brand',action='append',help='Limit recovery work to this make; repeatable')
     parser.add_argument('--source',action='append',help='Limit recovery to verified source names; repeatable')
     parser.add_argument('--baseline-only',action='store_true',help='Process India-wide make scans, excluding model/location demand jobs')
+    parser.add_argument('--models-only',action='store_true',help='Reserve capacity for source-discovered model scans')
+    parser.add_argument('--continuations-only',action='store_true',help='Reserve capacity for pending pagination')
     args = parser.parse_args()
     require_database()
     logging.basicConfig(level=logging.INFO)
-    result = run_batch(args.limit,brands=args.brand,source_names=args.source,baseline_only=args.baseline_only)
+    result = run_batch(args.limit,brands=args.brand,source_names=args.source,baseline_only=args.baseline_only,
+        models_only=args.models_only,continuations_only=args.continuations_only)
     print(result)
     if result["failed"]:
         raise SystemExit(1)

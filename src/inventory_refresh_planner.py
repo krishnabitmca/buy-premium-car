@@ -40,6 +40,9 @@ def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
     if not enabled():
         return 0
 
+    from .used_inventory_frontier import reschedule_models
+    reschedule_models()
+
     demands = load_search_demand(limit=limit, lookback_hours=lookback_hours)
     # Always maintain a global India-wide refresh demand. This bootstraps the
     # inventory even before enough customer searches exist and keeps source
@@ -169,8 +172,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=100)
     parser.add_argument("--lookback-hours", type=int, default=168)
+    parser.add_argument('--seed-observed-models',action='store_true',help='Learn used/discontinued model families from source observations')
     args = parser.parse_args()
     require_database()
+    if args.seed_observed_models:
+        from .used_inventory_frontier import seed_observed_models
+        print({'model_jobs_seeded':seed_observed_models()})
     print(schedule_refreshes(limit=args.limit, lookback_hours=args.lookback_hours))
 
 

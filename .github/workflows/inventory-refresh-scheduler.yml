@@ -35,9 +35,11 @@ jobs:
           SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.CARSCANNER_FREE_TEST_DATABASE_URL || secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
           CARSCANNER_MAX_PAGES_PER_SOURCE: "3"
         run: |
-          for i in 1; do
-            python -m src.inventory_refresh_worker --limit "10" || exit 1
-          done
+          failed=0
+          python -m src.inventory_refresh_worker --limit 3 || failed=1
+          python -m src.inventory_refresh_worker --models-only --limit 4 || failed=1
+          python -m src.inventory_refresh_worker --continuations-only --limit 3 || failed=1
+          exit "$failed"
       - name: Refresh derived Elasticsearch inventory
         if: always()
         env:

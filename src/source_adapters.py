@@ -50,6 +50,7 @@ class AdapterResult:
     query_url: str | None = None
     continuation: dict[str, Any] | None = None
     pages_fetched: int = 0
+    discovered_models: list[dict[str, Any]] = field(default_factory=list)
 
 
 class SourceAdapter(Protocol):
@@ -82,6 +83,14 @@ class BuiltinMarketplaceAdapter:
             if endpoint.get("is_active", True) is False:
                 continue
             url=str(endpoint.get("url") or "").strip()
+            strategy=self.source.get('parser_strategy') or (self.source.get('metadata') or {}).get('parser_strategy')
+            if (request.query and strategy in {'cardekho_cards','carwale_cards','cartrade_cards','cars24_cards'}
+                    and primary.rstrip('/')!=str(self.source.get('url') or '').rstrip('/')
+                    and url.rstrip('/')==str(self.source.get('url') or '').rstrip('/')):
+                # A targeted model catalogue replaces this source's generic
+                # root. Re-fetching that root for every model wastes the next
+                # page budget and usually yields unrelated inventory.
+                continue
             if url and url not in urls:
                 urls.append(url)
         return urls[:12]
@@ -122,6 +131,7 @@ class BuiltinMarketplaceAdapter:
 
         try:
             all_parsed=[]
+            discovered_models={}
             fetched_urls=[]
             parser_strategy = str(self.source.get("parser_strategy") or (self.source.get("metadata") or {}).get("parser_strategy") or "").strip().lower()
             partial_error = None
@@ -177,7 +187,7 @@ class BuiltinMarketplaceAdapter:
                     partial_error = (partial_error or "") + f"{endpoint_url}: {type(exc).__name__}: {str(exc)[:100]}; "
                     continue
                 fetched_urls.append(endpoint_url)
-                if parser_strategy in {'cardekho_cards','carwale_cards','cars24_cards'}:
+                if parser_strategy in {'cardekho_cards','carwale_cards','cars24_cards','cartrade_cards'}:
                     from .marketplace_cards import parse_marketplace_cards
                     parsed=parse_marketplace_cards(html,self.source_name,endpoint_url,parser_strategy,request.query)
                 elif parser_strategy == "motozite_cards":
@@ -208,6 +218,10 @@ class BuiltinMarketplaceAdapter:
                         html, self.source_name, endpoint_url, request.query
                     )
                 all_parsed.extend(parsed)
+                if request.continuation is not None and parser_strategy in {'cardekho_cards','carwale_cards','cartrade_cards'}:
+                    from .used_inventory_frontier import discover_models
+                    for discovered in discover_models(html,self.source,endpoint_url,request.query,parsed):
+                        discovered_models[discovered['model'].lower()]=discovered
                 next_url=live_marketplaces._next_page_url(html,endpoint_url)
                 if next_url and next_url not in urls and urlsplit(next_url).hostname==urlsplit(endpoint_url).hostname:
                     urls.append(next_url)
@@ -290,6 +304,7 @@ class BuiltinMarketplaceAdapter:
                               "oem_cursors": oem_cursors} if request.continuation is not None
                               and any(page not in seen_pages for page in urls) else None,
                 pages_fetched=fetched_this_batch,
+                discovered_models=list(discovered_models.values()),
             )
             record_adapter_execution(
                 self.source_name,
