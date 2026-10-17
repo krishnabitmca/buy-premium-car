@@ -51,6 +51,10 @@ class RenderHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b"ok")
             return
+        if path == '/favicon.ico':
+            self.send_response(204)
+            self.end_headers()
+            return
         if path == "/":
             self.path = "/index.html"
         elif path != "/index.html":

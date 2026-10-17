@@ -28,6 +28,13 @@ that the response's current page matches the requested page. Do not manufacture
 page counts or silently accept repeated page-one responses.
 
 Operational coverage reports expose catalogue progress and last errors.
+Growing inventory exposed a comparison-join bottleneck during concurrent browser
+verification. Brand and model are required non-null schema fields, so use ordinary
+equality for these keys, retaining null-safe joins for optional variant/year.
+The measured unfiltered query dropped from 4.2 seconds to 0.44 seconds on the same
+hosted dataset, without increasing pool size, caching inventory or weakening
+comparison cohorts. Preserve this distinction as inventory grows.
+
 Advertised totals are source claims, not verified unique available inventory.
 Even exhaustion of advertised links is `traversal_exhausted_unverified`, never
 proof of complete market coverage. Source partnerships/feeds and additional

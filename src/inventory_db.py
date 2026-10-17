@@ -199,9 +199,11 @@ def search_inventory(
              'year':'g.mfg_year desc nulls last','gap':f'{gap} desc nulls last',
              'match':f'{rank} desc nulls last'}[sort]
     order=primary+',g.price_lakh nulls last,g.observed_at desc,g.vehicle_id,g.price_basis'
+    # Required non-null brand/model keys must remain hashable equality joins.
+    # Null-safe equality here compares nearly every pair of cohort rows.
     projection="""select g.*,c.comparable_count,c.comp_median,
           row_number() over (order by """+order+""") as result_order from grouped g join cohorts c
-          on g.brand is not distinct from c.brand and g.model is not distinct from c.model
+          on g.brand=c.brand and g.model=c.model
           and g.variant is not distinct from c.variant and g.mfg_year is not distinct from c.mfg_year
           and g.condition=c.condition and g.price_basis=c.price_basis""" + selected + """
           order by """+order+" limit %s offset %s"

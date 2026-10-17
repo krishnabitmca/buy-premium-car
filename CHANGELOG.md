@@ -10,6 +10,10 @@
   treating traversal exhaustion as proof of complete India-wide inventory.
 - Keep acquisition independent of buyer destination; no UI or paid infrastructure
   changes.
+- Use hashable equality on required brand/model cohort keys to avoid quadratic
+  comparison work as inventory grows; preserve null-safe optional variant/year.
+- Verify same-repository PR customer journeys against the branch's local server
+  using approved test inventory; keep post-merge checks on the deployed release.
 
 ## 2026-10-17 — Source-evidenced used-model acquisition
 
