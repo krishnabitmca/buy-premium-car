@@ -7,6 +7,8 @@
 - Correct accented make identity, canonical alias search, source-specific make slugs
   and aria-label next-page traversal. Preserve original listing provenance and
   India-wide search regardless of registration destination.
+- Reuse successful public model metadata for 15 minutes with bounded storage and
+  synchronized loads; prices and availability never enter this cache.
 - Coverage reports explicitly retain gaps; these changes do not claim exhaustive
   marketplace coverage or guaranteed inventory for every make/condition.
 
