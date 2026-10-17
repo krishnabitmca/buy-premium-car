@@ -23,8 +23,10 @@ bounded and does not establish catalogue completeness or a national freshness SL
 
 Add CarTrade's reviewed national listing-card adapter, preserving observed family,
 card-local asking price, mileage, year, city, image and individual listing URL.
-Follow advertised pagination only. The national sources expose multiple cities
-already; do not multiply work by guessed city URLs or conflate destination with
+Follow advertised pagination only. Targeted marketplace scans replace the generic
+root endpoint so the next batch can spend its budget on the advertised next page,
+preserving distinct endpoints. The national sources expose multiple cities already;
+do not multiply work by guessed city URLs or conflate destination with
 acquisition geography. City-only adapters remain a separate validation gate.
 
 Extend the operational audit with source/brand/model traversal state and discovery

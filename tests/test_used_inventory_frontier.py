@@ -23,3 +23,24 @@ def test_observed_cardekho_model_family_is_used_without_carwale_variant_fanout(m
     assert discover_models('',{'parser_strategy':'cardekho_cards'},'https://source.example','Ford',rows)==[
         {'model':'Figo','evidence_url':'https://source.example/used-car/1','discovery_kind':'observed_model'}]
     assert discover_models('',{'parser_strategy':'carwale_cards'},'https://source.example','Ford',rows)==[]
+
+
+def test_model_scan_advances_pages_without_revisiting_generic_source_root(monkeypatch):
+    from src.source_adapters import BuiltinMarketplaceAdapter,AdapterRequest
+    monkeypatch.setattr(lm,'_known_brand_names',lambda:['Tata'])
+    monkeypatch.setattr('src.source_adapters.adapter_execution_allowed',lambda _:True)
+    monkeypatch.setenv('CARSCANNER_MAX_PAGES_PER_SOURCE','1')
+    source={'name':'Test','url':'https://source.example/used/','adapter_status':'live',
+        'parser_strategy':'carwale_cards','brands':['all'],
+        'query_url_template':'https://source.example/used/{brand_slug}-{model_slug}/',
+        'endpoints':[{'url':'https://source.example/used/'}]}
+    calls=[]
+    def fetch(url):
+        calls.append(url)
+        return '<link rel="next" href="/used/tata-altroz/page-2/">' if 'page-2' not in url else '<html></html>'
+    monkeypatch.setattr('src.source_adapters.fetch_text',fetch)
+    adapter=BuiltinMarketplaceAdapter(source)
+    first=adapter.fetch(AdapterRequest(query='Tata Altroz',continuation={}))
+    second=adapter.fetch(AdapterRequest(query='Tata Altroz',continuation=first.continuation))
+    assert calls==['https://source.example/used/tata-altroz/','https://source.example/used/tata-altroz/page-2']
+    assert second.continuation is None

@@ -83,6 +83,14 @@ class BuiltinMarketplaceAdapter:
             if endpoint.get("is_active", True) is False:
                 continue
             url=str(endpoint.get("url") or "").strip()
+            strategy=self.source.get('parser_strategy') or (self.source.get('metadata') or {}).get('parser_strategy')
+            if (request.query and strategy in {'cardekho_cards','carwale_cards','cartrade_cards','cars24_cards'}
+                    and primary.rstrip('/')!=str(self.source.get('url') or '').rstrip('/')
+                    and url.rstrip('/')==str(self.source.get('url') or '').rstrip('/')):
+                # A targeted model catalogue replaces this source's generic
+                # root. Re-fetching that root for every model wastes the next
+                # page budget and usually yields unrelated inventory.
+                continue
             if url and url not in urls:
                 urls.append(url)
         return urls[:12]
