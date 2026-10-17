@@ -289,6 +289,7 @@ def test_scheduler_claim_worker_ingestion_and_http_boundary(db,monkeypatch):
 
 
 def test_baseline_refresh_covers_non_example_brands_and_all_marketplaces(db,monkeypatch):
+    monkeypatch.setattr('src.inventory_refresh_planner.CAR_MAKES',['Audi','Toyota','Hyundai'])
     first = add_source(db, 'National Marketplace')
     second = add_source(db, 'Second Marketplace')
     db.execute("update public.source_capabilities set capability_value='all'")
@@ -301,7 +302,7 @@ def test_baseline_refresh_covers_non_example_brands_and_all_marketplaces(db,monk
     assert schedule_refreshes()==8  # global + each brand, on both sources
     db.commit()
     rows=db.execute("select source_id,brand from public.inventory_refresh_queue").fetchall()
-    assert {(r['source_id'],r['brand']) for r in rows}=={(s,b) for s in (first,second) for b in ('','Audi','Hyundai','Toyota')}
+    assert {(r['source_id'],r['brand']) for r in rows}=={(s,b) for s in (first,second) for b in ('','audi','hyundai','toyota')}
 
 
 def test_partial_inventory_paginates_without_repricing_comparison_cohort(db,monkeypatch):
@@ -342,7 +343,7 @@ def test_successful_empty_scan_is_fresh_and_other_model_still_scheduled(db,monke
         lambda **kwargs:[{'brand':'BMW','model':'X1','condition':'used','search_count':1}])
     assert schedule_refreshes()==1
     db.commit()
-    assert db.execute("select model from public.inventory_refresh_queue where status='queued'").fetchone()['model']=='X1'
+    assert db.execute("select model from public.inventory_refresh_queue where status='queued'").fetchone()['model']=='x1'
 
 
 def test_abandoned_claim_recovered_and_old_attempt_cannot_complete(db):
@@ -720,3 +721,30 @@ def test_ai_daily_quota_is_atomic_and_durable(db,monkeypatch):
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
         db.execute('select * from public.buyer_ai_daily_usage')
     db.rollback()
+
+
+def test_worker_gives_unserved_brands_a_turn_before_high_priority_continuations(db):
+    source=add_source(db)
+    for brand,priority,started in [('bmw',100,True),('hyundai',8,False),('skoda',8,False)]:
+        db.execute("""insert into inventory_refresh_queue(source_id,brand,priority,started_at)
+            values (%s,%s,%s,case when %s then now() else null end)""",(source,brand,priority,started))
+    db.commit()
+    first=claim_jobs(1)[0]
+    assert first['brand'] in {'hyundai','skoda'}
+    complete_job(first['refresh_id'],success=True,attempt_count=first['attempt_count'],continuation={'pending_urls':['https://fixture.invalid/page2']})
+    second=claim_jobs(1)[0]
+    assert {first['brand'],second['brand']}=={'hyundai','skoda'}
+
+
+def test_scheduler_preserves_queue_age_and_normalizes_demand_keys(db,monkeypatch):
+    add_source(db)
+    db.execute("update source_capabilities set capability_value='all'");db.commit()
+    monkeypatch.setattr('src.inventory_refresh_planner.load_search_demand',lambda **kwargs:[
+        {'brand':'Honda','model':'City','condition':'used'}, {'brand':'honda','model':'city','condition':'used'}])
+    schedule_refreshes()
+    db.execute("update inventory_refresh_queue set requested_at=now()-interval '3 days'");db.commit()
+    before=db.execute('select refresh_id,requested_at from inventory_refresh_queue order by refresh_id').fetchall();db.commit()
+    schedule_refreshes()
+    after=db.execute('select refresh_id,requested_at from inventory_refresh_queue order by refresh_id').fetchall()
+    assert after==before and len(after)==2
+    assert db.execute("select brand,model from inventory_refresh_queue where brand<>''").fetchone()=={'brand':'honda','model':'city'}

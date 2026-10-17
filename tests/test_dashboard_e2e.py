@@ -169,3 +169,25 @@ def test_empty_demo_search_distinguishes_fetched_sources_from_matches(dashboard_
         assert requests[0]["query"] == "BMW X1"
         assert requests[0]["condition"] == "demo"
         browser.close()
+
+
+def test_empty_brand_search_exposes_and_clears_refinements(dashboard_url):
+    import json
+    with sync_playwright() as p:
+        browser=p.chromium.launch();page=browser.new_page();requests=[]
+        page.route('**/api/catalog*',lambda r:r.fulfill(content_type='application/json',body=json.dumps({
+            'ok':True,'mode':'live','brands':[{'name':'Honda'}],'models':[{'name':'City'}]})))
+        def respond(r):
+            body=r.request.post_data_json;requests.append(body)
+            rows=[] if body.get('body_types') else [{'brand':'Honda','model':'City','fuel':'Petrol','price_lakh':8,'condition_signal':'used','source':'Fixture','url':'https://example.invalid/honda'}]
+            r.fulfill(content_type='application/json',body=json.dumps({'ok':True,'mode':'inventory_partial','search_scope':'india','results':rows,'total_results':len(rows),'sources':[]}))
+        page.route('**/api/search*',respond)
+        page.goto(dashboard_url);page.locator('#brand').select_option('Honda')
+        page.locator('#condition').select_option('used');page.locator('#bodyType').select_option('suv')
+        page.locator('#search').click();expect(page.locator('#activeCriteria')).to_contain_text('suv')
+        expect(page.locator('.card')).to_have_count(0)
+        page.get_by_role('button',name='Search this brand without refinements',exact=True).click()
+        expect(page.locator('.card')).to_have_count(1)
+        assert requests[-1]['query']=='Honda' and requests[-1]['condition']=='used'
+        assert requests[-1]['body_types']==[] and page.locator('#bodyType').input_value()==''
+        browser.close()

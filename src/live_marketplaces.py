@@ -15,6 +15,7 @@ from contextvars import ContextVar
 from functools import wraps
 
 from .source_intelligence import load_source_registry, plan_sources, normalize_condition
+from .car_catalog import CAR_MAKES
 
 USER_AGENT = "CarScanner/1.0 (+https://carscanner.in)"
 TIMEOUT = 5
@@ -239,7 +240,7 @@ def _known_brand_names() -> list[str]:
     if snapshot is not None:return list(snapshot)
     names=[]
     seen=set()
-    for record in _registry_brand_records()+_configured_brand_records():
+    for record in _registry_brand_records()+_configured_brand_records()+[{'name':b} for b in CAR_MAKES]:
         name=str(record.get("name") or "").strip()
         if name and name.lower() not in seen:
             seen.add(name.lower())
@@ -424,6 +425,18 @@ def live_models(brand: str) -> list[dict[str,str]]:
         selected=next((x for x in brands if _canonical_brand(x["name"]).lower()==wanted),None)
     except Exception:
         selected=None
+    if not selected and wanted in {_canonical_brand(b).lower() for b in CAR_MAKES}:
+        # A selectable make must not disappear merely because no dealer has
+        # declared its capability yet. Fetch actual models through configured
+        # catalogue routes; never invent a model list.
+        name=next(_canonical_brand(b) for b in CAR_MAKES if _canonical_brand(b).lower()==wanted)
+        for source in load_source_registry():
+            metadata=source.get('metadata') or {}
+            template=source.get('catalog_brand_url_template') or metadata.get('catalog_brand_url_template')
+            if template:
+                selected={'name':name,'url':str(template).format(brand=urllib.parse.quote(name),
+                    brand_slug=_slug(name),name=urllib.parse.quote(name),slug=_slug(name))}
+                break
     if not selected:
         return []
     if not selected.get("url"):

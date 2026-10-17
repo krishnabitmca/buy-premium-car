@@ -9,17 +9,18 @@ Execution remains the responsibility of the source-isolated adapter worker.
 import json
 from typing import Any
 from .inventory_freshness import refresh_priority
+from .car_catalog import CAR_MAKES
 from .source_registry_db import _connect, enabled, load_search_demand, require_database, load_registry
 
 
 def baseline_brand_demands():
-    """Warm every registered brand, independently of customer traffic.
+    """Warm every supported make, independently of customer traffic.
 
-    The registry is the taxonomy, not a hand-picked brand list. An ``all``
+    Registry capabilities supplement the independent make taxonomy. An ``all``
     capability means multi-brand coverage; it is never itself a brand job.
     Sources without verified adapters remain excluded by the scheduling SQL.
     """
-    brands = {}
+    brands = {brand.lower():brand for brand in CAR_MAKES}
     for source in load_registry():
         for value in source.get('brands') or []:
             brand = str(value or '').strip()
@@ -59,10 +60,10 @@ def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
 
     with _connect() as conn, conn.cursor() as cur:
         for demand in demands:
-            brand = str(demand.get("brand") or "")
-            model = str(demand.get("model") or "")
-            condition = str(demand.get("condition") or "both")
-            state = str(demand.get("destination_state") or "")
+            brand = str(demand.get("brand") or "").strip().lower()
+            model = str(demand.get("model") or "").strip().lower()
+            condition = str(demand.get("condition") or "both").strip().lower()
+            state = str(demand.get("destination_state") or "").strip().lower()
             search_count = int(demand.get("search_count") or 0)
             hit_count = int(demand.get("inventory_hit_count") or 0)
 
@@ -137,7 +138,8 @@ def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
                          priority=greatest(public.inventory_refresh_queue.priority,
                                            excluded.priority),
                          reason=excluded.reason,
-                         requested_at=now(),
+                         requested_at=case when public.inventory_refresh_queue.status='completed'
+                           then now() else public.inventory_refresh_queue.requested_at end,
                          status=case
                            when public.inventory_refresh_queue.status='completed'
                            then 'queued'

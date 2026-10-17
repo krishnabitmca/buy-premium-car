@@ -72,7 +72,7 @@ def test_brand_identity_snapshot_is_bounded_to_each_scan(monkeypatch):
     monkeypatch.setattr(lm,'_configured_brand_records',lambda:[])
     @lm.with_brand_identity
     def scan():
-        for _ in range(100):assert lm._known_brand_names()==['BMW']
+        for _ in range(100):assert set(lm._known_brand_names())==set(lm.CAR_MAKES)|{'BMW'}
     scan();assert len(calls)==1
     scan();assert len(calls)==2
     assert lm._brand_identity_snapshot.get() is None
