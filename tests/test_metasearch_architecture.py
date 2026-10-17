@@ -38,7 +38,7 @@ def test_inventory_query_exposes_multi_provider_offers_and_freshness_gate():
     assert "jsonb_agg(jsonb_build_object" in source
     assert '"offers"' in source
     assert "CARSCANNER_INVENTORY_EXPIRE_MINUTES" in source
-    assert "make_interval(mins => %s)" in source
+    assert "make_interval(mins => " in source and 'expiry_sql()' in source
     assert "source_count" in source
 
 

@@ -73,8 +73,11 @@ def db(disposable_database,monkeypatch):
     monkeypatch.setenv('CARSCANNER_INVENTORY_FIRST','true')
     monkeypatch.setenv('CARSCANNER_ALLOW_LIVE_COVERAGE_FALLBACK','false')
     monkeypatch.setenv('CARSCANNER_INVENTORY_EXPIRE_MINUTES','10080')
+    monkeypatch.setenv('CARSCANNER_CRAWL_DELAY_SECONDS','0')
     with psycopg.connect(disposable_database,row_factory=dict_row) as conn:
         conn.execute('truncate public.sources,public.vehicles,public.search_demand restart identity cascade')
+        conn.execute('truncate public.inventory_crawl_leases,public.inventory_pipeline_runs')
+        conn.commit()  # External worker connections must not wait on fixture TRUNCATE locks.
         yield conn
 
 
@@ -406,7 +409,7 @@ def seed_adapter_inventory(db,monkeypatch):
            'price_basis':'asking'} for i,price in enumerate((30,40,50),1)]
     monkeypatch.setattr('src.inventory_refresh_worker.BuiltinMarketplaceAdapter.fetch',
                         lambda self,request:AdapterResult(self.source_name,rows,status='live'))
-    assert run_cycle(10)=={'scheduled':1,'completed':1,'failed':0}
+    assert run_cycle(10)=={'scheduled':1,'completed':1,'failed':0,'lifecycle':{'expired':0,'enrolled':0,'recovered':0,'heartbeat_gap_seconds':None}}
     return rows
 
 
@@ -822,3 +825,130 @@ def test_historical_model_bootstrap_never_restores_expired_inventory(db):
     job=db.execute("select brand,model,metadata from inventory_refresh_queue where model='fiesta'").fetchone()
     assert job['brand']=='ford' and job['metadata']['model_discovery']['evidence_url']
     assert search_inventory(query='Ford Fiesta',condition='used',return_count=True)[2]==0
+
+
+def old_renewal(db,condition='used'):
+    from src.inventory_lifecycle import maintain,claim
+    v=ingest(db,condition_signal=condition,source_listing_id='stock-1')
+    db.execute("update listings set last_verified_at=now()-interval '8 hours'")
+    db.commit();maintain()
+    return v,claim(condition)
+
+
+def test_lifecycle_expiry_uses_source_and_demo_policy_without_deleting_history(db):
+    from src.inventory_lifecycle import maintain
+    add_source(db)
+    ingest_vehicles([vehicle(condition_signal=c,url='https://fixture.invalid/'+c,vin=None) for c in ['used','demo']])
+    db.execute("update listings set last_verified_at=now()-interval '36 hours'");db.commit()
+    assert search_inventory(condition='used',return_count=True)[2]==1
+    assert search_inventory(condition='demo',return_count=True)[2]==0
+    assert maintain()['expired']==1
+    assert db.execute('select count(*) as n from vehicle_observations').fetchone()['n']==2
+    db.execute('update sources set expire_after_minutes=60');db.commit()
+    assert search_inventory(condition='used',return_count=True)[2]==0
+    assert maintain()['expired']==1
+
+
+def test_listing_renewal_updates_price_preserves_condition_and_history(db):
+    from src.inventory_lifecycle import finish
+    v,job=old_renewal(db,'demo')
+    assert finish(job,{'outcome':'available','price_lakh':25,'availability':'InStock'})
+    rows,_,total=search_inventory(condition='demo',return_count=True)
+    assert total==1 and rows[0]['price_lakh']==25
+    assert db.execute('select count(*) as n from vehicle_observations').fetchone()['n']==2
+    assert db.execute('select last_outcome,status from inventory_listing_refresh').fetchone()=={'last_outcome':'available','status':'completed'}
+
+
+def test_lost_lease_and_newer_positive_evidence_fence_stale_renewal(db):
+    from src.inventory_lifecycle import finish,claim
+    v,job=old_renewal(db)
+    db.execute("update inventory_listing_refresh set lease_token=gen_random_uuid()");db.commit()
+    assert not finish(job,{'outcome':'unavailable'})
+    assert search_inventory(return_count=True)[2]==1
+    db.execute("update inventory_listing_refresh set status='queued',due_at=now()");db.commit()
+    job=claim('used')
+    ingest_vehicles([replace(v,price_lakh=45)])
+    assert finish(job,{'outcome':'unavailable'})
+    rows,_=search_inventory()
+    assert rows[0]['price_lakh']==45
+    assert db.execute('select last_outcome from inventory_listing_refresh').fetchone()['last_outcome']=='superseded'
+
+
+def test_consecutive_404s_are_required_and_network_errors_reset_the_sequence(db):
+    from src.inventory_lifecycle import finish,claim
+    _,job=old_renewal(db)
+    finish(job,{'outcome':'missing','http_status':404})
+    assert db.execute('select status from listings').fetchone()['status']=='active'
+    assert db.execute("select due_at>now()+interval '59 minutes' as delayed from inventory_listing_refresh").fetchone()['delayed']
+    for evidence in [{'outcome':'error'}, {'outcome':'missing','http_status':404}, {'outcome':'missing','http_status':404}]:
+        db.execute('update inventory_listing_refresh set due_at=now()');db.commit()
+        finish(claim('used'),evidence)
+    assert db.execute('select status from listings').fetchone()['status']=='removed'
+    assert search_inventory(return_count=True)[2]==0
+
+
+def test_domain_lease_is_shared_and_stale_release_cannot_clear_new_owner(db):
+    from src.crawl_leases import acquire,release
+    first=acquire('https://fixture.invalid/catalogue')
+    assert first and acquire('https://fixture.invalid/listing') is None
+    db.execute("update inventory_crawl_leases set lease_expires_at=now()-interval '1 second'");db.commit()
+    second=acquire('https://fixture.invalid/listing')
+    assert second and first!=second
+    release(first)
+    assert acquire('https://fixture.invalid/') is None
+    release(second)
+
+
+def test_catalogue_renewal_resets_previous_missing_sequence(db):
+    from src.inventory_lifecycle import finish,claim
+    _,job=old_renewal(db)
+    finish(job,{'outcome':'missing','http_status':404})
+    # Previous 404 was yesterday; a catalogue supplied positive evidence eight
+    # hours ago. Today's first missing check must not combine with yesterday's.
+    db.execute("update inventory_listing_refresh set last_checked_at=now()-interval '1 day',due_at=now()")
+    db.execute("update listings set last_verified_at=now()-interval '8 hours'");db.commit()
+    finish(claim('used'),{'outcome':'missing','http_status':404})
+    assert db.execute('select status from listings').fetchone()['status']=='active'
+    assert db.execute('select missing_count from inventory_listing_refresh').fetchone()['missing_count']==1
+
+
+def test_catalogue_tombstone_uses_exact_url_and_cannot_override_newer_observation(db):
+    from src.inventory_lifecycle import retire_catalogue_evidence
+    v=ingest(db,source_listing_id='stock-1')
+    evidence=[{'url':v.url,'reason':'booked','evidence_url':'https://fixture.invalid/catalog'}]
+    before=datetime.now(timezone.utc)-timedelta(days=1)
+    assert retire_catalogue_evidence(evidence,'Fixture Dealer',before,db)==0
+    assert retire_catalogue_evidence(evidence,'Fixture Dealer',datetime.now(timezone.utc),db)==1
+    db.commit()
+    assert search_inventory(return_count=True)[2]==0
+
+
+def test_reclaimed_catalogue_worker_cannot_write_observations(db,monkeypatch):
+    add_source(db)
+    db.execute("insert into inventory_refresh_queue(source_id) select source_id from sources");db.commit()
+    job=claim_jobs(1)[0]
+    def fetch(adapter,request):
+        db.execute("update inventory_refresh_queue set status='queued'");db.commit()
+        db.execute("update inventory_crawl_leases set lease_expires_at=now()-interval '1 second'");db.commit()
+        assert claim_jobs(1)[0]['attempt_count']==job['attempt_count']+1
+        return AdapterResult('Fixture Dealer',[{'brand':'BMW','model':'X1','url':'https://fixture.invalid/new',
+            'price_lakh':30,'condition_signal':'used','live_verified':True}],status='live')
+    monkeypatch.setattr('src.inventory_refresh_worker.BuiltinMarketplaceAdapter.fetch',fetch)
+    assert process_job(job)=={'superseded':1}
+    assert db.execute('select count(*) as n from vehicle_observations').fetchone()['n']==0
+
+
+def test_demo_acquisition_has_its_own_verified_global_slot(db):
+    for name in ['Used','Demo','Unverified']:
+        add_source(db,name)
+    db.execute("insert into source_capabilities(source_id,capability_type,capability_value) select source_id,'condition','demo' from sources where name in ('Demo','Unverified')")
+    db.execute("update source_adapters set status='draft' where source_id=(select source_id from sources where name='Unverified')")
+    db.execute("insert into inventory_refresh_queue(source_id,condition) select source_id,'demo' from sources");db.commit()
+    jobs=claim_jobs(1,demo_only=True)
+    assert len(jobs)==1 and jobs[0]['source_name']=='Demo'
+
+
+def test_private_lifecycle_tables_have_no_browser_access(db):
+    for table in ['inventory_listing_refresh','inventory_crawl_leases','inventory_pipeline_runs']:
+        assert db.execute("select relrowsecurity from pg_class where oid=%s::regclass",('public.'+table,)).fetchone()['relrowsecurity']
+        assert not db.execute("select has_table_privilege('anon',%s,'select') as allowed",('public.'+table,)).fetchone()['allowed']

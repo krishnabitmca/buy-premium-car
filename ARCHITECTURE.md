@@ -11,6 +11,12 @@ ordinary indexed search remains independent of model availability.
 
 ## Continuous inventory operations
 
+[ADR 015](DECISIONS/015-continuous-inventory-lifecycle.md) adds durable per-listing
+renewal alongside catalogue acquisition, shared domain leases, source-aware expiry,
+negative availability observations and heartbeat/backlog reporting. Canonical
+writes and acquisition checkpoint completion are fenced in one transaction after
+HTTP work. Free scheduler cadence is a target, not a verified production SLA.
+
 `python -m src.inventory_service` runs the PostgreSQL scheduler and source-isolated
 worker outside customer requests. Scan freshness is per source/intent; failures
 have bounded retries and expired claims are recoverable. See

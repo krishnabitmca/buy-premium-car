@@ -1,3 +1,17 @@
+## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
+
+- Add private durable per-listing renewal, domain leases and worker heartbeat
+  records; preserve history and fence all canonical writes against stale claims.
+- Reserve demo catalogue acquisition and used/demo renewal capacity independently
+  from large discovery queues. Apply bounded retries, cooldowns and crash recovery.
+- Renew exact structured listing offers, retire card-local sold/booked inventory,
+  and require two spaced disappearance checks; errors never establish sold status.
+- Share source-aware 48-hour used / 24-hour demo expiry across customer search,
+  watches, maintenance and derived index validity. Successful observations restore
+  expired offers; no history is deleted.
+- Upload lifecycle/backlog evidence every scheduled run and report heartbeat gaps.
+  Free scheduled dispatch delays remain a production freshness SLA limitation.
+
 ## 2026-10-17 — Advertised city and dealer catalogue acquisition
 
 - Traverse reviewed marketplace city links and full dealer catalogues with

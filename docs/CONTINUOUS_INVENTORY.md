@@ -1,5 +1,36 @@
 # Continuous inventory operations
 
+## Listing renewal and availability lifecycle
+
+Apply `20261017182735_inventory_lifecycle.sql` before deploying this worker.
+The server-only tables hold listing renewal jobs, origin crawl leases and run
+evidence; they have no anon/authenticated access. Existing canonical history is
+preserved. Catalogue ingestion and its cursor commit atomically after claim
+ownership is rechecked. Listing renewal uses tokens and checks whether catalogue
+ingestion has supplied newer evidence before writing.
+
+Run `python -m src.inventory_lifecycle --limit 10 --report coverage/lifecycle.json`
+for expiry maintenance, bounded renewal and an operational report. Targets are
+six-hour used and three-hour demo checks (or stricter source targets); hard search
+expiry caps default to 48-hour used and 24-hour demo observations. Server settings
+`CARSCANNER_USED_EXPIRE_MINUTES`, `CARSCANNER_DEMO_EXPIRE_MINUTES` and the global
+expiry cap can tighten/change this policy. Source policy can always be stricter.
+Successful acquisition reactivates expired offers. Failed/ambiguous pages never
+extend availability. Shared catalogue URLs are excluded from individual renewal.
+
+Exact structured offers renew current INR price and availability; card-local
+sold/booked evidence retires only its matching source URL. Two consecutive 404/410
+checks at least an hour apart remove an offer; errors reset that sequence.
+Missing parsers are reported as inconclusive, not as available or sold.
+
+Every scheduled pass runs lifecycle maintenance even if acquisition fails, uploads
+its report, then refreshes the search projection. Reports include source/condition
+counts, overdue renewal backlog, failures, recent runs and late heartbeat evidence.
+Origin leases prevent simultaneous background jobs and delay retries after blocks.
+The requested 15-minute free GitHub cadence was observed dispatching hours apart;
+an always-on worker is required before committing to strict freshness targets.
+`inventory_service` runs both workloads independently of customer requests.
+
 ## Used-model frontier
 
 Background scans learn model families from CarDekho/CarTrade cards and national
@@ -10,7 +41,7 @@ jobs from stored source observations; old observations only identify what to cra
 The daily national workflow runs this bootstrap automatically.
 
 Regular scheduling requeues stale completed model jobs without resetting partial
-or failed work. The quarter-hour worker reserves two general, three model,
+or failed work. The quarter-hour worker reserves one general, one demo, three model,
 three continuation and two global catalogue jobs. Use `--models-only`,
 `--catalogues-only` or `--continuations-only` for bounded
 operator runs. All classes retain normal claim locks, source verification and retry

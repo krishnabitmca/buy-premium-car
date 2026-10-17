@@ -12,13 +12,19 @@ import time
 from .inventory_refresh_planner import schedule_refreshes
 from .inventory_refresh_worker import run_batch
 from .source_registry_db import require_database
+from .inventory_lifecycle import run_cycle as renew_listings
 
 log = logging.getLogger(__name__)
 
 
 def run_cycle(limit: int) -> dict[str, int]:
     scheduled = schedule_refreshes(limit=limit)
-    return {"scheduled": scheduled, **run_batch(limit)}
+    acquisition=run_batch(max(1,limit-1))
+    if limit>1:
+        for key,count in run_batch(1,demo_only=True).items():
+            acquisition[key]=acquisition.get(key,0)+count
+    renewal=renew_listings(limit)
+    return {"scheduled": scheduled, **acquisition,'lifecycle':renewal}
 
 
 def main() -> None:

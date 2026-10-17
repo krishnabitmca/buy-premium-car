@@ -54,7 +54,8 @@ def search_inventory(
     brand, model = _query_parts(query)
     condition = str(condition or "both").strip().lower()
     expire_minutes=max(60, int(os.getenv("CARSCANNER_INVENTORY_EXPIRE_MINUTES", "10080")))
-    params: list[Any] = [expire_minutes]
+    params: list[Any] = [expire_minutes,expire_minutes]
+    from .inventory_freshness import expiry_sql
     predicates = [
         "l.status = 'active'",
         "v.status in ('active','unknown')",
@@ -63,7 +64,7 @@ def search_inventory(
         "o.price_lakh > 0",
         "s.enabled = true",
         "s.adapter_status = 'live'",
-        "l.last_verified_at >= now() - make_interval(mins => %s)",
+        "l.last_verified_at >= now() - make_interval(mins => "+expiry_sql()+")",
     ]
     if brand:
         canonical=_canonical_brand(brand)

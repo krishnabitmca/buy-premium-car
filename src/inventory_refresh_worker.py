@@ -9,6 +9,7 @@ Queue claims are source-isolated and retries are bounded.
 import argparse
 import logging
 import json
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from typing import Any
 
@@ -19,7 +20,7 @@ from .source_registry_db import _connect, enabled, require_database, load_regist
 log = logging.getLogger(__name__)
 
 
-def claim_jobs(limit: int = 10, *, brands=None, source_names=None, baseline_only=False, models_only=False, continuations_only=False, catalogues_only=False) -> list[dict[str, Any]]:
+def claim_jobs(limit: int = 10, *, brands=None, source_names=None, baseline_only=False, models_only=False, continuations_only=False, catalogues_only=False, demo_only=False) -> list[dict[str, Any]]:
     if not enabled():
         return []
     with _connect() as conn, conn.cursor() as cur:
@@ -33,6 +34,13 @@ def claim_jobs(limit: int = 10, *, brands=None, source_names=None, baseline_only
                  join public.sources s on s.source_id=q.source_id
                  join brand_service b on b.brand=lower(q.brand)
                  where q.status='queued'
+                   and coalesce((q.metadata->>'next_attempt_at')::timestamptz,'epoch')<=now()
+                   and not exists(select 1 from inventory_crawl_leases d
+                     where d.domain=substring(lower(s.url) from '^https?://([^/:]+)')
+                       and (d.lease_expires_at>now() or d.next_allowed_at>now()))
+                   and (not %s or (q.brand='' and q.model='' and q.destination_state='' and q.condition='demo'
+                     and exists(select 1 from source_capabilities sc where sc.source_id=s.source_id
+                         and sc.capability_type='condition' and lower(sc.capability_value)='demo')))
                    and (not %s or (q.brand='' and q.model='' and q.destination_state='' and q.condition='both'
                      and (s.metadata ? 'city_catalog_path_pattern' or s.metadata ? 'catalogue_link_pattern')))
                    and (not %s or (q.model<>'' and q.metadata ? 'model_discovery'))
@@ -55,7 +63,7 @@ def claim_jobs(limit: int = 10, *, brands=None, source_names=None, baseline_only
                set status='running',started_at=now(),attempt_count=attempt_count+1
                from picked where q.refresh_id=picked.refresh_id
                returning q.*, (select s.name from public.sources s where s.source_id=q.source_id) as source_name,\n                       (select s.url from public.sources s where s.source_id=q.source_id) as source_url""",
-            (bool(catalogues_only),bool(models_only),bool(continuations_only),bool(baseline_only)) + ([str(b).strip().lower() for b in brands] if brands else None,)*2 +
+            (bool(demo_only),bool(catalogues_only),bool(models_only),bool(continuations_only),bool(baseline_only)) + ([str(b).strip().lower() for b in brands] if brands else None,)*2 +
             (list(source_names) if source_names else None,)*2 + (max(1,min(int(limit),100)),),
         )
         rows = [dict(r) for r in cur.fetchall()]
@@ -86,10 +94,10 @@ def recover_jobs() -> int:
 
 def complete_job(refresh_id: int, *, success: bool, error: str | None = None,
                  attempt_count: int | None = None,
-                 continuation: dict[str, Any] | None = None, pages_fetched: int = 0, scan_evidence=None) -> None:
+                 continuation: dict[str, Any] | None = None, pages_fetched: int = 0, scan_evidence=None,_connection=None) -> None:
     if not enabled():
         return
-    with _connect() as conn, conn.cursor() as cur:
+    with (nullcontext(_connection) if _connection is not None else _connect()) as conn, conn.cursor() as cur:
         cur.execute(
             """update public.inventory_refresh_queue
                set status=%s,completed_at=now(),last_error=%s,
@@ -109,7 +117,7 @@ def complete_job(refresh_id: int, *, success: bool, error: str | None = None,
                         ({'last_scan_evidence':scan_evidence} if scan_evidence else {})),
              max(0, int(pages_fetched)), refresh_id, attempt_count, attempt_count),
         )
-        conn.commit()
+        if _connection is None:conn.commit()
 
 
 def process_job(job: dict[str, Any]) -> dict[str, int]:
@@ -117,6 +125,8 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
     brand=job.get('brand') or ''
     query_brand=_query_parts(brand)[0] or brand
     query = " ".join(x for x in (query_brand, job.get("model")) if x)
+    from . import crawl_leases
+    lease=None
     try:
         source_name = str(job.get("source_name") or "")
         if not source_name:
@@ -130,6 +140,14 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
                        if s.get("source_id") == job.get("source_id")), None)
         if source is None or source.get("adapter_status") != "live":
             raise ValueError("refresh source is no longer enabled and live")
+        lease=crawl_leases.acquire(source['url'])
+        if lease is None:
+            with _connect() as conn:
+                conn.execute("""update inventory_refresh_queue set status='queued',attempt_count=attempt_count-1,
+                    metadata=metadata || jsonb_build_object('next_attempt_at',(now()+interval '1 minute')::text)
+                    where refresh_id=%s and status='running' and attempt_count=%s""",(job['refresh_id'],job['attempt_count']))
+                conn.commit()
+            return {'deferred':1}
         adapter = BuiltinMarketplaceAdapter(source)
         result = adapter.fetch(
             AdapterRequest(
@@ -165,32 +183,44 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
             image_urls=list(v.get("images") or ([v.get("image")] if v.get("image") else [])),
         ) for v in result.listings]
 
-        ingested = ingest_vehicles(normalized)
         if result.discovered_models:
             from .used_inventory_frontier import enqueue_models
             brand=job.get('brand') or ''
             enqueue_models(brand,result.discovered_models)
-        complete_job(int(job["refresh_id"]), success=True, attempt_count=job.get("attempt_count"),
-                     continuation=result.continuation, pages_fetched=result.pages_fetched,scan_evidence=result.scan_evidence)
+        # Fence all canonical writes, not only queue completion, after network I/O.
+        with _connect() as conn,conn.cursor() as cur:
+            cur.execute("""select refresh_id from inventory_refresh_queue where refresh_id=%s
+                and status='running' and attempt_count=%s and started_at=%s for update""",
+                (job['refresh_id'],job['attempt_count'],job['started_at']))
+            if not cur.fetchone():return {'superseded':1}
+            ingested=ingest_vehicles(normalized,_connection=conn)
+            if result.tombstones:
+                from .inventory_lifecycle import retire_catalogue_evidence
+                ingested['retired']=retire_catalogue_evidence(result.tombstones,source_name,job['started_at'],conn)
+            complete_job(int(job["refresh_id"]), success=True, attempt_count=job.get("attempt_count"),
+                continuation=result.continuation,pages_fetched=result.pages_fetched,scan_evidence=result.scan_evidence,_connection=conn)
+            conn.commit()
         return ingested
     except Exception as exc:
         complete_job(int(job["refresh_id"]), success=False, error=str(exc)[:1000],
                      attempt_count=job.get("attempt_count"))
         raise
+    finally:crawl_leases.release(lease)
 
 
-def run_batch(limit: int = 10, *, brands=None, source_names=None, baseline_only=False, models_only=False, continuations_only=False, catalogues_only=False) -> dict[str, int]:
+def run_batch(limit: int = 10, *, brands=None, source_names=None, baseline_only=False, models_only=False, continuations_only=False, catalogues_only=False, demo_only=False) -> dict[str, int]:
     """Claim only when ready to execute; isolate marketplace failures."""
     counts = {"completed": 0, "failed": 0}
     recover_jobs()
     for _ in range(max(1, min(int(limit), 100))):
         jobs = claim_jobs(1,brands=brands,source_names=source_names,baseline_only=baseline_only,
-            models_only=models_only,continuations_only=continuations_only,catalogues_only=catalogues_only) if brands or source_names or baseline_only or models_only or continuations_only or catalogues_only else claim_jobs(1)
+            models_only=models_only,continuations_only=continuations_only,catalogues_only=catalogues_only,demo_only=demo_only) if brands or source_names or baseline_only or models_only or continuations_only or catalogues_only or demo_only else claim_jobs(1)
         if not jobs:
             break
         try:
-            process_job(jobs[0])
-            counts["completed"] += 1
+            result=process_job(jobs[0])
+            key='deferred' if result.get('deferred') else 'superseded' if result.get('superseded') else 'completed'
+            counts[key]=counts.get(key,0)+1
         except Exception:
             counts["failed"] += 1
             log.exception("Refresh failed for job %s", jobs[0]["refresh_id"])
@@ -205,12 +235,13 @@ def main() -> None:
     parser.add_argument('--baseline-only',action='store_true',help='Process India-wide make scans, excluding model/location demand jobs')
     parser.add_argument('--models-only',action='store_true',help='Reserve capacity for source-discovered model scans')
     parser.add_argument('--continuations-only',action='store_true',help='Reserve capacity for pending pagination')
+    parser.add_argument('--demo-only',action='store_true',help='Reserve global catalogue acquisition for verified demo-capable sources')
     parser.add_argument('--catalogues-only',action='store_true',help='Process reviewed global city/dealer catalogue traversals')
     args = parser.parse_args()
     require_database()
     logging.basicConfig(level=logging.INFO)
     result = run_batch(args.limit,brands=args.brand,source_names=args.source,baseline_only=args.baseline_only,
-        models_only=args.models_only,continuations_only=args.continuations_only,catalogues_only=args.catalogues_only)
+        models_only=args.models_only,continuations_only=args.continuations_only,catalogues_only=args.catalogues_only,demo_only=args.demo_only)
     print(result)
     if result["failed"]:
         raise SystemExit(1)

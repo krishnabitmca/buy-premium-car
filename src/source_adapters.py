@@ -52,6 +52,7 @@ class AdapterResult:
     pages_fetched: int = 0
     discovered_models: list[dict[str, Any]] = field(default_factory=list)
     scan_evidence: dict[str, Any] = field(default_factory=dict)
+    tombstones: list[dict[str, Any]] = field(default_factory=list)
 
 
 class SourceAdapter(Protocol):
@@ -142,6 +143,7 @@ class BuiltinMarketplaceAdapter:
             oem_cursors=dict(progress.get('oem_cursors') or {})
             catalog_scopes=dict(progress.get('catalog_scopes') or {})
             advertised_counts=dict(progress.get('advertised_counts') or {})
+            tombstones={}
             for endpoint_url in urls:
                 if endpoint_url in seen_pages or fetched_this_batch>=max_pages:
                     continue
@@ -228,6 +230,9 @@ class BuiltinMarketplaceAdapter:
                         html, self.source_name, endpoint_url, request.query
                     )
                 all_parsed.extend(parsed)
+                from .listing_evidence import catalogue_tombstones
+                for evidence in catalogue_tombstones(html,endpoint_url,parser_strategy):
+                    tombstones[evidence['url']]=evidence
                 from .catalog_traversal import advertised_scopes,advertised_total
                 if request.continuation is not None and not request.query:
                     for scope in advertised_scopes(html,self.source,endpoint_url):
@@ -238,7 +243,7 @@ class BuiltinMarketplaceAdapter:
                     total=advertised_total(html)
                     if total is not None:
                         advertised_counts[endpoint_url]=total
-                        if total>0 and not parsed:
+                        if total>0 and not parsed and not tombstones:
                             raise RuntimeError('Source advertises inventory but no valid cards were extracted')
                 if request.continuation is not None and parser_strategy in {'cardekho_cards','carwale_cards','cartrade_cards'}:
                     from .used_inventory_frontier import discover_models
@@ -287,6 +292,8 @@ class BuiltinMarketplaceAdapter:
             wanted_condition = normalize_condition(request.condition)
             filtered: list[dict[str, Any]] = []
             for row in parsed:
+                if live_marketplaces._canonical_url(url,row.get('url') or '') in tombstones:
+                    continue
                 if request.query and not live_marketplaces._identity_matches_query(row, request.query):
                     continue
                 actual = normalize_condition(row.get("condition_signal"))
@@ -327,6 +334,7 @@ class BuiltinMarketplaceAdapter:
                               and any(page not in seen_pages for page in urls) else None,
                 pages_fetched=fetched_this_batch,
                 discovered_models=list(discovered_models.values()),
+                tombstones=list(tombstones.values()),
                 scan_evidence={'visited_page_count':len(seen_pages),'scope_count':len(catalog_scopes),
                     'pending_page_count':sum(page not in seen_pages for page in urls),
                     'listings_this_batch':len(filtered),'catalog_scopes':list(catalog_scopes.values()),
