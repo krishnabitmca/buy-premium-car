@@ -849,6 +849,17 @@ def test_lifecycle_expiry_uses_source_and_demo_policy_without_deleting_history(d
     assert maintain()['expired']==1
 
 
+def test_maintenance_does_not_apply_stricter_used_cap_to_demo(db,monkeypatch):
+    from src.inventory_lifecycle import maintain
+    monkeypatch.setenv('CARSCANNER_USED_EXPIRE_MINUTES','60')
+    monkeypatch.setenv('CARSCANNER_DEMO_EXPIRE_MINUTES','1440')
+    add_source(db)
+    ingest_vehicles([vehicle(condition_signal=c,url='https://fixture.invalid/'+c,vin=None) for c in ['used','demo']])
+    db.execute("update listings set last_verified_at=now()-interval '2 hours'");db.commit()
+    assert maintain()['expired']==1
+    assert search_inventory(condition='demo',return_count=True)[2]==1
+
+
 def test_listing_renewal_updates_price_preserves_condition_and_history(db):
     from src.inventory_lifecycle import finish
     v,job=old_renewal(db,'demo')

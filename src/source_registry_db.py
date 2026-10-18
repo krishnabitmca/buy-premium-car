@@ -67,8 +67,8 @@ def _connect():
                 _pool.close()
             _pool = ConnectionPool(
                 conninfo=database_url(), min_size=1,
-                max_size=max(1, min(int(os.getenv('CARSCANNER_DB_POOL_SIZE', '4')), 8)),
-                timeout=5, max_waiting=32, max_idle=60,
+                max_size=max(1, min(int(os.getenv('CARSCANNER_DB_POOL_SIZE', '8')), 8)),
+                timeout=10, max_waiting=32, max_idle=60,
                 kwargs={'row_factory':dict_row,'connect_timeout':5,'prepare_threshold':None},
                 name='carscanner', open=True,
             )

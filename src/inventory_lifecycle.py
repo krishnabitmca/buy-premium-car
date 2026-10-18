@@ -6,7 +6,7 @@ from datetime import datetime,timezone
 from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from .source_registry_db import _connect,require_database
-from .inventory_freshness import expiry_minutes,expiry_sql
+from .inventory_freshness import global_expiry_minutes,expiry_sql
 from . import crawl_leases
 from .listing_evidence import fetch_listing,structured_evidence
 
@@ -30,7 +30,7 @@ def retire_catalogue_evidence(evidence,source_name,observed_at,conn):
 
 def maintain(limit=1000):
     """Expire offers without deleting history and enroll oldest individual URLs."""
-    cap=expiry_minutes()
+    cap=global_expiry_minutes()
     with _connect() as conn,conn.cursor() as cur:
         cur.execute("""with expired as (
             select l.listing_id from listings l join sources s using(source_id) where l.status='active'

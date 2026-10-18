@@ -1,5 +1,10 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Bound the API database pool at eight connections by default, allow a ten-second
+  checkout wait, and increase pending HTTP sockets for parallel browser bursts.
+  Client disconnects do not trigger a second search error response; server errors
+  record exception types without buyer input or credentials.
+
 - Add private durable per-listing renewal, domain leases and worker heartbeat
   records; preserve history and fence all canonical writes against stale claims.
 - Reserve demo catalogue acquisition and used/demo renewal capacity independently
@@ -161,6 +166,7 @@
 - Preserve exact model, budget and condition filtering. Separate on-road price observations from unspecified-price comparable groups.
 
 # CarScanner Changelog
+
 
 ## 2026-10-11 — AI search acceptance standard
 
