@@ -19,7 +19,7 @@ from .live_marketplaces import _query_parts, _identity_tokens
 from .source_registry_db import _connect, require_database
 from .search_timing import measure_call
 
-INDEX = 'carscanner-inventory-v1'
+INDEX = 'carscanner-inventory-v2'
 _backend = ContextVar('inventory_search_backend', default='postgresql')
 _retry_after = 0.0
 
@@ -168,6 +168,7 @@ def rebuild():
         'offers': {'type': 'nested', 'properties': {'price': {'type': 'double'}}},
         'schema': {'type': 'integer'}, 'revision': {'type': 'long'},
         'expire_minutes': {'type': 'integer'}, 'valid_until': {'type': 'date'},
+        'demo_expire_minutes': {'type': 'integer'}, 'used_expire_minutes': {'type': 'integer'},
         'built_at': {'type': 'date'}, 'count': {'type': 'integer'},
     }}}
     # HEAD is read-only and authorized by view_index_metadata; create only once.
