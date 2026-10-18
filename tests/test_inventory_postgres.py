@@ -1025,3 +1025,38 @@ def test_coverage_keeps_successful_batch_timestamp_when_a_later_attempt_fails(db
     result=operations_report()
     assert result['source_priorities'][0]['last_batch_yield']['measured_at']==stamp
     assert any(r['last_attempt_failed'] for r in result['declared_scopes'])
+
+
+def test_source_probe_claims_survive_restarts_and_reject_stale_completion(db):
+    from types import SimpleNamespace
+    from src.source_registry_db import record_discoveries,load_probe_history,claim_source_probe,finish_source_probe
+    item=SimpleNamespace(domain='fixture.invalid',url='https://fixture.invalid/new-catalogue')
+    record_discoveries([vars(item)])
+    first=claim_source_probe(item)
+    assert first and claim_source_probe(item) is None
+    history=load_probe_history([item.url])[item.url]
+    assert history['last_probe_at'] and history['probe_result']['status']=='running'
+    db.execute("update source_discoveries set last_probe_at=now()-interval '31 minutes'");db.commit()
+    second=claim_source_probe(item)
+    assert second and second!=first
+    assert not finish_source_probe(item,first,{'status':'rejected'})
+    assert finish_source_probe(item,second,{'status':'rejected','listings_found':0})
+    assert not finish_source_probe(item,second,{'status':'validated'})
+    assert load_probe_history([item.url])[item.url]['probe_result']['status']=='rejected'
+
+
+def test_source_discovery_stages_new_endpoint_without_activating_it_or_existing_adapter(db):
+    from src.source_registry_db import record_discoveries,promote_discovery,claim_source_probe
+    from types import SimpleNamespace
+    source_id=add_source(db)
+    item=dict(domain='fixture.invalid',url='https://fixture.invalid/new-catalogue')
+    record_discoveries([item])
+    assert promote_discovery(item,listings_found=2)=='Fixture Dealer'
+    endpoint=db.execute('select is_active,metadata from source_endpoints where source_id=%s and url=%s',
+        (source_id,item['url'])).fetchone()
+    assert not endpoint['is_active'] and endpoint['metadata']['requires_adapter_verification']
+    assert db.execute("select count(*) as n from source_adapters where status='verified'").fetchone()['n']==1
+    assert claim_source_probe(SimpleNamespace(**item)) is None
+    db.execute('update source_endpoints set is_active=true where url=%s',(item['url'],));db.commit()
+    promote_discovery(item,listings_found=2)
+    assert db.execute('select is_active from source_endpoints where url=%s',(item['url'],)).fetchone()['is_active']

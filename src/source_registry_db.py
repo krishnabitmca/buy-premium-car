@@ -228,6 +228,43 @@ def record_discoveries(discoveries: Iterable[dict[str, Any]]) -> int:
     return len(rows)
 
 
+def load_probe_history(urls):
+    """Durable scheduling evidence, independent of search-engine ordering."""
+    urls = list(dict.fromkeys(urls))
+    if not urls:
+        return {}
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute('select url,status,last_probe_at,probe_result from source_discoveries where url=any(%s)', (urls,))
+        return {row['url']: dict(row) for row in cur.fetchall()}
+
+
+def claim_source_probe(item):
+    """Fence concurrent probes; an interrupted worker releases capacity in 30m."""
+    from uuid import uuid4
+    token = str(uuid4())
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute("""update source_discoveries set last_probe_at=now(),probe_token=%s,
+            probe_result='{"status":"running"}'::jsonb
+            where domain=%s and url=%s and status not in ('validated','promoted')
+            and (probe_result->>'status' is distinct from 'running'
+                 or last_probe_at is null or last_probe_at<=now()-interval '30 minutes')
+            returning discovery_id""", (token, item.domain, item.url))
+        claimed = cur.fetchone()
+        conn.commit()
+    return token if claimed else None
+
+
+def finish_source_probe(item, token, result):
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute("""update source_discoveries set probe_result=%s::jsonb
+            where domain=%s and url=%s and probe_token=%s
+            and probe_result->>'status'='running' returning discovery_id""",
+            (json.dumps(result), item.domain, item.url, token))
+        saved = cur.fetchone()
+        conn.commit()
+    return bool(saved)
+
+
 def record_search_demand(
     *,
     brand: str | None,
@@ -301,7 +338,7 @@ def record_health(source_name: str, *, status: str, http_status: int | None = No
 
 
 def promote_discovery(discovery: dict[str, Any], *, listings_found: int) -> str | None:
-    """Promote a validated discovery into the live source registry.
+    """Stage a validated discovery in the registry for adapter review.
 
     Promotion is deliberately evidence-based: the caller must have fetched the
     endpoint and proven that it exposes extractable inventory before calling
@@ -338,12 +375,12 @@ def promote_discovery(discovery: dict[str, Any], *, listings_found: int) -> str 
                 """insert into public.source_endpoints
                    (source_id,url,endpoint_type,is_active,last_checked_at,
                     last_http_status,metadata)
-                   values (%s,%s,'catalogue',true,now(),200,%s)
+                   values (%s,%s,'catalogue',false,now(),200,%s)
                    on conflict (source_id,url) do update set
-                     is_active=true,last_checked_at=now(),last_http_status=200,
+                     last_checked_at=now(),last_http_status=200,
                      metadata=excluded.metadata""",
                 (existing["source_id"], url, json.dumps({"validated_listings": listings_found,
-                                                         "discovered": True})),
+                                                         "discovered": True,"requires_adapter_verification": True})),
             )
             if brand:
                 cur.execute(

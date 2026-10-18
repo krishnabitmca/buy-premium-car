@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from .inventory_db import eligibility_predicates
 from .inventory_freshness import global_expiry_minutes
 from .source_registry_db import _connect, require_database
+from .india_geo import normalize_seller_location
 
 
 def _iso(value):
@@ -39,13 +40,16 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
     renewal=defaultdict(lambda:Counter())
     identities=defaultdict(set)
     source_vehicles=defaultdict(set)
+    city_cells={};city_vehicles=defaultdict(set)
     shared_urls=Counter((r['source'],r['url']) for r in facts)
     for row in facts:
         source=row['source'];condition=row.get('condition') or 'unknown'
         brand=_brand(row.get('brand'));model=str(row.get('model') or '').strip()
         city=str(row.get('seller_location_label') or '').strip() or None
+        location=normalize_seller_location(city)
         key=(source,city,_tokens(brand),_tokens(model),condition)
         cell=matrix.setdefault(key,dict(source=source,seller_location_label=city,
+            **location,
             brand=brand,model=model,condition=condition,observed_offers=0,eligible_offers=0,
             excluded_offers=0,last_verified_at=None))
         cell['observed_offers']+=1
@@ -57,6 +61,12 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
             cell['eligible_offers']+=1;stat['eligible_offers']+=1
             identity=(str(row['vehicle_id']),row.get('price_basis') or 'unspecified')
             identities[key].add(identity);source_vehicles[source].add(identity)
+            city_key=(source,location['canonical_city'],location['canonical_state'],condition,location['location_status'])
+            city_cell=city_cells.setdefault(city_key,dict(source=source,**location,condition=condition,
+                eligible_offers=0,seller_location_labels=set()))
+            city_cell['eligible_offers']+=1
+            if city:city_cell['seller_location_labels'].add(city)
+            city_vehicles[city_key].add(identity)
         else:
             cell['excluded_offers']+=1;stat['excluded_offers']+=1
         if row.get('status') not in {'active','stale'}:continue
@@ -93,6 +103,7 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
         scope_seen.add(key)
         job=job or {}
         declared.append(dict(source=source,scope_kind=kind,label=label,evidence_url=url,
+            **(normalize_seller_location(label) if kind=='city' else {}),
             brand=brand or None,model=model or None,condition=condition,
             traversal_status=status,attempted=attempted,advertised_count=advertised,
             job_status=job.get('status'),last_attempt_at=_iso(job.get('started_at')),
@@ -171,6 +182,8 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
         if run.get('completed_at'):
             completed+=1;duration+=max(0,(run['completed_at']-run['started_at']).total_seconds())
     return dict(generated_at=now.isoformat(),snapshot_at=now.isoformat(),scope='india',complete_market_coverage=False,
+        city_coverage=[dict(**cell,eligible_vehicles=len(city_vehicles[key])) | {'seller_location_labels':sorted(cell['seller_location_labels'])}
+            for key,cell in sorted(city_cells.items(),key=lambda pair:tuple(value or '' for value in pair[0]))],
         coverage_matrix=sorted(cells,key=lambda r:(r['source'],r['seller_location_label'] or '',r['brand'],r['model'],r['condition'])),
         declared_scopes=declared,source_priorities=sorted(priorities.values(),key=lambda r:(-r['score'],r['source'])),
         acquisition_queue=dict(job_totals),capacity=dict(assumed_interval_minutes=interval_minutes,renewal_attempts_per_cycle=renewal_limit,
@@ -180,7 +193,7 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
                 'Demand is an individual-check scenario. Catalogue batches can renew many offers per request.',
                 'Attempt budgets are not successful verification rates or a worker/server purchase recommendation.',
                 'Origin pacing, parser failures and scheduler delays reduce usable capacity; idle condition slots may be borrowed.']),
-        definitions=dict(location='Source seller labels, not normalized cities or buyer destination.',
+        definitions=dict(location='Raw source seller labels are preserved. Canonical city/state accepts known labels and matching state suffixes only; unresolved regions/addresses remain unknown. Never a buyer destination boundary.',
             sparse_matrix='Observed dimensions only. Missing combinations and unvisited scopes have unknown coverage.',
             pending_pages='Pending page slots across jobs can overlap; they are not unique vehicles or market size.',
             advertised_counts='Source claims may overlap and may include stale stock; never summed into a national denominator.',
@@ -239,4 +252,12 @@ def markdown_report(report):
     for row in report['source_priorities']:
         safe={**row,'source':row['source'].replace('|',' '),'actions':', '.join(row['actions']) or 'maintain_and_measure'}
         lines.append('| {source} | {eligible_offers} | {pending_pages} | {overdue_offers} | {actions} |'.format(**safe))
+    lines+=['','| Source | Canonical city | State | Condition | Eligible offers | Eligible vehicles |',
+        '| --- | --- | --- | --- | ---: | ---: |']
+    for cell in report.get('city_coverage',[]):
+        row={**cell,'canonical_city':cell['canonical_city'] or 'Unknown ('+cell['location_status']+')',
+             'canonical_state':cell['canonical_state'] or 'Unknown'}
+        row={key:str(value).replace('|',' ').replace('\n',' ') for key,value in row.items()}
+        lines.append('| {source} | {canonical_city} | {canonical_state} | {condition} | {eligible_offers} | {eligible_vehicles} |'.format(**row))
+    lines+=['','City aliases are combined only from recognized labels. Addresses and regions remain unresolved. Vehicles can appear in multiple rows; do not sum rows into a national unique-car count.']
     return '\n'.join(lines)+'\n'

@@ -1,5 +1,13 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Rotate source probes by durable last-attempt evidence; reserve web-discovery
+  capacity, recover interrupted probes and fence stale completions. Publish
+  per-run evidence. Stage new endpoints inactive until adapter review.
+- Bound background web discovery to six rotating queries per run, leaving
+  capacity for validation instead of exhausting the full query bank first.
+- Add canonical city/state coverage rollups while retaining raw seller labels,
+  unresolved location evidence and India-wide search behavior.
+
 - Add operational source/location/brand/model/condition coverage cells, declared
   scope progress, source repair priorities and explicit worker-capacity scenarios.
   Publish JSON/Markdown artifacts without inventing market coverage percentages.

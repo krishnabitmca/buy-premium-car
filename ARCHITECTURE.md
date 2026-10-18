@@ -11,6 +11,11 @@ ordinary indexed search remains independent of model availability.
 
 ## Continuous inventory operations
 
+[ADR 017](DECISIONS/017-fair-source-probes-city-evidence.md) adds durable fair
+candidate probe rotation and conservative city rollups. New discovered endpoints
+remain inactive pending adapter review. Scheduled source expansion publishes
+attempt evidence without automatically activating sources.
+
 [ADR 016](DECISIONS/016-measurable-coverage-capacity.md) defines the source/location/
 model coverage matrix, declared scope evidence and individual-renewal capacity
 scenarios. These private operational artifacts guide acquisition; they never

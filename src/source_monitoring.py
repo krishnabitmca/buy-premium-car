@@ -1,5 +1,6 @@
 """Explicit registry monitoring alongside open-web source discovery."""
 from urllib.parse import urlsplit
+from datetime import datetime, timedelta, timezone
 from .discovery import DiscoveryResult
 
 
@@ -54,3 +55,37 @@ def merge_candidates(registered, discovered, min_confidence, limit):
         seen.add(item.url)
         out.append(item)
     return out[:max(0, limit)]
+
+
+def plan_probes(registered, discovered, history, min_confidence, limit, *, now=None):
+    """Reserve one in five slots for web discoveries, then lend idle slots.
+
+    Oldest attempted candidates come first within each pool. Unattempted
+    candidates precede retries. Staged adapters await review rather than
+    repeatedly consuming discovery capacity.
+    """
+    now = now or datetime.now(timezone.utc)
+    registered = merge_candidates(registered, [], min_confidence, len(registered))
+    known = {item.url for item in registered}
+    discovered = [item for item in merge_candidates([], discovered, min_confidence, len(discovered))
+                  if item.url not in known]
+    def ready(item):
+        previous = history.get(item.url, {})
+        if previous.get('status') in {'validated','promoted'}:
+            return False
+        attempted = previous.get('last_probe_at')
+        running = (previous.get('probe_result') or {}).get('status') == 'running'
+        return not (running and attempted and attempted > now - timedelta(minutes=30))
+    def order(item):
+        stamp = history.get(item.url, {}).get('last_probe_at')
+        return (stamp is not None, stamp or datetime.min.replace(tzinfo=timezone.utc), item.url)
+    pools = [sorted((item for item in pool if ready(item)), key=order)
+             for pool in (registered, discovered)]
+    selected = []
+    for slot in range(max(0, min(int(limit), 100))):
+        preferred = 1 if slot % 5 == 0 else 0
+        pool = pools[preferred] or pools[1-preferred]
+        if not pool:
+            break
+        selected.append(pool.pop(0))
+    return selected
