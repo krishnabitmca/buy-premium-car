@@ -183,6 +183,20 @@ def test_manual_source_benchmark_uses_canonical_eligibility_and_read_only_snapsh
     assert db.execute('select count(*) as n from vehicle_observations').fetchone()['n']==2
 
 
+def test_saved_vehicle_revalidation_keeps_cohorts_and_excludes_latest_sold_offer(db):
+    v=ingest(db)
+    ingest_vehicles([replace(v,vin='WBA12345678901235',url=v.url+'-other',price_lakh=40),
+                     replace(v,vin='WBA12345678901236',url=v.url+'-third',price_lakh=50)])
+    rows,_=search_inventory()
+    target=next(row for row in rows if row['price_lakh']==30)
+    selected,_=search_inventory(_vehicle_ids=[target['vehicle_id']],require_persistence=True)
+    assert len(selected)==1
+    assert selected[0]['comp_median']==target['comp_median']==40
+    assert selected[0]['comparable_count']==3
+    ingest_vehicles([replace(v,sold_signal=True,live_verified=False)])
+    assert search_inventory(_vehicle_ids=[target['vehicle_id']],require_persistence=True)[0]==[]
+
+
 @pytest.mark.parametrize('initial,current,filters',[(30,45,{'budget_max':40}),(45,30,{'budget_min':40})])
 def test_budget_cannot_select_an_older_qualifying_price(db,initial,current,filters):
     v=ingest(db,price_lakh=initial)

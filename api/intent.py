@@ -1,6 +1,7 @@
 from http.server import BaseHTTPRequestHandler
 from api.search import _read_json, _response
 from src.buyer_ai import interpret, AIUnavailable
+from src.search_intent import SearchIntent
 
 
 class handler(BaseHTTPRequestHandler):
@@ -9,6 +10,9 @@ class handler(BaseHTTPRequestHandler):
             body=_read_json(self)
             if not isinstance(body,dict):
                 raise ValueError('Expected a JSON object')
+            if body.get('validate_only') is True:
+                return _response(self,200,{'ok':True,'intent':SearchIntent.parse(body).public(),
+                                          'model_used':False})
             result=interpret(body.get('prompt'),consent=body.get('consent'))
             return _response(self,200,{'ok':True,**result})
         except ValueError as exc:

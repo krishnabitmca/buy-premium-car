@@ -219,6 +219,15 @@
 
 # CarScanner Changelog
 
+## 2026-10-18 — Device-local buyer decision journeys
+
+- Save/share typed search criteria using the existing server validator without a
+  model call; restore filters and India-wide destination context from versioned links.
+- Save up to six car identifiers on this device and compare up to three using
+  freshly rechecked canonical offers, retaining observation times and price basis.
+- Recheck saved offers on open/reconnect and show explicit unavailable/offline
+  states; never persist prices or claim account sync, PWA launch or alert delivery.
+
 ## 2026-10-18 — Scoped source coverage benchmark
 
 - Add private sampled-source recall evaluation against canonical eligible offers

@@ -155,3 +155,34 @@ def test_admission_released_after_handler_and_response_failures(monkeypatch):
         wsgi.application(env, failed_response)
     monkeypatch.setattr('render_server.SearchHandler.do_POST', lambda handler: None)
     assert request('/api/search', 'POST')['status'] == 200
+
+
+def test_saved_intent_validation_never_calls_generative_model(monkeypatch):
+    def forbidden(*_args,**_kwargs):raise AssertionError('Saved searches must not invoke Gemini')
+    monkeypatch.setattr('api.intent.interpret',forbidden)
+    result=request('/api/intent','POST',json.dumps({'validate_only':True,'query':'Honda City',
+                   'budget_max':15,'fuels':['petrol'],'destination':'Bengaluru'}).encode())
+    payload=json.loads(result['body'])
+    assert result['status']==200 and payload['model_used'] is False
+    assert payload['intent']['query']=='Honda City' and payload['intent']['seller_city']==''
+    assert request('/api/intent','POST',b'{"validate_only":true,"budget_max":-1}')['status']==400
+
+
+def test_shortlist_revalidation_limits_ids_and_never_falls_back_to_client_snapshot(monkeypatch):
+    calls=[]
+    identifier='12345678-1234-1234-1234-123456789012'
+    def inventory(**kwargs):
+        calls.append(kwargs)
+        return [],[]
+    monkeypatch.setattr('api.shortlist.search_inventory',inventory)
+    result=request('/api/shortlist','POST',json.dumps({'vehicle_ids':[identifier],
+                   'price_lakh':1,'results':[{'price_lakh':1}]}).encode())
+    payload=json.loads(result['body'])
+    assert payload['results']==[] and payload['unavailable_vehicle_ids']==[identifier]
+    assert calls==[{'_vehicle_ids':[identifier],'limit':2000,'require_persistence':True}]
+    for body in ({'vehicle_ids':['bad']},{'vehicle_ids':[identifier]*7},{'vehicle_ids':'bad'}):
+        assert request('/api/shortlist','POST',json.dumps(body).encode())['status']==400
+    def fail(**_kwargs):raise RuntimeError('credential-must-not-escape')
+    monkeypatch.setattr('api.shortlist.search_inventory',fail)
+    result=request('/api/shortlist','POST',json.dumps({'vehicle_ids':[identifier]}).encode())
+    assert result['status']==503 and b'credential' not in result['body']

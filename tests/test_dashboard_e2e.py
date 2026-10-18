@@ -10,6 +10,118 @@ playwright = pytest.importorskip("playwright.sync_api", reason="Playwright is re
 sync_playwright = playwright.sync_playwright
 expect = playwright.expect
 pytestmark = pytest.mark.e2e
+
+
+def buyer_routes(page):
+    import json
+    from src.search_intent import SearchIntent
+    ids=['12345678-1234-1234-1234-123456789001','12345678-1234-1234-1234-123456789002']
+    rows=[{'vehicle_id':identifier,'brand':'BMW','model':'X5','price_lakh':37+i*2,
+           'price_basis':'unspecified','source':'Fixture Dealer','url':f'https://fixture.invalid/car/{i}',
+           'fuel':'petrol','transmission':'automatic','body_type':'suv','km':20000,
+           'mfg_year':2023,'condition_signal':'used','observed_at':'2026-10-18T17:00:00Z'}
+          for i,identifier in enumerate(ids)]
+    state={'rows':rows,'searches':[]}
+    def catalog(route):
+        payload={'ok':True,'mode':'live','models':[{'name':'X5'}]} if 'brand=' in route.request.url else {
+                 'ok':True,'mode':'live','brands':[{'name':'BMW'},{'name':'Honda'}]}
+        route.fulfill(content_type='application/json',body=json.dumps(payload))
+    def intent(route):
+        try:
+            assert route.request.post_data_json['validate_only'] is True
+            result={'ok':True,'model_used':False,'intent':SearchIntent.parse(route.request.post_data_json).public()}
+            route.fulfill(content_type='application/json',body=json.dumps(result))
+        except ValueError:
+            route.fulfill(status=400,content_type='application/json',body='{"ok":false}')
+    def search_result(route):
+        state['searches'].append(route.request.post_data_json)
+        route.fulfill(content_type='application/json',body=json.dumps({'ok':True,'mode':'inventory_partial',
+            'search_scope':'india','availability_warning':'Fixture partial coverage','results':state['rows'],
+            'sources':[{'name':'Fixture Dealer','status':'inventory','listings_found':len(state['rows'])}],
+            'total_results':len(state['rows']),'has_more':False}))
+    def shortlist(route):
+        wanted=route.request.post_data_json['vehicle_ids']
+        current=[row for row in state['rows'] if row['vehicle_id'] in wanted]
+        route.fulfill(content_type='application/json',body=json.dumps({'ok':True,'results':current,
+            'checked_at':'2026-10-18T18:00:00Z','unavailable_vehicle_ids':[]}))
+    page.route('**/api/catalog*',catalog)
+    page.route('**/api/intent',intent)
+    page.route('**/api/search*',search_result)
+    page.route('**/api/shortlist',shortlist)
+    return state
+
+
+def test_device_shortlist_comparison_rechecks_prices_and_sold_inventory(dashboard_url):
+    with sync_playwright() as p:
+        browser=p.chromium.launch();page=browser.new_page()
+        state=buyer_routes(page)
+        page.goto(dashboard_url,wait_until='networkidle')
+        page.locator('#search').click();expect(page.locator('.card')).to_have_count(2)
+        page.get_by_role('button',name='Save car on this device',exact=True).nth(0).click()
+        page.get_by_role('button',name='Save car on this device',exact=True).nth(1).click()
+        stored=page.evaluate("JSON.parse(localStorage.getItem('carscanner.buyer.v1'))")
+        assert len(stored['cars'])==2 and all('price_lakh' not in row for row in stored['cars'])
+        state['rows'][0]['price_lakh']=41
+        page.locator('#savedChoices summary').click()
+        expect(page.locator('#savedCars')).to_contain_text('₹41.00L')
+        assert '₹37.00L' not in page.locator('#savedCars').inner_text()
+        page.locator('.compareChoice').nth(0).check();page.locator('.compareChoice').nth(1).check()
+        page.locator('#compareSaved').click()
+        expect(page.locator('#modalTitle')).to_have_text('Compare saved cars')
+        expect(page.locator('#modalBody')).to_contain_text('₹41.00L')
+        page.keyboard.press('Escape');expect(page.locator('#compareSaved')).to_be_focused()
+        state['rows']=state['rows'][1:]
+        page.reload(wait_until='networkidle');page.locator('#savedChoices summary').click()
+        expect(page.locator('#savedCars')).to_contain_text('Not currently revalidated')
+        expect(page.locator('#buyerNotice')).to_contain_text('no longer eligible')
+        assert '₹41.00L' not in page.locator('#savedCars').inner_text()
+        page.context.set_offline(True)
+        expect(page.locator('#connectionStatus')).to_be_visible()
+        assert '₹39.00L' not in page.locator('#savedCars').inner_text()
+        page.context.set_offline(False)
+        expect(page.locator('#savedCars')).to_contain_text('₹39.00L')
+        browser.close()
+
+
+def test_share_search_restores_typed_intent_without_ai_or_seller_city_boundary(dashboard_url):
+    import json
+    from urllib.parse import urlsplit,parse_qs
+    with sync_playwright() as p:
+        browser=p.chromium.launch();page=browser.new_page()
+        buyer_routes(page);page.goto(dashboard_url,wait_until='networkidle')
+        page.locator('#brand').select_option('BMW')
+        expect(page.locator('#model')).to_be_enabled();page.locator('#model').select_option('X5')
+        page.locator('#max').fill('40');page.locator('#destination').fill('Bengaluru')
+        page.locator('#search').click();expect(page.locator('.card')).to_have_count(2)
+        page.locator('#saveSearch').click()
+        expect(page.locator('#savedSearches')).to_contain_text('BMW X5')
+        page.locator('#shareSearch').click();expect(page.locator('#shareLink')).to_be_visible()
+        link=page.locator('#shareLink').input_value()
+        intent=json.loads(parse_qs(urlsplit(link).fragment)['search'][0])['intent']
+        assert intent['query']=='BMW X5' and intent['budget_max']==40
+        assert intent['destination']=='Bengaluru' and intent['seller_city']==''
+        assert 'prompt' not in intent and 'consent' not in intent
+        restored=browser.new_page();state=buyer_routes(restored)
+        restored.goto(link,wait_until='networkidle')
+        expect(restored.locator('.card')).to_have_count(2)
+        assert restored.locator('#brand').input_value()=='BMW'
+        assert restored.locator('#model').input_value()=='X5'
+        assert state['searches'][-1]['destination']=='Bengaluru'
+        assert state['searches'][-1]['seller_city']==''
+        page.reload(wait_until='networkidle');expect(page.locator('#savedSearches')).to_contain_text('BMW X5')
+        browser.close()
+
+
+def test_invalid_shared_intent_does_not_execute_a_search(dashboard_url):
+    import json
+    from urllib.parse import urlencode
+    with sync_playwright() as p:
+        browser=p.chromium.launch();page=browser.new_page();state=buyer_routes(page)
+        fragment=urlencode({'search':json.dumps({'version':1,'intent':{'budget_max':-1}})})
+        page.goto(dashboard_url+'#'+fragment,wait_until='networkidle')
+        expect(page.locator('#buyerNotice')).to_contain_text('could not be restored')
+        assert not state['searches']
+        browser.close()
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/6fX0VQAAAABJRU5ErkJggg==")
 
 @pytest.fixture(scope="module")

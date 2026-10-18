@@ -1,5 +1,12 @@
 # CarScanner Architecture
 
+## Saved buyer choices
+
+[ADR 024](DECISIONS/024-device-saved-buyer-journeys.md) adds explicitly device-local
+saved searches/cars, server-validated share restoration and current canonical
+offer revalidation for comparison. It creates neither accounts nor notifications
+and never uses browser-stored prices as current inventory.
+
 ## Source recall measurement
 
 [ADR 023](DECISIONS/023-scoped-source-coverage-benchmark.md) adds private sampled
