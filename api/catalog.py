@@ -20,7 +20,9 @@ _NON_MODEL_NAMES = {
 _model_cache=OrderedDict()
 _model_cache_lock=threading.Lock()
 _model_refresh=ThreadPoolExecutor(max_workers=2,thread_name_prefix='model-catalog')
+_observed_refresh=ThreadPoolExecutor(max_workers=2,thread_name_prefix='observed-models')
 _model_pending=set()
+_enrichment_pending=set()
 _brand_cache=[]
 _brand_next_refresh=0.0
 _brand_refresh_pending=False
@@ -105,7 +107,6 @@ def _cache_models(key,models,ttl=900):
 
 def _refresh_models(key,brand,observed):
     try:
-        if observed is None:observed=_sanitize_models(observed_models(brand))
         if observed:_cache_models(key,observed)
         models=_sanitize_models([*live_models(brand),*observed])
         if models:_cache_models(key,models)
@@ -113,6 +114,24 @@ def _refresh_models(key,brand,observed):
     except Exception:
         with _model_cache_lock:previous=_model_cache.get(key)
         _cache_models(key,previous[1] if previous else [],ttl=30)
+    finally:
+        with _model_cache_lock:_enrichment_pending.discard(key)
+
+
+def _load_observed_models(key,brand):
+    # Never queue fast database metadata behind external catalogue transports.
+    try:
+        try:observed=_sanitize_models(observed_models(brand))
+        except Exception:observed=[]
+        with _model_cache_lock:previous=_model_cache.get(key)
+        _cache_models(key,observed or (previous[1] if previous else []),ttl=900 if observed else 30)
+        with _model_cache_lock:
+            enrich=key not in _enrichment_pending and len(_enrichment_pending)<16
+            if enrich:_enrichment_pending.add(key)
+        if enrich:
+            try:_model_refresh.submit(_refresh_models,key,brand,observed)
+            except Exception:
+                with _model_cache_lock:_enrichment_pending.discard(key)
     finally:
         with _model_cache_lock:_model_pending.discard(key)
 
@@ -125,7 +144,7 @@ def catalog_models(brand):
         refresh=due and key not in _model_pending and len(_model_pending)<16
         if refresh:_model_pending.add(key)
     if refresh:
-        try:_model_refresh.submit(_refresh_models,key,brand,None)
+        try:_observed_refresh.submit(_load_observed_models,key,brand)
         except Exception:
             with _model_cache_lock:_model_pending.discard(key)
     with _model_cache_lock:

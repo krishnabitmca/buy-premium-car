@@ -219,6 +219,12 @@
 
 # CarScanner Changelog
 
+## 2026-10-18 — Isolate observed model metadata
+
+- Separate database model lookups from slow external enrichment, with independent
+  worker and pending-queue budgets so an external backlog cannot starve known models.
+- Retain bounded cache/backoff and release pending slots on submission/fetch failure.
+
 ## 2026-10-18 — Device-local buyer decision journeys
 
 - Save/share typed search criteria using the existing server validator without a
