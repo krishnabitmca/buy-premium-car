@@ -207,6 +207,22 @@ Source discovery remains in the independent source-expansion workflow. Initial
 registry bootstrap is an explicit administrative step, not a daily overwrite of
 operator-maintained source settings.
 
+Routine `sync_registry` now preserves existing source enables/disables, adapter
+state, capabilities and inactive endpoints. It fills missing metadata keys without
+overwriting database values. Explicit stock/detail-verified rollout uses
+`reviewed_update=True` to activate/update the selected source; seed synchronization
+alone is not activation. A reviewed rollout can deliberately replace parser
+metadata and reactivate its root endpoint, so inspect its selected sources first.
+
+The private coverage JSON/Markdown report includes `exclusion_reasons` in each
+observed matrix cell and source summary. These use the customer eligibility rules:
+inactive listing/vehicle, unavailable or unverified observation, invalid price,
+disabled source, non-live adapter and expired verification. Multiple reasons can
+apply to one offer and must not be summed. Missing latest observations never
+resurrect older stock. Source queue counts and oldest queued/running hours include
+disabled sources for diagnosis; age is elapsed time, not a completion forecast or
+proof of a stuck worker. Report generation performs no queue/source mutations.
+
 Marketplace stock IDs and price basis now survive adapter ingestion. A stable ID
 can adopt an older URL-keyed listing when canonical identity matches, preserving
 its history instead of exposing both old and new prices. Ambiguous identity

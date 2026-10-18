@@ -998,6 +998,55 @@ def test_coverage_matrix_uses_latest_customer_eligibility_and_keeps_raw_location
     assert sum(r['eligible_offers'] for r in after['coverage_matrix'])==0
     assert sum(r['observed_offers'] for r in after['coverage_matrix'])==1
     assert not after['complete_market_coverage']
+    assert after['coverage_matrix'][0]['exclusion_reasons']['sold_or_availability_unknown']==1
+
+
+def test_seed_sync_preserves_operator_governance_and_reviewed_activation_is_explicit(db):
+    from src.source_registry_db import sync_registry,source_key
+    seed=dict(name='Fixture Seed',url='https://fixture.invalid/catalog',adapter_status='live',
+        parser_strategy='seed-parser',brands=['BMW'],conditions=['used','demo'])
+    assert sync_registry([seed])==1
+    key=source_key(seed)
+    db.execute("""update sources set enabled=false,adapter_status='candidate',
+        metadata='{"parser_strategy":"operator-parser","operator_note":"paused"}'::jsonb
+        where source_key=%s""",(key,))
+    db.execute('update source_endpoints set is_active=false')
+    db.execute("delete from source_capabilities where capability_type='condition' and capability_value='demo'")
+    db.commit()
+    assert sync_registry([{**seed,'new_missing_setting':'restored'}])==1
+    row=db.execute('select * from sources where source_key=%s',(key,)).fetchone()
+    assert not row['enabled'] and row['adapter_status']=='candidate'
+    assert row['metadata']['parser_strategy']=='operator-parser'
+    assert row['metadata']['operator_note']=='paused'
+    assert row['metadata']['new_missing_setting']=='restored'
+    assert not db.execute('select is_active from source_endpoints').fetchone()['is_active']
+    assert not db.execute("select 1 from source_capabilities where capability_value='demo'").fetchone()
+    db.commit()
+    sync_registry([seed],reviewed_update=True)
+    row=db.execute('select * from sources where source_key=%s',(key,)).fetchone()
+    assert row['enabled'] and row['adapter_status']=='live'
+    assert row['metadata']['parser_strategy']=='seed-parser'
+    assert db.execute('select is_active from source_endpoints').fetchone()['is_active']
+
+
+def test_coverage_diagnoses_expired_disabled_and_missing_observations_without_resurrecting(db):
+    from src.coverage_operations import operations_report
+    ingest(db)
+    db.execute("update listings set last_verified_at=now()-interval '8 days'")
+    db.execute('update sources set enabled=false')
+    db.execute("insert into inventory_refresh_queue(source_id,requested_at) select source_id,now()-interval '12 hours' from sources")
+    db.commit()
+    report=operations_report()
+    priority=report['source_priorities'][0]
+    assert priority['exclusion_reasons']=={'source_disabled':1,'verification_expired_or_missing':1}
+    assert priority['queued_jobs']==1 and priority['oldest_queued_hours']>=12
+    assert priority['eligible_offers']==0 and search_inventory(return_count=True)[2]==0
+    db.execute('delete from vehicle_observations');db.commit()
+    report=operations_report()
+    reasons=report['source_priorities'][0]['exclusion_reasons']
+    assert reasons['observation_unverified_or_missing']==1
+    assert reasons['price_invalid_or_missing']==1
+    assert report['source_priorities'][0]['eligible_offers']==0
 
 
 def test_unclassified_offers_are_reported_but_not_enrolled_for_condition_specific_renewal(db):

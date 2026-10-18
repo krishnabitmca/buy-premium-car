@@ -1,6 +1,11 @@
 # CarScanner Roadmap
 
 ## Current milestone
+
+Execution order and acceptance gates are tracked in
+[implementation delivery plan](docs/IMPLEMENTATION_DELIVERY_PLAN.md). Existing
+foundation features are not evidence that all launch requirements are complete.
+
 ### Phase 1 — Simple India-wide search experience
 Status: In progress
 

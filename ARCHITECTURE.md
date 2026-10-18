@@ -11,6 +11,11 @@ ordinary indexed search remains independent of model availability.
 
 ## Continuous inventory operations
 
+[ADR 019](DECISIONS/019-preserve-source-governance-diagnose-gaps.md) preserves
+operator-maintained source state during bootstrap and adds canonical exclusion
+reasons and queue-age diagnosis to private coverage reports. Explicit reviewed
+rollout is required to replace existing source configuration.
+
 [ADR 018](DECISIONS/018-reviewed-dealer-oem-stock.md) adds reviewed Škoda public
 stock API continuation, Fusion brand catalogues and identified individual-page
 renewal. Rollout verifies stock/detail evidence before enabling either adapter.

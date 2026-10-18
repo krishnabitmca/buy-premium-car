@@ -22,15 +22,24 @@ def enabled() -> bool:
     return source_db_enabled() and os.getenv("CARSCANNER_INVENTORY_FIRST", "true").lower() not in {"0", "false", "no"}
 
 
+def eligibility_checks():
+    """Named canonical checks; diagnostics and search use identical rules."""
+    from .inventory_freshness import expiry_sql
+    return {
+        'listing_inactive': "l.status = 'active'",
+        'vehicle_inactive': "v.status in ('active','unknown')",
+        'observation_unverified_or_missing': "o.live_verified = true",
+        'sold_or_availability_unknown': "o.sold_signal = false",
+        'price_invalid_or_missing': "o.price_lakh > 0",
+        'source_disabled': "s.enabled = true",
+        'adapter_not_live': "s.adapter_status = 'live'",
+        'verification_expired_or_missing': "l.last_verified_at >= now() - make_interval(mins => "+expiry_sql()+")",
+    }
+
+
 def eligibility_predicates():
     """Shared offer eligibility for customer search and operational coverage."""
-    from .inventory_freshness import expiry_sql
-    return [
-        "l.status = 'active'", "v.status in ('active','unknown')",
-        "o.live_verified = true", "o.sold_signal = false", "o.price_lakh > 0",
-        "s.enabled = true", "s.adapter_status = 'live'",
-        "l.last_verified_at >= now() - make_interval(mins => "+expiry_sql()+")",
-    ]
+    return list(eligibility_checks().values())
 
 
 def search_inventory(
