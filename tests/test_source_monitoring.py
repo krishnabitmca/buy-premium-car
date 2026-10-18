@@ -26,9 +26,9 @@ def test_database_live_adapter_prevents_seed_revalidation():
 def test_researched_sources_and_bbt_demo_endpoint_are_in_scheduled_queue():
     sources = load_source_registry(from_database=False)
     queue = {url for _,url,_ in crawl_queue(sources)}
-    expected = {'https://finder.porsche.com/in/en-IN','https://www.skodapreowned.in/','https://www.getonroadprice.com/demo-cars/india','https://www.discountedcarsindia.com/cars?category=demo','https://www.motodeals.co.in/','https://gurudevmotors.com/skoda-demo-cars-sale/','https://selekt.volvocars.in/en-in/store/','https://www.bigboytoyz.com/collection?demo=1'}
+    expected = {'https://finder.porsche.com/in/en-IN','https://www.skodapreowned.in/buy','https://www.getonroadprice.com/demo-cars/india','https://www.discountedcarsindia.com/cars?category=demo','https://www.motodeals.co.in/','https://gurudevmotors.com/skoda-demo-cars-sale/','https://selekt.volvocars.in/en-in/store/','https://www.bigboytoyz.com/collection?demo=1'}
     assert expected <= queue
-    assert all(s['adapter_status'] == 'candidate' for s in sources if s['url'] in expected - {'https://www.bigboytoyz.com/collection?demo=1'})
+    assert all(s['adapter_status'] == 'candidate' for s in sources if s['url'] in expected - {'https://www.bigboytoyz.com/collection?demo=1','https://www.skodapreowned.in/buy'})
 
 
 def probe(n):

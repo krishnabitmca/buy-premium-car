@@ -1060,3 +1060,43 @@ def test_source_discovery_stages_new_endpoint_without_activating_it_or_existing_
     db.execute('update source_endpoints set is_active=true where url=%s',(item['url'],));db.commit()
     promote_discovery(item,listings_found=2)
     assert db.execute('select is_active from source_endpoints where url=%s',(item['url'],)).fetchone()['is_active']
+
+
+def test_reviewed_oem_resume_reaches_canonical_search_without_persisting_session(db,monkeypatch):
+    import io
+    from urllib.parse import parse_qs
+    from src import reviewed_inventory
+    add_source(db,'Skoda Certified Pre-Owned')
+    db.execute("update sources set url='https://www.skodapreowned.in/buy',metadata=%s::jsonb",
+        (json.dumps({'parser_strategy':'skoda_cards'}),))
+    db.execute("update source_capabilities set capability_value='all'")
+    db.execute('insert into inventory_refresh_queue(source_id) select source_id from sources');db.commit()
+    first=Path('tests/fixtures/reviewed_skoda.html').read_text(encoding='utf-8')
+    second=Path('tests/fixtures/reviewed_skoda_page2.json').read_text(encoding='utf-8')
+    class PublicSession:
+        def open(self,request,timeout):
+            body=first if request.data is None else json.dumps({'stock':first}) if parse_qs(request.data.decode())['move_page']==['1'] else second
+            return io.BytesIO(body.encode())
+    original=reviewed_inventory.fetch_skoda_inventory
+    monkeypatch.setattr(reviewed_inventory,'fetch_skoda_inventory',lambda *a,**kw:original(*a,**kw,opener=PublicSession()))
+    monkeypatch.setenv('CARSCANNER_MAX_PAGES_PER_SOURCE','1')
+    assert process_job(claim_jobs(1)[0])['listings']==2
+    checkpoint=db.execute('select metadata from inventory_refresh_queue').fetchone()['metadata']
+    assert 'fixture-token' not in json.dumps(checkpoint)
+    assert checkpoint['continuation']['oem_cursors']['https://www.skodapreowned.in/buy']=={'next_page':2}
+    assert process_job(claim_jobs(1)[0])['listings']==2
+    rows,_,total=search_inventory(condition='used',return_count=True)
+    assert total==4 and all(row['source']=='Skoda Certified Pre-Owned' for row in rows)
+    assert search_inventory(condition='demo',return_count=True)[2]==0
+
+
+def test_global_catalogue_source_does_not_duplicate_whole_scans_for_each_buyer_intent(db,monkeypatch):
+    add_source(db)
+    db.execute("update sources set metadata=%s::jsonb",(json.dumps({'global_catalogue_only':True}),))
+    db.execute("update source_capabilities set capability_value='all'");db.commit()
+    monkeypatch.setattr('src.inventory_refresh_planner.baseline_brand_demands',lambda:[
+        dict(brand='Honda',model='City',condition='used',destination_state='Karnataka'),
+        dict(brand='BMW',model='',condition='both',destination_state='')])
+    assert schedule_refreshes()==1
+    job=db.execute('select brand,model,condition,destination_state from inventory_refresh_queue').fetchone()
+    assert dict(job)==dict(brand='',model='',condition='both',destination_state='')

@@ -1,5 +1,13 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Add Škoda Certified Pre-Owned public stock API acquisition and resumable page
+  positions; keep session tokens ephemeral and manufacture year/mileage unknown
+  when the card does not establish them.
+- Add Fusion Cars advertised brand catalogues, priced individual cards, explicit
+  sold-card evidence and conservative individual listing renewal for both feeds.
+- Add explicit live stock/detail rollout verification. These are used sources;
+  neither unregistered status nor the OEM programme establishes demo condition.
+
 - Rotate source probes by durable last-attempt evidence; reserve web-discovery
   capacity, recover interrupted probes and fence stale completions. Publish
   per-run evidence. Stage new endpoints inactive until adapter review.

@@ -7,6 +7,7 @@ import yaml
 from .source_registry_db import _connect, require_database, source_key
 
 RUNTIME_KEYS = {
+    'global_catalogue_only',
     'city_catalog_path_pattern','city_catalog_title_pattern','catalogue_link_pattern',
     'brand_slug_overrides',
     'parser_strategy', 'query_url_template', 'brand_query_url_template',

@@ -163,6 +163,9 @@ def revalidate(job):
         try:
             html=fetch_listing(url)
             evidence=structured_evidence(html,url,job['brand'],job['model'],job['condition'])
+            if evidence['outcome']=='inconclusive':
+                from .reviewed_inventory import reviewed_detail_evidence
+                evidence=reviewed_detail_evidence(html,url,job['brand'],job['model'],job['condition'])
         except HTTPError as exc:
             evidence={'outcome':'missing' if exc.code in {404,410} else 'error','http_status':exc.code,'error':'HTTP '+str(exc.code)}
             from .live_marketplaces import _canonical_url
