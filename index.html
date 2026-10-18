@@ -82,9 +82,28 @@ function setBrandOptions(brands){
  if(names.includes(selected))$('brand').value=selected;
  $('brand').disabled=false;
 }
+async function readOnlyFetch(url,options={}){
+ // Retry only these read-only contracts; never replay watch/AI mutations.
+ const path=new URL(url,location.href).pathname;
+ const retryable=(path==='/api/catalog'&&(!options.method||options.method==='GET'))||(path==='/api/search'&&options.method==='POST');
+ for(let attempt=0;;attempt++){
+  const response=await fetch(url,options);
+  if(response.status!==503||!retryable||attempt>=5)return response;
+  const seconds=Number(response.headers.get('Retry-After'));
+  if(!Number.isFinite(seconds)||seconds<=0||seconds>2)return response;
+  await response.body?.cancel();
+  await new Promise((resolve,reject)=>{
+   const signal=options.signal;
+   if(signal?.aborted){reject(signal.reason||new DOMException('Aborted','AbortError'));return}
+   const abort=()=>{clearTimeout(timer);reject(signal.reason||new DOMException('Aborted','AbortError'))};
+   const timer=setTimeout(()=>{signal?.removeEventListener('abort',abort);resolve()},Math.min(2,seconds*2**attempt)*1000+Math.random()*250);
+   signal?.addEventListener('abort',abort,{once:true});
+  });
+ }
+}
 function catalogFetch(url){
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
- return fetch(url,{cache:'no-store',signal:controller.signal}).finally(()=>clearTimeout(timer));
+ return readOnlyFetch(url,{cache:'no-store',signal:controller.signal}).finally(()=>clearTimeout(timer));
 }
 async function loadCatalog(){
  // Never leave the primary search control blank while the live catalog is
@@ -136,7 +155,7 @@ async function searchLive(options={}){
  const controller=new AbortController();activeSearch=controller;const searchTimer=setTimeout(()=>controller.abort(),45000);
  $('search').disabled=true;$('more').disabled=true;$('search').textContent='Searching…';if(!append){$('coverage').style.display='none';$('grid').innerHTML='<div class="empty"><b>Searching car listings…</b>CarScanner is checking available source observations.</div>'}
  try{
-  const r=await fetch('/api/search?ts='+Date.now(),{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({...searchRequest,page:nextPage,page_size:50})});
+  const r=await readOnlyFetch('/api/search?ts='+Date.now(),{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({...searchRequest,page:nextPage,page_size:50})});
   if(!r.ok)throw Error((await r.text()).slice(0,150));const p=await r.json();if(!p.ok||p.search_scope!=='india'||!['live','inventory','inventory_partial','live_coverage_fallback','live_fallback'].includes(p.mode))throw Error(p.error||'Search unavailable');
   if(sequence!==searchSequence)return;searchSummary=p.search_summary||null;searchMode=p.mode;document.querySelector('.livebar>span').textContent=searchMode.startsWith('inventory')?'Verified database observations · '+(searchMode==='inventory_partial'?'partial coverage':'completeness unverified'):'● LIVE · Current marketplace query';inventory=append?[...inventory,...(p.results||[])]:p.results||[];searchPage=nextPage;hasMore=Boolean(p.has_more);inventoryTotal=p.inventory_total??p.total_results??inventory.length;$('more').style.display=hasMore?'block':'none';liveAt=p.live_at;sourceStatus=append?[...new Map([...sourceStatus,...(p.sources||[])].map(s=>[s.name||s.source,s])).values()]:p.sources||[];coverageWarning=p.availability_warning||null;sourcePlan=p.source_plan||[];renderCoverage();populateRefinements();applyResults();
  }catch(e){if(sequence!==searchSequence)return;if(!append){inventory=[];shown=[];$('grid').innerHTML='<div class="empty"><b>Search is currently unavailable.</b>Please retry. No unverified listings are shown.</div>'}$('summary').textContent=append?'Additional observations could not load; retry Load more.':'Search failed; please retry'}
@@ -258,7 +277,7 @@ $('search').onclick=searchLive;$('askSearch').onclick=runAssistant;$('aiPrompt')
 $('condition').onchange=()=>{condition=$('condition').value;document.querySelectorAll('input[name="cond"]').forEach(x=>x.checked=x.value===condition);if(searchRequest)queueSearch()};
 document.querySelectorAll('input[name="cond"]').forEach(x=>x.onchange=()=>{$('condition').value=x.value;condition=x.value;queueSearch()});
 document.querySelectorAll('.chip').forEach(x=>x.onclick=()=>{document.querySelectorAll('.chip').forEach(y=>y.classList.remove('active'));x.classList.add('active');quickFilter=x.dataset.filter;if(['petrol','diesel','electric','hybrid'].includes(quickFilter))document.querySelectorAll('.fuelCheck').forEach(f=>f.checked=f.value===quickFilter);if(['suv','sedan'].includes(quickFilter))$('bodyType').value=quickFilter;if(!quickFilter)$('bodyType').value='';queueSearch()});
-$('clear').onclick=()=>{assistantYear=null;reviewedIntent=null;$('aiPrompt').value='';$('aiReview').textContent='';['transmission','bodyType','maxKm','maxOwners','exactYear'].forEach(id=>$(id).value='');$('brand').value='';$('model').innerHTML='<option value="">All models</option>';$('min').value='';$('max').value='';document.querySelectorAll('.fuelCheck').forEach(x=>x.checked=false);$('city').value='';$('year').value='';$('fmin').value='';$('fmax').value='';$('destination').value='';$('condition').value='both';condition='both';document.querySelectorAll('input[name="cond"]').forEach(x=>x.checked=x.value==='both');quickFilter='';document.querySelectorAll('.chip').forEach((x,i)=>x.classList.toggle('active',i===0));queueSearch()};
+$('clear').onclick=()=>{assistantYear=null;reviewedIntent=null;$('aiPrompt').value='';$('aiReview').textContent='';['transmission','bodyType','maxKm','maxOwners','exactYear'].forEach(id=>$(id).value='');$('brand').value='';$('model').innerHTML='<option value="">All models</option>';$('min').value='';$('max').value='';document.querySelectorAll('.fuelCheck').forEach(x=>x.checked=false);$('city').value='';$('year').value='';$('fmin').value='';$('fmax').value='';$('destination').value='';$('condition').value='both';condition='both';document.querySelectorAll('input[name="cond"]').forEach(x=>x.checked=x.value==='both');quickFilter='';document.querySelectorAll('.chip').forEach((x,i)=>x.classList.toggle('active',i===0));if(searchRequest)queueSearch()};
 loadCatalog();
 </script>
 </body></html>

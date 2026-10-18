@@ -219,6 +219,17 @@
 
 # CarScanner Changelog
 
+## 2026-10-18 — Worker-local API overload protection
+
+- Bound WSGI API execution to three concurrent handlers per worker; excess work
+  receives a retryable, no-store 503 before body reads.
+- Preserve health/static/version/preflight access and release capacity after
+  handler or response failures. Verify concurrent rejection and recovery.
+- Retry read-only browser requests within existing deadlines; return selectable
+  brand taxonomy immediately while one bounded metadata refresh runs in background.
+- Keep paid upgrades disabled at the owner's request; this is not a national
+  capacity or distributed abuse-control claim.
+
 
 ## 2026-10-11 — AI search acceptance standard
 

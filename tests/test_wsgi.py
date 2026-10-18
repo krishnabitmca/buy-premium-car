@@ -1,6 +1,8 @@
 from contextlib import contextmanager
 from io import BytesIO
 import json
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier, Event, BoundedSemaphore
 import pytest
 from wsgiref.util import setup_testing_defaults
 
@@ -106,3 +108,50 @@ def test_uncaught_errors_are_redacted_and_replace_partial_response(monkeypatch):
     result = request('/api/search', 'POST', b'{}')
     assert result['status'] == 500
     assert b'secret' not in result['body'] and b'sensitive' not in result['body']
+
+
+def test_concurrent_api_overload_is_immediate_and_preserves_health(monkeypatch):
+    monkeypatch.setattr(wsgi, 'API_SLOTS', BoundedSemaphore(3))
+    entered = Barrier(4)
+    release = Event()
+    def slow(handler):
+        entered.wait(timeout=5)
+        assert release.wait(timeout=5)
+        handler.wfile.write(b'ok')
+    monkeypatch.setattr('render_server.SearchHandler.do_POST', slow)
+    class Unreadable:
+        def read(self, *_):
+            raise AssertionError('Overloaded requests must not read their bodies')
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        active = [executor.submit(request, '/api/search', 'POST', b'{}') for _ in range(3)]
+        try:
+            entered.wait(timeout=5)
+            busy = request('/api/search', 'POST', CONTENT_LENGTH='2', **{'wsgi.input': Unreadable()})
+            assert busy['status'] == 503
+            assert busy['headers']['Retry-After'] == '1'
+            assert busy['headers']['Cache-Control'] == 'no-store'
+            assert request('/health')['status'] == 200
+            assert request('/')['status'] == 200
+            assert request('/api/version')['status'] == 200
+            assert request('/api/watch', 'OPTIONS')['status'] == 204
+        finally:
+            release.set()
+        assert all(future.result()['status'] == 200 for future in active)
+    monkeypatch.setattr('render_server.SearchHandler.do_POST', lambda handler: handler.wfile.write(b'recovered'))
+    assert request('/api/search', 'POST')['body'] == b'recovered'
+
+
+def test_admission_released_after_handler_and_response_failures(monkeypatch):
+    monkeypatch.setattr(wsgi, 'API_SLOTS', BoundedSemaphore(1))
+    def fail(handler):
+        raise RuntimeError('fixture')
+    monkeypatch.setattr('render_server.SearchHandler.do_POST', fail)
+    assert request('/api/search', 'POST')['status'] == 500
+    assert request('/api/search', 'POST')['status'] == 500
+    env = {'PATH_INFO': '/api/search', 'REQUEST_METHOD': 'POST'}
+    def failed_response(*_):
+        raise RuntimeError('disconnected')
+    with pytest.raises(RuntimeError, match='disconnected'):
+        wsgi.application(env, failed_response)
+    monkeypatch.setattr('render_server.SearchHandler.do_POST', lambda handler: None)
+    assert request('/api/search', 'POST')['status'] == 200

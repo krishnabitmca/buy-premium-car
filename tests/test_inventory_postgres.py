@@ -1165,7 +1165,7 @@ def test_production_gunicorn_serves_real_indexed_inventory_and_shuts_down(db,dis
         port=probe.getsockname()[1]
     env={**os.environ,'SOURCE_INTELLIGENCE_DATABASE_URL':make_conninfo(disposable_database,application_name='carscanner_gunicorn_test'),
         'HOST':'127.0.0.1','PORT':str(port),'CARSCANNER_WEB_WORKERS':'1',
-        'CARSCANNER_WEB_THREADS':'2','CARSCANNER_QUERY_DISCOVERY':'false','CARSCANNER_SEARCH_ENGINE':'postgresql'}
+        'CARSCANNER_WEB_THREADS':'4','CARSCANNER_QUERY_DISCOVERY':'false','CARSCANNER_SEARCH_ENGINE':'postgresql'}
     base=f'http://127.0.0.1:{port}'
     with (tmp_path/'gunicorn.log').open('wb') as log:
         process=subprocess.Popen([sys.executable,'-m','gunicorn','--config','gunicorn.conf.py','wsgi:application'],
@@ -1200,21 +1200,30 @@ def test_production_gunicorn_serves_real_indexed_inventory_and_shuts_down(db,dis
                 with urllib.request.urlopen(req,timeout=15) as response:
                     return json.load(response)
             db.execute('lock table public.listings in access exclusive mode')
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                pending=executor.submit(search_again)
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                pending=[executor.submit(search_again) for _ in range(3)]
                 deadline=time.monotonic()+5
                 while True:
                     db.execute('select pg_stat_clear_snapshot()')
                     waiting=db.execute("""select count(*) as n from pg_stat_activity
                         where application_name='carscanner_gunicorn_test' and wait_event_type='Lock'""").fetchone()['n']
-                    if waiting:break
+                    if waiting>=3:break
                     if time.monotonic()>deadline:
                         db.rollback()
                         raise AssertionError('Search did not reach the database lock')
                     time.sleep(.05)
-                process.send_signal(signal.SIGTERM)
-                db.commit()
-                assert pending.result(timeout=10)['total_results']==1
+                try:
+                    with pytest.raises(urllib.error.HTTPError) as busy:
+                        urllib.request.urlopen(req,timeout=3)
+                    assert busy.value.code==503
+                    assert busy.value.headers['Retry-After']=='1'
+                    with urllib.request.urlopen(base+'/health',timeout=3) as response:
+                        assert response.read()==b'ok'
+                    process.send_signal(signal.SIGTERM)
+                finally:
+                    # Do not strand blocked HTTP threads if an assertion fails.
+                    db.commit()
+                assert all(future.result(timeout=10)['total_results']==1 for future in pending)
             assert process.wait(timeout=10)==0
         finally:
             db.rollback()
