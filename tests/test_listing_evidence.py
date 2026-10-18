@@ -41,6 +41,11 @@ def test_expired_structured_offer_cannot_refresh_availability():
     assert structured_evidence(product(offers=offers),URL,'BMW','X5')['outcome']=='inconclusive'
 
 
+def test_demo_renewal_needs_current_listing_level_demo_evidence():
+    assert structured_evidence(product(),URL,'BMW','X5','demo')['outcome']=='condition_unverified'
+    assert structured_evidence(product(vehicleCondition='Dealer demo'),URL,'BMW','X5','demo')['outcome']=='available'
+
+
 def test_sold_dealer_card_has_exact_link_without_retiring_neighbour():
     html=Path('tests/fixtures/dealer_luxuryride_catalog.html').read_text(encoding='utf-8')
     rows=catalogue_tombstones(html,'https://luxuryrideofficial.com/listing-default/','luxuryride_cards')

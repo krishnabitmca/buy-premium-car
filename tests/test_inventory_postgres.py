@@ -859,6 +859,15 @@ def test_listing_renewal_updates_price_preserves_condition_and_history(db):
     assert db.execute('select last_outcome,status from inventory_listing_refresh').fetchone()=={'last_outcome':'available','status':'completed'}
 
 
+def test_unconfirmed_demo_condition_is_quarantined_without_sold_or_history_deletion(db):
+    from src.inventory_lifecycle import finish
+    _,job=old_renewal(db,'demo')
+    finish(job,{'outcome':'condition_unverified','availability':'InStock'})
+    assert search_inventory(condition='demo',return_count=True)[2]==0
+    assert db.execute('select status from listings').fetchone()['status']=='stale'
+    assert db.execute('select count(*) as n from vehicle_observations').fetchone()['n']==1
+
+
 def test_lost_lease_and_newer_positive_evidence_fence_stale_renewal(db):
     from src.inventory_lifecycle import finish,claim
     v,job=old_renewal(db)

@@ -22,6 +22,9 @@ watches, expiry maintenance and Elasticsearch snapshot validity share the policy
 Only exact-URL, identity-matching structured products with explicit INR offers
 and availability renew an individual listing. Missing or ambiguous markup does
 not renew verification time. No catalogue/sample omission implies sold status.
+Demo renewal additionally requires current per-listing demo evidence. An
+available product with unconfirmed demo classification is quarantined as stale,
+without calling it sold or converting it to used inventory.
 Two consecutive HTTP 404/410 checks, separated by at least an hour, remove an
 offer; network/403/429/5xx errors never do, and reset that missing sequence.
 Redirects to another listing, login page or origin fail closed.

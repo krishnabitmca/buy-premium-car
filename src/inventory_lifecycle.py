@@ -60,24 +60,25 @@ def maintain(limit=1000):
     return {'expired':expired,'enrolled':enrolled,'recovered':recovered}
 
 
-def claim(condition):
+def claim(condition, *, listing_id=None):
     token=str(uuid4())
     with _connect() as conn,conn.cursor() as cur:
-        cur.execute("""with picked as (
+        cur.execute("""with requested as (select %s::uuid as target_id),picked as (
             select q.listing_id from inventory_listing_refresh q
-            join listings l using(listing_id) join sources s using(source_id)
-            where q.status in ('queued','failed','completed') and q.due_at<=now()
+            join listings l using(listing_id) join sources s using(source_id) cross join requested r
+            where q.status in ('queued','failed','completed') and (q.due_at<=now() or q.listing_id=r.target_id)
+              and (r.target_id is null or q.listing_id=r.target_id)
               and l.condition=%s and l.status in ('active','stale') and l.vehicle_id is not null and s.enabled and s.adapter_status='live'
               and exists(select 1 from source_adapters a where a.source_id=s.source_id and a.status='verified')
               and not exists(select 1 from inventory_crawl_leases d
                 where d.domain=substring(lower(l.url) from '^https?://([^/:]+)')
                   and (d.lease_expires_at>now() or d.next_allowed_at>now()))
-              and (l.last_verified_at is null or l.last_verified_at<now()-make_interval(mins=>
+              and (q.listing_id=r.target_id or l.last_verified_at is null or l.last_verified_at<now()-make_interval(mins=>
                 least(s.freshness_target_minutes,case when l.condition='demo' then 180 else 360 end)))
             order by q.due_at,q.listing_id for update of q skip locked limit 1)
             update inventory_listing_refresh q set status='running',lease_token=%s,
               lease_expires_at=now()+interval '30 minutes',attempt_count=attempt_count+1
-            from picked p where q.listing_id=p.listing_id returning q.*""",(condition,token))
+            from picked p where q.listing_id=p.listing_id returning q.*""",(listing_id,condition,token))
         job=cur.fetchone()
         if job:
             cur.execute("""select l.*,l.metadata as listing_metadata,s.name as source_name,s.url as source_url,
@@ -122,6 +123,8 @@ def finish(job,evidence):
                 price_lakh=evidence['price_lakh'],live_verified=True,data_consistent=True,
                 verification_notes=['Exact listing JSON-LD offer: '+evidence['availability']])],_connection=conn)
             cur.execute("update listings set freshness_state='fresh' where listing_id=%s",(job['listing_id'],))
+        elif outcome=='condition_unverified' and job['condition']=='demo':
+            cur.execute("update listings set status='stale',freshness_state='stale' where listing_id=%s",(job['listing_id'],))
         elif outcome=='unavailable' or (outcome=='missing' and missing_count>=2):
             cur.execute("update listings set status='removed',last_seen_at=now() where listing_id=%s",(job['listing_id'],))
             cur.execute("""insert into vehicle_observations(vehicle_id,listing_id,source_id,observed_at,
@@ -158,7 +161,7 @@ def revalidate(job):
     try:
         try:
             html=fetch_listing(url)
-            evidence=structured_evidence(html,url,job['brand'],job['model'])
+            evidence=structured_evidence(html,url,job['brand'],job['model'],job['condition'])
         except HTTPError as exc:
             evidence={'outcome':'missing' if exc.code in {404,410} else 'error','http_status':exc.code,'error':'HTTP '+str(exc.code)}
             from .live_marketplaces import _canonical_url
@@ -188,7 +191,7 @@ def run_cycle(limit=10):
             job=claim('demo' if i%2==0 else 'used')
             if not job:continue
             outcome=revalidate(job);summary[outcome]=summary.get(outcome,0)+1
-        status='degraded' if any(summary.get(k) for k in ('error','inconclusive','missing')) or (summary['heartbeat_gap_seconds'] or 0)>3600 else 'ok'
+        status='degraded' if any(summary.get(k) for k in ('error','inconclusive','missing','condition_unverified')) or (summary['heartbeat_gap_seconds'] or 0)>3600 else 'ok'
     except Exception as exc:
         summary['fatal_error']=type(exc).__name__;status='failed'
         raise

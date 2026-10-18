@@ -6,7 +6,7 @@ from datetime import datetime,timezone,date
 import urllib.request
 from urllib.parse import urlsplit,urljoin
 from bs4 import BeautifulSoup
-from .live_marketplaces import _canonical_url,_identity_matches_query,USER_AGENT,MAX_BODY_BYTES
+from .live_marketplaces import _canonical_url,_identity_matches_query,_infer_condition,USER_AGENT,MAX_BODY_BYTES
 
 
 class SameOriginRedirect(urllib.request.HTTPRedirectHandler):
@@ -29,7 +29,7 @@ def fetch_listing(url):
         return raw.decode(response.headers.get_content_charset() or 'utf-8','replace')
 
 
-def structured_evidence(html,url,brand,model):
+def structured_evidence(html,url,brand,model,condition='both'):
     target=_canonical_url(url,url)
     candidates=[]
     def walk(value):
@@ -72,7 +72,8 @@ def structured_evidence(html,url,brand,model):
                     try:price=float(str(offer['price']).replace(',',''))/100000
                     except (ValueError,TypeError,KeyError):continue
                     if math.isfinite(price) and price>0:
-                        candidates.append({'outcome':'available','price_lakh':price,'availability':availability})
+                        outcome='condition_unverified' if condition=='demo' and _infer_condition(product)!='demo' else 'available'
+                        candidates.append({'outcome':outcome,'price_lakh':price,'availability':availability})
     # Conflicting products/offers must not silently choose the cheapest claim.
     unique={json.dumps(row,sort_keys=True):row for row in candidates}
     return next(iter(unique.values())) if len(unique)==1 else {'outcome':'inconclusive'}
