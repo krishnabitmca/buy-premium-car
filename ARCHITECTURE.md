@@ -1,5 +1,13 @@
 # CarScanner Architecture
 
+## Production HTTP boundary
+
+[ADR 020](DECISIONS/020-production-http-boundary.md) introduces the supervised
+Gunicorn/WSGI Docker runtime, bounded process/thread defaults, separate database
+readiness and graceful request drain. Existing API handlers and Windows preview
+remain shared. See [runtime operations](docs/PRODUCTION_HTTP.md). This does not
+activate paid resources or complete indexed serving and national capacity gates.
+
 ## Authoritative buyer search
 
 [ADR 010](DECISIONS/010-authoritative-buyer-intent.md) defines the typed form/AI

@@ -1149,3 +1149,71 @@ def test_global_catalogue_source_does_not_duplicate_whole_scans_for_each_buyer_i
     assert schedule_refreshes()==1
     job=db.execute('select brand,model,condition,destination_state from inventory_refresh_queue').fetchone()
     assert dict(job)==dict(brand='',model='',condition='both',destination_state='')
+
+
+@pytest.mark.skipif(os.name=='nt',reason='Gunicorn requires Unix; WSGI adapter tests run on Windows')
+def test_production_gunicorn_serves_real_indexed_inventory_and_shuts_down(db,disposable_database,tmp_path):
+    import signal
+    import socket
+    import subprocess
+    import sys
+    import time
+    ingest(db)
+    db.commit()
+    with socket.socket() as probe:
+        probe.bind(('127.0.0.1',0))
+        port=probe.getsockname()[1]
+    env={**os.environ,'SOURCE_INTELLIGENCE_DATABASE_URL':make_conninfo(disposable_database,application_name='carscanner_gunicorn_test'),
+        'HOST':'127.0.0.1','PORT':str(port),'CARSCANNER_WEB_WORKERS':'1',
+        'CARSCANNER_WEB_THREADS':'2','CARSCANNER_QUERY_DISCOVERY':'false','CARSCANNER_SEARCH_ENGINE':'postgresql'}
+    base=f'http://127.0.0.1:{port}'
+    with (tmp_path/'gunicorn.log').open('wb') as log:
+        process=subprocess.Popen([sys.executable,'-m','gunicorn','--config','gunicorn.conf.py','wsgi:application'],
+                                 env=env,stdout=log,stderr=log)
+        try:
+            deadline=time.monotonic()+20
+            while True:
+                assert process.poll() is None,'Gunicorn exited before readiness'
+                try:
+                    with urllib.request.urlopen(base+'/ready',timeout=3) as response:
+                        assert json.load(response)['ok']
+                    break
+                except OSError:
+                    if time.monotonic()>deadline:raise
+                    time.sleep(.1)
+            req=urllib.request.Request(base+'/api/search',data=json.dumps({
+                'query':'BMW X1','condition':'used','budget_max':35}).encode(),
+                headers={'Content-Type':'application/json'})
+            with urllib.request.urlopen(req,timeout=10) as response:
+                payload=json.load(response)
+                assert response.headers['X-CarScanner-Runtime']=='wsgi'
+            assert payload['ok'] and payload['search_engine']=='postgresql'
+            assert payload['total_results']==1 and payload['results'][0]['price_lakh']==30
+            assert payload['mode'].startswith('inventory')
+            # Hold an actual search query in flight, terminate the master, then
+            # release the database lock. The worker must drain that response.
+            from concurrent.futures import ThreadPoolExecutor
+            def search_again():
+                with urllib.request.urlopen(req,timeout=15) as response:
+                    return json.load(response)
+            db.execute('lock table public.listings in access exclusive mode')
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                pending=executor.submit(search_again)
+                deadline=time.monotonic()+5
+                while True:
+                    db.execute('select pg_stat_clear_snapshot()')
+                    waiting=db.execute("""select count(*) as n from pg_stat_activity
+                        where application_name='carscanner_gunicorn_test' and wait_event_type='Lock'""").fetchone()['n']
+                    if waiting:break
+                    if time.monotonic()>deadline:
+                        db.rollback()
+                        raise AssertionError('Search did not reach the database lock')
+                    time.sleep(.05)
+                process.send_signal(signal.SIGTERM)
+                db.commit()
+                assert pending.result(timeout=10)['total_results']==1
+            assert process.wait(timeout=10)==0
+        finally:
+            db.rollback()
+            if process.poll() is None:
+                process.kill();process.wait(timeout=5)

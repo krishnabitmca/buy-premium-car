@@ -8,10 +8,10 @@ COPY src /app/src
 COPY api /app/api
 COPY config /app/config
 COPY index.html /app/index.html
-COPY render_server.py /app/render_server.py
+COPY render_server.py wsgi.py gunicorn.conf.py /app/
 
 RUN pip install --no-cache-dir -e . \
     && pip install --no-cache-dir -r requirements.txt
 
 EXPOSE 10000
-CMD ["python", "render_server.py"]
+CMD ["gunicorn", "--config", "gunicorn.conf.py", "wsgi:application"]

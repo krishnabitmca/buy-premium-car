@@ -1,5 +1,11 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Run Docker HTTP traffic through pinned Gunicorn/WSGI with bounded concurrency,
+  worker-local pools, private access logs and configured graceful request drain.
+- Add a separate canonical-database readiness probe and verify actual Linux
+  request handling, in-flight SIGTERM drain and production-adapter browser flows.
+  Keep paid activation and national latency/availability claims gated separately.
+
 - Preserve operator disables, adapter state, parser overrides, removed capabilities
   and inactive endpoints during routine registry bootstrap. Require explicit
   reviewed rollout for replacement/activation of existing source configuration.

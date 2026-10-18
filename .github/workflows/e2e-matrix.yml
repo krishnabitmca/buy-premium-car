@@ -77,7 +77,7 @@ jobs:
         run: |
           test -n "$SOURCE_INTELLIGENCE_DATABASE_URL"
           pip install -r requirements.txt
-          python -u render_server.py > /tmp/carscanner-preview.log 2>&1 &
+          gunicorn --config gunicorn.conf.py wsgi:application > /tmp/carscanner-preview.log 2>&1 &
       - name: Install browser test runtime
         run: |
           npm init -y >/dev/null 2>&1
