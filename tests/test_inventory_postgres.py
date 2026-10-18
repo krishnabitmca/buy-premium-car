@@ -1181,6 +1181,9 @@ def test_production_gunicorn_serves_real_indexed_inventory_and_shuts_down(db,dis
                 except OSError:
                     if time.monotonic()>deadline:raise
                     time.sleep(.1)
+            with urllib.request.urlopen(base+'//?qa=fixture',timeout=5) as response:
+                assert b'id="brand"' in response.read()
+                assert response.headers['X-CarScanner-Runtime']=='wsgi'
             req=urllib.request.Request(base+'/api/search',data=json.dumps({
                 'query':'BMW X1','condition':'used','budget_max':35}).encode(),
                 headers={'Content-Type':'application/json'})

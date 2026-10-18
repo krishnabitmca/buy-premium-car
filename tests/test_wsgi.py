@@ -24,6 +24,7 @@ def test_shared_public_routes_and_private_file_allowlist():
     home = request()
     assert home['status'] == 200 and b'CarScanner' in home['body']
     assert home['headers']['X-CarScanner-Runtime'] == 'wsgi'
+    assert request('//', QUERY_STRING='qa=fixture')['body'] == home['body']
     assert request('/health')['body'] == b'ok'
     assert request('/index.html', 'HEAD')['body'] == b''
     for path in ('/.env', '/config/sources.yaml', '/src/source_registry_db.py', '/../.env'):

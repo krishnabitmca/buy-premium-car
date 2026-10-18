@@ -12,6 +12,11 @@ log = logging.getLogger(__name__)
 MAX_BODY_BYTES = 64 * 1024
 
 
+def request_path(environ):
+    # Match BaseHTTPRequestHandler's normalization of repeated leading slashes.
+    return '/' + str(environ.get('PATH_INFO') or '/').lstrip('/')
+
+
 def readiness():
     """Check the canonical store without fetching inventory or external sources."""
     if not enabled():
@@ -35,7 +40,7 @@ class RequestAdapter(RenderHandler):
 
     def __init__(self, environ, body):
         self.command = environ.get('REQUEST_METHOD', 'GET')
-        self.path = environ.get('PATH_INFO', '/') or '/'
+        self.path = request_path(environ)
         if environ.get('QUERY_STRING'):
             self.path += '?' + environ['QUERY_STRING']
         self.headers = Message()
@@ -72,7 +77,7 @@ class RequestAdapter(RenderHandler):
 
 def application(environ, start_response):
     method = environ.get('REQUEST_METHOD', 'GET')
-    path = environ.get('PATH_INFO', '/') or '/'
+    path = request_path(environ)
     adapter = RequestAdapter(environ, b'')
     try:
         try:
