@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import math
 from urllib.parse import urlsplit
 
-from .inventory_db import eligibility_predicates
+from .inventory_db import eligibility_predicates, eligibility_checks
 from .inventory_freshness import global_expiry_minutes
 from .source_registry_db import _connect, require_database
 from .india_geo import normalize_seller_location
@@ -41,6 +41,7 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
     identities=defaultdict(set)
     source_vehicles=defaultdict(set)
     city_cells={};city_vehicles=defaultdict(set)
+    exclusions=defaultdict(Counter)
     shared_urls=Counter((r['source'],r['url']) for r in facts)
     for row in facts:
         source=row['source'];condition=row.get('condition') or 'unknown'
@@ -51,7 +52,7 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
         cell=matrix.setdefault(key,dict(source=source,seller_location_label=city,
             **location,
             brand=brand,model=model,condition=condition,observed_offers=0,eligible_offers=0,
-            excluded_offers=0,last_verified_at=None))
+            excluded_offers=0,exclusion_reasons=Counter(),last_verified_at=None))
         cell['observed_offers']+=1
         stat=source_stats[source];stat['observed_offers']+=1
         timestamp=row.get('last_verified_at')
@@ -69,6 +70,8 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
             city_vehicles[city_key].add(identity)
         else:
             cell['excluded_offers']+=1;stat['excluded_offers']+=1
+            reasons=set(row.get('exclusion_reasons') or ['unclassified_exclusion'])
+            cell['exclusion_reasons'].update(reasons);exclusions[source].update(reasons)
         if row.get('status') not in {'active','stale'}:continue
         if row.get('listing_condition') not in {'used','demo'}:
             stat['needs_classification']+=1;continue
@@ -94,6 +97,7 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
         cell['status']='partial_observed' if cell['eligible_offers'] else 'no_current_eligible_observation'
         cell['last_verified_at']=_iso(cell['last_verified_at'])
         cell['market_coverage_percent']=None
+        cell['exclusion_reasons']=dict(cell['exclusion_reasons'])
         cells.append(cell)
 
     declared=[];scope_seen=set();priorities={}
@@ -117,6 +121,8 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
             **{k:stat[k] for k in ('observed_offers','eligible_offers','excluded_offers','overdue_offers',
                 'needs_classification','detail_parser_gaps','catalogue_or_origin_review_only')},
             eligible_vehicles=len(source_vehicles[name]),pending_pages=0,failed_jobs=0,
+            exclusion_reasons=dict(exclusions[name]),queued_jobs=0,running_jobs=0,
+            oldest_queued_hours=None,oldest_running_hours=None,
             last_batch_yield=None,actions=[])
         scope(name,'source_root',None,source.get('url'),status='not_measured')
     latest_catalogue={}
@@ -126,6 +132,13 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
         name=job['source'];priority=priorities.get(name)
         if not priority:continue
         job_totals[job['status']]+=1
+        if job['status'] in {'queued','running'}:
+            priority[job['status']+'_jobs']+=1
+            stamp=job.get('requested_at') if job['status']=='queued' else job.get('started_at')
+            if stamp:
+                age=round(max(0,(now-stamp).total_seconds()/3600),2)
+                field='oldest_'+job['status']+'_hours'
+                priority[field]=max(priority[field] or 0,age)
         if job['status']=='failed' or job.get('last_error'):priority['failed_jobs']+=1
         evidence=job.get('scan_evidence') or {}
         cursor=job.get('continuation') or {}
@@ -160,6 +173,10 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
         if priority['detail_parser_gaps']:priority['actions'].append('review_detail_evidence_parser')
         if priority['needs_classification']:priority['actions'].append('obtain_used_demo_classification_evidence')
         if not priority['eligible_offers']:priority['actions'].append('establish_current_inventory_coverage')
+        if priority['exclusion_reasons'].get('verification_expired_or_missing'):
+            priority['actions'].append('restore_current_verification_evidence')
+        if not priority['enabled']:
+            priority['actions'].insert(0,'operator_disabled_do_not_schedule')
         priority['score']=priority['pending_pages']*2+priority['overdue_offers']+priority['detail_parser_gaps']*5
 
     capacity=[]
@@ -198,6 +215,8 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
             pending_pages='Pending page slots across jobs can overlap; they are not unique vehicles or market size.',
             advertised_counts='Source claims may overlap and may include stale stock; never summed into a national denominator.',
             eligibility='Uses customer search offer eligibility and the actual latest observation.',
+            exclusion_reasons='Failed canonical eligibility checks; multiple reasons may apply to one offer. Counts are not additive. Missing observations fail closed.',
+            queue_age='Elapsed time since latest queue request or running claim, including cooldown and dispatch delays; not a predicted completion time or confirmed stuck job.',
             completeness='No independent eligible-listing benchmark has established market coverage percentages.'))
 
 
@@ -205,6 +224,10 @@ def operations_report(*,renewal_limit=10,interval_minutes=15):
     require_database()
     cap=global_expiry_minutes()
     eligible=' and '.join(eligibility_predicates())
+    checks={**eligibility_checks(),'observation_vehicle_mismatch': 'o.vehicle_id=v.vehicle_id'}
+    reasons='array_remove(array['+','.join(
+        "case when ("+predicate+") is not true then '"+name+"' end"
+        for name,predicate in checks.items())+'],NULL)'
     with _connect() as conn,conn.cursor() as cur:
         cur.execute('set transaction isolation level repeatable read read only')
         cur.execute('select now() as now');now=cur.fetchone()['now']
@@ -219,20 +242,21 @@ def operations_report(*,renewal_limit=10,interval_minutes=15):
             coalesce(nullif(trim(l.seller_city),''),nullif(trim(v.seller_city),'')) as seller_location_label,
             coalesce(o.snapshot->>'price_basis','unspecified') as price_basis,
             coalesce(("""+eligible+""" and o.vehicle_id=v.vehicle_id),false) as eligible,
+            """+reasons+""" as exclusion_reasons,
             r.status as renewal_status,r.due_at,r.last_outcome
             from listings l join vehicles v using(vehicle_id)
             left join lateral(select observation.* from vehicle_observations observation where observation.listing_id=l.listing_id
                 order by observed_at desc,observation_id desc limit 1) o on true
             join sources s on s.source_id=coalesce(o.source_id,l.source_id)
-            left join inventory_listing_refresh r on r.listing_id=l.listing_id""",(cap,cap))
+            left join inventory_listing_refresh r on r.listing_id=l.listing_id""",(cap,cap,cap,cap))
         facts=[dict(r) for r in cur.fetchall()]
-        cur.execute("""select s.name as source,q.brand,q.model,q.condition,q.status,q.started_at,q.completed_at,q.last_error,
+        cur.execute("""select s.name as source,q.brand,q.model,q.condition,q.status,q.requested_at,q.started_at,q.completed_at,q.last_error,
             q.metadata->'last_scan_evidence' as scan_evidence,q.metadata->'continuation' as continuation,
             q.metadata->'advertised_model_count' as advertised_model_count,
             q.metadata->>'last_batch_observed_at' as batch_observed_at,
             q.metadata->'model_discovery'->>'evidence_url' as model_evidence_url
             from inventory_refresh_queue q join sources s using(source_id)
-            where s.enabled order by q.requested_at,q.refresh_id""")
+            order by q.requested_at,q.refresh_id""")
         jobs=[dict(r) for r in cur.fetchall()]
         cur.execute("""select started_at,completed_at,status,summary from inventory_pipeline_runs
             where started_at>=now()-interval '24 hours' order by started_at""")
@@ -252,6 +276,19 @@ def markdown_report(report):
     for row in report['source_priorities']:
         safe={**row,'source':row['source'].replace('|',' '),'actions':', '.join(row['actions']) or 'maintain_and_measure'}
         lines.append('| {source} | {eligible_offers} | {pending_pages} | {overdue_offers} | {actions} |'.format(**safe))
+    lines+=['','| Source | Exclusion reason | Offers |','| --- | --- | ---: |']
+    for row in report['source_priorities']:
+        for reason,count in sorted(row.get('exclusion_reasons',{}).items()):
+            lines.append('| '+row['source'].replace('|',' ')+' | '+reason+' | '+str(count)+' |')
+    lines+=['','An offer can have multiple exclusion reasons; these counts must not be summed.', '',
+        '| Source | Queued | Oldest queued hours | Running | Oldest running hours |',
+        '| --- | ---: | ---: | ---: | ---: |']
+    for row in report['source_priorities']:
+        safe={**row,'source':row['source'].replace('|',' '),
+            'oldest_queued_hours':row.get('oldest_queued_hours') if row.get('oldest_queued_hours') is not None else 'Unknown',
+            'oldest_running_hours':row.get('oldest_running_hours') if row.get('oldest_running_hours') is not None else 'Unknown'}
+        lines.append('| {source} | {queued_jobs} | {oldest_queued_hours} | {running_jobs} | {oldest_running_hours} |'.format(**safe))
+    lines+=['','Queue ages include pacing and dispatch delays; they do not by themselves prove a stuck worker. Disabled sources remain visible for operator review.']
     lines+=['','| Source | Canonical city | State | Condition | Eligible offers | Eligible vehicles |',
         '| --- | --- | --- | --- | ---: | ---: |']
     for cell in report.get('city_coverage',[]):

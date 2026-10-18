@@ -1,5 +1,12 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Preserve operator disables, adapter state, parser overrides, removed capabilities
+  and inactive endpoints during routine registry bootstrap. Require explicit
+  reviewed rollout for replacement/activation of existing source configuration.
+- Explain excluded inventory using named canonical customer-eligibility checks.
+  Report per-source queue counts/ages, including disabled sources, without treating
+  elapsed queue age as proof of worker failure or summing overlapping reasons.
+
 - Add Škoda Certified Pre-Owned public stock API acquisition and resumable page
   positions; keep session tokens ephemeral and manufacture year/mileage unknown
   when the card does not establish them.

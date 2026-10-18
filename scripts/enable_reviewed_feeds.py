@@ -32,7 +32,7 @@ def main():
     # Run all HTTP verification before any registry mutation. Discovery cannot
     # invoke this explicit reviewed-adapter rollout path.
     if args.apply:
-        require_database();sync_registry(selected)
+        require_database();sync_registry(selected,reviewed_update=True)
         with _connect() as conn,conn.cursor() as cur:
             for source in selected:
                 key=source_key(source)

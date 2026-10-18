@@ -132,3 +132,30 @@ def test_ambiguous_region_conflicting_state_and_unknown_location_do_not_invent_a
     assert normalize_seller_location(None)['location_status']=='missing'
     assert normalize_seller_location('Gurgaon')['canonical_city']=='Gurugram'
     assert normalize_seller_location('Navi Mumbai')['canonical_city']=='Navi Mumbai'
+
+
+def test_exclusion_reasons_are_non_additive_and_never_count_eligible_offers():
+    rows=[fact(eligible=False,exclusion_reasons=['source_disabled','verification_expired_or_missing']),
+        fact(2,eligible=False,exclusion_reasons=['source_disabled','source_disabled']),fact(3)]
+    report=summarize(rows,[source()],[],[],now=NOW)
+    cell=report['coverage_matrix'][0]
+    assert cell['excluded_offers']==2 and cell['eligible_offers']==1
+    assert cell['exclusion_reasons']=={'source_disabled':2,'verification_expired_or_missing':1}
+    priority=report['source_priorities'][0]
+    assert priority['exclusion_reasons']==cell['exclusion_reasons']
+    assert 'restore_current_verification_evidence' in priority['actions']
+    assert 'must not be summed' in markdown_report(report)
+
+
+def test_disabled_source_queue_remains_visible_without_inventing_stuck_status():
+    configured=source();configured['enabled']=False
+    jobs=[dict(source='A',brand='BMW',condition='used',status='queued',
+        requested_at=NOW-timedelta(hours=12)),
+        dict(source='A',brand='Honda',condition='used',status='running',started_at=NOW-timedelta(hours=2)),
+        dict(source='A',brand='Skoda',condition='used',status='queued')]
+    report=summarize([],[configured],jobs,[],now=NOW)
+    priority=report['source_priorities'][0]
+    assert priority['queued_jobs']==2 and priority['running_jobs']==1
+    assert priority['oldest_queued_hours']==12 and priority['oldest_running_hours']==2
+    assert priority['actions'][0]=='operator_disabled_do_not_schedule'
+    assert 'do not by themselves prove a stuck worker' in markdown_report(report)

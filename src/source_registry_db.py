@@ -92,7 +92,12 @@ def source_key(source: dict[str, Any]) -> str:
     ).strip().lower().replace(" ", "_")
 
 
-def sync_registry(sources: Iterable[dict[str, Any]]) -> int:
+def sync_registry(sources: Iterable[dict[str, Any]], *, reviewed_update: bool = False) -> int:
+    """Bootstrap missing sources; only explicit reviewed rollouts replace state.
+
+    Ordinary seed sync must preserve emergency disables, parser overrides,
+    capabilities and inactive endpoints on existing sources.
+    """
     if not enabled():
         return 0
     rows = list(sources)
@@ -104,28 +109,37 @@ def sync_registry(sources: Iterable[dict[str, Any]]) -> int:
                     k: v for k, v in source.items()
                     if k not in {"name", "url", "tier", "source_type", "adapter_status",
                                  "geography", "query_strategy", "vehicle_link_pattern",
-                                 "priority", "brands", "conditions", "segments"}
+                                 "priority", "brands", "conditions", "segments", "enabled"}
                 }
-                cur.execute(
-                    """insert into public.sources
+                insert = """insert into public.sources
                     (source_key,name,url,tier,source_type,adapter_status,geography,
                      query_strategy,vehicle_link_pattern,priority,enabled,metadata)
-                    values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,true,%s)
-                    on conflict (source_key) do update set
+                    values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
+                params = (key, source.get("name"), source.get("url"), int(source.get("tier", 2)),
+                     source.get("source_type", "unknown"), source.get("adapter_status", "candidate"),
+                     source.get("geography", "india"), source.get("query_strategy", "brand_model"),
+                     source.get("vehicle_link_pattern"), int(source.get("priority", 50)),
+                     True if reviewed_update else bool(source.get('enabled',True)),
+                     json.dumps(metadata))
+                if reviewed_update:
+                    cur.execute(insert+""" on conflict (source_key) do update set
                       name=excluded.name,url=excluded.url,tier=excluded.tier,
                       source_type=excluded.source_type,adapter_status=excluded.adapter_status,
                       geography=excluded.geography,query_strategy=excluded.query_strategy,
                       vehicle_link_pattern=excluded.vehicle_link_pattern,
                       priority=excluded.priority,enabled=true,last_seen_at=now(),
-                      metadata=excluded.metadata
-                    returning source_id""",
-                    (key, source.get("name"), source.get("url"), int(source.get("tier", 2)),
-                     source.get("source_type", "unknown"), source.get("adapter_status", "candidate"),
-                     source.get("geography", "india"), source.get("query_strategy", "brand_model"),
-                     source.get("vehicle_link_pattern"), int(source.get("priority", 50)),
-                     json.dumps(metadata))
-                )
-                source_id = cur.fetchone()["source_id"]
+                      metadata=excluded.metadata returning source_id""",params)
+                    source_id=cur.fetchone()['source_id']
+                else:
+                    # DO NOTHING reports whether this transaction actually created
+                    # the source, including concurrent seed bootstraps.
+                    cur.execute(insert+' on conflict (source_key) do nothing returning source_id',params)
+                    created=cur.fetchone()
+                    if not created:
+                        cur.execute('''update public.sources set last_seen_at=now(),
+                            metadata=%s::jsonb || metadata where source_key=%s''',(json.dumps(metadata),key))
+                        continue
+                    source_id=created['source_id']
                 for capability_type, values in (
                     ("brand", source.get("brands") or []),
                     ("condition", source.get("conditions") or []),
@@ -139,11 +153,12 @@ def sync_registry(sources: Iterable[dict[str, Any]]) -> int:
                                on conflict do nothing""",
                             (source_id, capability_type, str(value))
                         )
+                endpoint_conflict = 'do update set is_active=true' if reviewed_update else 'do nothing'
                 cur.execute(
                     """insert into public.source_endpoints
                        (source_id,url,endpoint_type,is_active)
                        values (%s,%s,'catalogue',true)
-                       on conflict (source_id,url) do update set is_active=true""",
+                       on conflict (source_id,url) """+endpoint_conflict,
                     (source_id, source.get("url"))
                 )
         conn.commit()
