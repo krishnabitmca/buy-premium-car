@@ -113,3 +113,22 @@ def test_case_variant_scope_duplicates_report_the_latest_attempt():
     result=summarize([], [source()],[old,new],[],now=NOW)
     scopes=[r for r in result['declared_scopes'] if r['scope_kind']=='model']
     assert len(scopes)==1 and scopes[0]['job_status']=='completed' and not scopes[0]['last_attempt_failed']
+
+
+def test_city_aliases_roll_up_without_losing_raw_labels_or_double_counting_vehicles():
+    result=summarize([fact(seller_location_label='Bangalore'),fact(2,seller_location_label='Bengaluru, Karnataka')],
+        [source()],[],[],now=NOW)
+    assert len(result['coverage_matrix'])==2
+    city=result['city_coverage'][0]
+    assert city['canonical_city']=='Bengaluru' and city['canonical_state']=='Karnataka'
+    assert city['eligible_offers']==2 and city['eligible_vehicles']==1
+    assert city['seller_location_labels']==['Bangalore','Bengaluru, Karnataka']
+
+
+def test_ambiguous_region_conflicting_state_and_unknown_location_do_not_invent_a_city():
+    from src.india_geo import normalize_seller_location
+    for label in ('Delhi NCR','Mumbai / Pune','Goa','Bengaluru, Maharashtra','Andheri Mumbai','Unknown'):
+        assert normalize_seller_location(label)['canonical_city'] is None
+    assert normalize_seller_location(None)['location_status']=='missing'
+    assert normalize_seller_location('Gurgaon')['canonical_city']=='Gurugram'
+    assert normalize_seller_location('Navi Mumbai')['canonical_city']=='Navi Mumbai'

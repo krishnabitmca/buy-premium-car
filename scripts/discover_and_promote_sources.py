@@ -8,11 +8,14 @@ not depend on unverified search-engine discoveries.
 """
 
 import argparse
+import json
+from pathlib import Path
+from datetime import datetime, timezone
 import time
 from urllib.parse import urlparse
 
 from src.config import load_settings
-from src.source_monitoring import registered_candidates, merge_candidates
+from src.source_monitoring import registered_candidates, plan_probes
 from src.discovery import discover
 from src.live_marketplaces import fetch_text, parse_live_listings, parse_visible_listing_links, parse_generic_detail_page
 from src.source_intelligence import load_source_registry, normalize_condition
@@ -21,6 +24,7 @@ from src.source_registry_db import (
     promote_discovery,
     record_discoveries,
     load_search_demand,
+    load_probe_history, claim_source_probe, finish_source_probe,
 )
 
 
@@ -79,8 +83,8 @@ def validate_candidate(candidate: object) -> tuple[int, str | None]:
                 except Exception:
                     continue
         latency_ms = int((time.monotonic() - started) * 1000)
-        if len(matching) < 1:
-            return 0, f"inventory validation found {len(matching)} matching listings in {latency_ms}ms"
+        if len(matching) < 2:
+            return len(matching), f"inventory validation found {len(matching)} matching listings in {latency_ms}ms; two required for staging"
         return len(matching), None
     except Exception as exc:
         return 0, f"{type(exc).__name__}: {str(exc)[:160]}"
@@ -91,6 +95,9 @@ def main() -> None:
     parser.add_argument("--config", default="config/settings.yaml")
     parser.add_argument("--max-candidates", type=int, default=20)
     parser.add_argument("--min-confidence", type=float, default=0.70)
+    parser.add_argument('--skip-web-discovery', action='store_true', help='Probe registered candidates only')
+    parser.add_argument('--plan-only', action='store_true', help='Read-only candidate plan; no fetch or database writes')
+    parser.add_argument('--report', default='coverage/source-expansion.json')
     args = parser.parse_args()
 
     if not source_db_enabled():
@@ -107,14 +114,28 @@ def main() -> None:
     }
 
     demand = load_search_demand(limit=100, lookback_hours=168)
-    found = discover(settings, known_domains, demand=demand, include_known_domain_urls=True)
+    found = [] if args.skip_web_discovery or args.plan_only else discover(settings, known_domains, demand=demand, include_known_domain_urls=True)
     print(f"demand_intents={len(demand)}")
     # Known candidates must be probed even if search engines do not return
     # them. Merge versioned seeds with the DB registry; existing live URLs are
     # skipped and validation still stages adapters rather than enabling them.
     seeds = registered_candidates([*registry, *load_source_registry(from_database=False)])
-    candidates = merge_candidates(seeds, found, args.min_confidence, args.max_candidates)
+    history = load_probe_history([item.url for item in [*seeds, *found]])
+    candidates = plan_probes(seeds, found, history, args.min_confidence, args.max_candidates)
     print(f"registered_candidates={len(seeds)}")
+
+    report = dict(started_at=datetime.now(timezone.utc).isoformat(),plan_only=args.plan_only,
+        registered_candidates=len(seeds),web_candidates=len(found),
+        selected_urls=[item.url for item in candidates],results=[],
+        policy='Least recently attempted within registered/web pools; one in five slots reserved for web, idle slots borrowed. Staged sources await review.')
+    def save_report():
+        path = Path(args.report)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
+    save_report()
+    if args.plan_only:
+        print(f'planned={len(candidates)}; no probes or writes performed')
+        return
 
     discoveries = [
         {
@@ -136,7 +157,22 @@ def main() -> None:
     promoted = []
     rejected = 0
     for item in candidates:
+        token = claim_source_probe(item)
+        if not token:
+            report['results'].append(dict(url=item.url,status='deferred'))
+            save_report()
+            continue
         listings_found, error = validate_candidate(item)
+        result = dict(url=item.url,domain=item.domain,listings_found=listings_found,
+            status='validated' if listings_found>=2 else 'rejected',error=error,
+            checked_at=datetime.now(timezone.utc).isoformat())
+        if not finish_source_probe(item, token, result):
+            result['status'] = 'superseded'
+            report['results'].append(result)
+            save_report()
+            continue
+        report['results'].append(result)
+        save_report()
         if listings_found < 2:
             rejected += 1
             print(f"REJECT domain={item.domain} reason={error}")
@@ -158,11 +194,15 @@ def main() -> None:
         )
         if name:
             promoted.append((name, listings_found))
+            result['status'] = 'staged'
+            save_report()
             print(
                 f"STAGED source={name} listings={listings_found} "
                 f"brand={item.brand_hint or 'all'} condition={item.condition}"
             )
 
+    report['completed_at'] = datetime.now(timezone.utc).isoformat()
+    save_report()
     print(
         f"discovered={len(found)} candidates={len(candidates)} "
         f"recorded={recorded} staged={len(promoted)} rejected={rejected}"

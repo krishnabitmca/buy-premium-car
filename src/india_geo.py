@@ -58,3 +58,24 @@ def infer_city(location: str|None, text: str=""):
     if location:
         return str(location).strip()
     return None
+
+
+def normalize_seller_location(location):
+    """Conservative operational city identity; never a buyer inventory filter.
+
+    Only a known city label, optionally followed by its matching state, is
+    accepted. Addresses, regions and multiple cities retain unknown identity.
+    Existing permissive purchase-context inference remains independent.
+    """
+    label = ' '.join(str(location or '').split())
+    parts = [part.strip().casefold() for part in label.split(',')]
+    city = parts[0]
+    state = CITY_STATE_PAIRS.get(city)
+    # Goa is a state/region label, not evidence of a specific city.
+    if not state or city == 'goa' or len(parts)>2 or (len(parts)==2 and parts[1]!=state.casefold()):
+        return dict(canonical_city=None,canonical_state=None,
+                    location_status='missing' if not label else 'unresolved')
+    aliases = {'bangalore':'Bengaluru','mangalore':'Mangaluru','mysore':'Mysuru',
+               'gurgaon':'Gurugram','cochin':'Kochi','new delhi':'Delhi'}
+    return dict(canonical_city=aliases.get(city,city.title()),canonical_state=state,
+                location_status='recognized_label')
