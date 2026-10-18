@@ -219,6 +219,14 @@
 
 # CarScanner Changelog
 
+## 2026-10-18 — Public offline mobile shell
+
+- Add standalone PWA metadata/icons and an exact public-shell service-worker cache.
+- Support offline reload of saved choice labels while bypassing inventory, user,
+  watch and AI APIs; refresh metadata and revalidate saved offers on reconnect.
+- Keep current prices/availability network-only and preserve online operation when
+  browser cache writes fail. Native/store/real-device acceptance remains open.
+
 ## 2026-10-18 — Isolate observed model metadata
 
 - Separate database model lookups from slow external enrichment, with independent

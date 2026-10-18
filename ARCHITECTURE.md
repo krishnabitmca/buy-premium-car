@@ -173,3 +173,12 @@ was slower; `search_engine` in the response reports the actual engine used.
 10. PAN-India operational scale
 
 Do not introduce distributed infrastructure merely because the long-term system may need it.
+
+## Public mobile shell
+
+[ADR 026](DECISIONS/026-public-offline-shell.md) adds a PWA-first shell shared
+with the web application. Its service worker caches only explicit public static
+assets; inventory and personal APIs, mutations and third-party media bypass it.
+Offline reload retains device-saved choice labels without stored price results.
+Reconnect refreshes metadata and revalidates saved offers. Device installation,
+assistive-technology testing and native distribution remain separate gates.

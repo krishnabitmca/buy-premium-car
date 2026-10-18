@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101b2d">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/app-icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/app-icon-192.png">
 <meta name="description" content="CarScanner compares live used and demonstrator car listings across India to find the lowest observed and strongest available deal.">
 <title>CarScanner — Compare every marketplace</title>
 <style>
@@ -102,101 +106,7 @@ async function readOnlyFetch(url,options={}){
    const signal=options.signal;
    if(signal?.aborted){reject(signal.reason||new DOMException('Aborted','AbortError'));return}
    const abort=()=>{clearTimeout(timer);reject(signal.reason||new DOMException('Aborted','AbortError'))};
-   const timer=setTimeout(()=>{signal?.removeEventListener('abort',abort);resolve()},Math.min(2,seconds*2**attempt)*1000+Math.random()*250);
-   signal?.addEventListener('abort',abort,{once:true});
-  });
- }
-}
-function catalogFetch(url){
- const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
- return readOnlyFetch(url,{cache:'no-store',signal:controller.signal}).finally(()=>clearTimeout(timer));
-}
-async function loadCatalog(){
- // Never leave the primary search control blank while the live catalog is
- // being refreshed. This prevents a slow/blocked upstream marketplace from
- // making the page look broken.
-
- try{
-  const r=await catalogFetch('/api/catalog?ts='+Date.now());
-  if(!r.ok)throw Error('catalog HTTP '+r.status);
-  const p=await r.json();
-  if(!p.ok||p.mode!=='live'||!Array.isArray(p.brands))throw Error('invalid live catalog');
-  if(p.brands.length)setBrandOptions(p.brands);
- }catch(e){
-  // Keep the known-good taxonomy. The model lookup remains live per brand.
-  $('brand').disabled=false;
- }
-}
-async function loadModels(){
- const sequence=++modelCatalogSequence;
- const b=$('brand').value;
- $('model').disabled=true;
- if(!b){$('model').innerHTML='<option value="">All models</option>';$('model').disabled=false;return}
- $('model').innerHTML='<option value="">Loading live models…</option>';
- try{
-  const r=await catalogFetch('/api/catalog?brand='+encodeURIComponent(b)+'&ts='+Date.now());
-  if(!r.ok)throw Error('models HTTP '+r.status);
-  const p=await r.json();
-  if(sequence!==modelCatalogSequence||$('brand').value!==b)return;
-  if(!p.ok||p.mode!=='live'||!Array.isArray(p.models))throw Error('invalid live models');
-  const models=[...new Map(p.models.filter(x=>x&&x.name&&x.name.toLowerCase()!=='images').map(x=>[x.name.toLowerCase(),x])).values()];
-  $('model').innerHTML='<option value="">All models</option>'+models.map(x=>'<option value="'+esc(x.name)+'">'+esc(x.name)+'</option>').join('');
- }catch(e){
-  if(sequence!==modelCatalogSequence||$('brand').value!==b)return;
-  $('model').innerHTML='<option value="">Live models unavailable</option>';
- }finally{if(sequence===modelCatalogSequence)$('model').disabled=false}
-}
-$('brand').onchange=()=>{cancelQueuedSearch();$('aiReview').textContent='';return loadModels()};['min','max'].forEach(id=>$(id).addEventListener('change',()=>{$(id==='min'?'fmin':'fmax').value=''}));
-async function searchLive(options={}){
- clearTimeout(queuedSearch);queuedSearch=null;
- const append=options.append===true;const sequence=++searchSequence;activeSearch?.abort();
- $('market').classList.remove('show');
- assistantYear=$('exactYear').value?Number($('exactYear').value):null;
- condition=$('condition').value;const b=$('brand').value,m=$('model').value,min=$('min').value,max=$('max').value,destination=$('destination').value.trim();
- const fmin=$('fmin').value||min,fmax=$('fmax').value||max;
- if(fmin&&fmax&&Number(fmin)>Number(fmax)){alert('Minimum budget cannot exceed maximum budget');return}
- if(!append){searchPage=0;searchRequest={query:[b,m].filter(Boolean).join(' '),destination,budget_min:fmin||null,budget_max:fmax||null,condition,fuels:selectedFuels(),body_types:$("bodyType").value?[$("bodyType").value]:[],transmissions:$("transmission").value?[$("transmission").value]:[],max_mileage_km:$("maxKm").value||null,max_owners:$("maxOwners").value||null,seller_city:$("city").value,max_age_years:$("year").value||null,manufacture_year:assistantYear,sort:$("sort").value};hasMore=false;$('more').style.display='none'}
- if(append&&!searchRequest)return;
- const nextPage=searchPage+1;
- const controller=new AbortController();activeSearch=controller;const searchTimer=setTimeout(()=>controller.abort(),45000);
- $('search').disabled=true;$('more').disabled=true;$('search').textContent='Searching…';if(!append){$('coverage').style.display='none';$('grid').innerHTML='<div class="empty"><b>Searching car listings…</b>CarScanner is checking available source observations.</div>'}
- try{
-  const r=await readOnlyFetch('/api/search?ts='+Date.now(),{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({...searchRequest,page:nextPage,page_size:50})});
-  if(!r.ok)throw Error((await r.text()).slice(0,150));const p=await r.json();if(!p.ok||p.search_scope!=='india'||!['live','inventory','inventory_partial','live_coverage_fallback','live_fallback'].includes(p.mode))throw Error(p.error||'Search unavailable');
-  if(sequence!==searchSequence)return;searchSummary=p.search_summary||null;searchMode=p.mode;document.querySelector('.livebar>span').textContent=searchMode.startsWith('inventory')?'Verified database observations · '+(searchMode==='inventory_partial'?'partial coverage':'completeness unverified'):'● LIVE · Current marketplace query';inventory=append?[...inventory,...(p.results||[])]:p.results||[];searchPage=nextPage;hasMore=Boolean(p.has_more);inventoryTotal=p.inventory_total??p.total_results??inventory.length;$('more').style.display=hasMore?'block':'none';liveAt=p.live_at;sourceStatus=append?[...new Map([...sourceStatus,...(p.sources||[])].map(s=>[s.name||s.source,s])).values()]:p.sources||[];coverageWarning=p.availability_warning||null;sourcePlan=p.source_plan||[];renderCoverage();populateRefinements();applyResults();
- }catch(e){if(sequence!==searchSequence)return;if(!append){inventory=[];shown=[];$('grid').innerHTML='<div class="empty"><b>Search is currently unavailable.</b>Please retry. No unverified listings are shown.</div>'}$('summary').textContent=append?'Additional observations could not load; retry Load more.':'Search failed; please retry'}
- finally{clearTimeout(searchTimer);if(sequence===searchSequence){$('search').disabled=false;$('more').disabled=false;$('search').textContent='Search cars'}}
-}
-function renderCoverage(){
- const represented=new Set(searchSummary?.sources||inventory.flatMap(v=>(v.offers||[{source:v.source}]).map(o=>o.source)));
- const status=new Map(sourceStatus.map(s=>[s.name||s.source,s]));
- $('coverage').style.display=sourcePlan.length?'block':'none';
- $('coverageSources').innerHTML=sourcePlan.map(s=>{
-  const observed=represented.has(s.name),response=status.get(s.name);
-  const label=observed?'Matching observations in filtered index; marketplace completeness unverified':s.adapter_status!=='live'?'Adapter not available for inventory search':response&&['error','unavailable','blocked'].includes(response.status)?'Source could not be fetched':'No matching observations loaded; coverage not established';
-  return '<li>'+esc(s.name)+' — '+esc(label)+'</li>';
- }).join('');
-}
-function populateRefinements(){const selected=$('city').value;const cities=[...new Set((searchSummary?.cities||inventory.map(v=>v.location)).filter(Boolean).concat(selected?[selected]:[]))].sort();$('city').innerHTML='<option value="">All India</option>'+cities.map(x=>'<option>'+esc(x)+'</option>').join('');$('city').value=selected}
-function selectCarType(value){$('condition').value=value;$('condition').onchange();if(!inventory.length)searchLive()}
-function selectedFuels(){return [...document.querySelectorAll('.fuelCheck:checked')].map(x=>x.value)}
-function updateMarketView(){
- const market=$('market');
- if(!shown.length){market.classList.remove('show');return}
- const cities=new Set(shown.map(v=>v.location).filter(Boolean));
- const sources=new Set(shown.flatMap(v=>(v.offers||[{source:v.source}]).map(o=>o.source)).filter(Boolean));
- const withRef=shown.filter(v=>v.comp_median!=null&&v.discount_pct!=null);
- const below=withRef.filter(v=>Number(v.discount_pct)>0);
- const model={brand:$('brand').value,model:$('model').value};
- $('marketTitle').textContent=model?.model?((model.brand||'')+' '+model.model+' market view'):'Market view';
- $('marketSub').textContent=searchMode.startsWith('inventory')?'Counts cover the full filtered index; comparison notes below describe the loaded cars. Confirm seller availability.':'Based only on live observations returned by current source queries.';
- $('marketCount').textContent=searchSummary?.result_count??shown.length;
- $('marketCities').textContent=searchSummary?.city_count??cities.size;
- $('marketSources').textContent=searchSummary?.sources?.length??sources.size;
- $('marketBelow').textContent=withRef.length?below.length:'—';
- $('marketConfidence').textContent=withRef.length>=3?'Comparable evidence available':'Limited comparable evidence';
- $('marketNote').textContent=withRef.length>=3?below.length+' of '+withRef.length+' comparable observed listings are below the observed median. This is a market signal, not a guarantee of condition or final purchase price.':'Some or all loaded cars lack sufficient same-variant/year evidence. References shown only where a comparison cohort exists; no valuation is invented.';
- market.classList.add('show');
+   const timer=setTimeout(()=>{signal?.removeEventListener('abort',abort);resolve()},Math.min(2,seconds*2**attempt)*1000+Math.rando…2213 tokens truncated…d('show');
 }
 function applyResults(){
  shown=[...inventory];

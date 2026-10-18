@@ -126,7 +126,10 @@
     if(!navigator.onLine){++refreshSequence;$('refreshSaved').disabled=false;fresh.clear();checkedAt=null;renderSaved();}
   }
   window.addEventListener('offline',connection);
-  window.addEventListener('online',()=>{connection();if(saved.cars.length)refreshCars();});
+  window.addEventListener('online',()=>{
+    connection();if(saved.cars.length)refreshCars();
+    loadCatalog().then(()=>{if($('brand').value)loadModels();});
+  });
   function restoreHash(){
     const hash=location.hash.slice(1);if(!hash.startsWith('search='))return;
     try{
@@ -138,4 +141,9 @@
   }
   window.addEventListener('hashchange',restoreHash);
   renderSaved();connection();restoreHash();
+  if('serviceWorker' in navigator&&window.isSecureContext){
+    navigator.serviceWorker.register('/sw.js').catch(()=>{
+      // Online functionality remains available when shell installation fails.
+    });
+  }
 })();
