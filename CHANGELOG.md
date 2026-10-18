@@ -1,5 +1,8 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Coalesce rapid refinement edits for 250ms; explicit Search remains immediate
+  and cancels queued work. Changing brand cancels a pending reset/refinement scan.
+
 - Serve observed model names independently of live catalogue latency and enrich
   them in a bounded background task. Historical model metadata never establishes
   current listing availability.

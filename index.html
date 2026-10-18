@@ -63,6 +63,14 @@
 let inventory=[],shown=[],liveAt=null,sourceStatus=[],sourcePlan=[],coverageWarning=null,searchMode='live',quickFilter='',condition='both',assistantYear=null,searchPage=0,searchRequest=null,inventoryTotal=null,hasMore=false,searchSummary=null,activeSearch=null,searchSequence=0;
 const $=id=>document.getElementById(id);
 let modelCatalogSequence=0;
+let queuedSearch=null;
+function queueSearch(){
+ clearTimeout(queuedSearch);++searchSequence;activeSearch?.abort();$('search').disabled=false;$('search').textContent='Search cars';
+ queuedSearch=setTimeout(()=>{queuedSearch=null;searchLive()},250);
+}
+function cancelQueuedSearch(){
+ if(queuedSearch!==null){clearTimeout(queuedSearch);queuedSearch=null;$('search').disabled=false}
+}
 const money=x=>x==null?'—':'₹'+Number(x).toFixed(2)+'L';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const age=v=>v.mfg_year?new Date().getFullYear()-Number(v.mfg_year):99;
@@ -113,8 +121,9 @@ async function loadModels(){
   $('model').innerHTML='<option value="">Live models unavailable</option>';
  }finally{if(sequence===modelCatalogSequence)$('model').disabled=false}
 }
-$('brand').onchange=()=>{$('aiReview').textContent='';return loadModels()};['min','max'].forEach(id=>$(id).addEventListener('change',()=>{$(id==='min'?'fmin':'fmax').value=''}));
+$('brand').onchange=()=>{cancelQueuedSearch();$('aiReview').textContent='';return loadModels()};['min','max'].forEach(id=>$(id).addEventListener('change',()=>{$(id==='min'?'fmin':'fmax').value=''}));
 async function searchLive(options={}){
+ clearTimeout(queuedSearch);queuedSearch=null;
  const append=options.append===true;const sequence=++searchSequence;activeSearch?.abort();
  $('market').classList.remove('show');
  assistantYear=$('exactYear').value?Number($('exactYear').value):null;
@@ -245,11 +254,11 @@ function offerEvidence(v){
 function closeModal(){$('modal').classList.remove('show');modalReturnFocus?.focus()}
 document.addEventListener('keydown',e=>{if(!$('modal').classList.contains('show'))return;if(e.key==='Escape'){e.preventDefault();closeModal()}if(e.key==='Tab'){const nodes=[...$('modal').querySelectorAll('button,a[href],input,select,[tabindex="0"]')];const first=nodes[0],last=nodes[nodes.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}});
 $('search').onclick=searchLive;$('askSearch').onclick=runAssistant;$('aiPrompt').addEventListener('keydown',e=>{if(e.key==='Enter')runAssistant()});
-['fmin','fmax'].forEach(id=>$(id).addEventListener('input',()=>{if(searchRequest)searchLive()}));['transmission','bodyType','maxKm','maxOwners','exactYear'].forEach(id=>$(id).onchange=()=>searchLive());$('sort').onchange=()=>searchLive();$('city').onchange=()=>searchLive();$('year').onchange=()=>searchLive();document.querySelectorAll('.fuelCheck').forEach(x=>x.onchange=()=>searchLive());
-$('condition').onchange=()=>{condition=$('condition').value;document.querySelectorAll('input[name="cond"]').forEach(x=>x.checked=x.value===condition);if(searchRequest)searchLive()};
-document.querySelectorAll('input[name="cond"]').forEach(x=>x.onchange=()=>{$('condition').value=x.value;condition=x.value;searchLive()});
-document.querySelectorAll('.chip').forEach(x=>x.onclick=()=>{document.querySelectorAll('.chip').forEach(y=>y.classList.remove('active'));x.classList.add('active');quickFilter=x.dataset.filter;if(['petrol','diesel','electric','hybrid'].includes(quickFilter))document.querySelectorAll('.fuelCheck').forEach(f=>f.checked=f.value===quickFilter);if(['suv','sedan'].includes(quickFilter))$('bodyType').value=quickFilter;if(!quickFilter)$('bodyType').value='';searchLive()});
-$('clear').onclick=()=>{assistantYear=null;reviewedIntent=null;$('aiPrompt').value='';$('aiReview').textContent='';['transmission','bodyType','maxKm','maxOwners','exactYear'].forEach(id=>$(id).value='');$('brand').value='';$('model').innerHTML='<option value="">All models</option>';$('min').value='';$('max').value='';document.querySelectorAll('.fuelCheck').forEach(x=>x.checked=false);$('city').value='';$('year').value='';$('fmin').value='';$('fmax').value='';$('destination').value='';$('condition').value='both';condition='both';document.querySelectorAll('input[name="cond"]').forEach(x=>x.checked=x.value==='both');quickFilter='';document.querySelectorAll('.chip').forEach((x,i)=>x.classList.toggle('active',i===0));searchLive()};
+['fmin','fmax'].forEach(id=>$(id).addEventListener('input',()=>{if(searchRequest)queueSearch()}));['transmission','bodyType','maxKm','maxOwners','exactYear'].forEach(id=>$(id).onchange=()=>queueSearch());$('sort').onchange=()=>queueSearch();$('city').onchange=()=>queueSearch();$('year').onchange=()=>queueSearch();document.querySelectorAll('.fuelCheck').forEach(x=>x.onchange=()=>queueSearch());
+$('condition').onchange=()=>{condition=$('condition').value;document.querySelectorAll('input[name="cond"]').forEach(x=>x.checked=x.value===condition);if(searchRequest)queueSearch()};
+document.querySelectorAll('input[name="cond"]').forEach(x=>x.onchange=()=>{$('condition').value=x.value;condition=x.value;queueSearch()});
+document.querySelectorAll('.chip').forEach(x=>x.onclick=()=>{document.querySelectorAll('.chip').forEach(y=>y.classList.remove('active'));x.classList.add('active');quickFilter=x.dataset.filter;if(['petrol','diesel','electric','hybrid'].includes(quickFilter))document.querySelectorAll('.fuelCheck').forEach(f=>f.checked=f.value===quickFilter);if(['suv','sedan'].includes(quickFilter))$('bodyType').value=quickFilter;if(!quickFilter)$('bodyType').value='';queueSearch()});
+$('clear').onclick=()=>{assistantYear=null;reviewedIntent=null;$('aiPrompt').value='';$('aiReview').textContent='';['transmission','bodyType','maxKm','maxOwners','exactYear'].forEach(id=>$(id).value='');$('brand').value='';$('model').innerHTML='<option value="">All models</option>';$('min').value='';$('max').value='';document.querySelectorAll('.fuelCheck').forEach(x=>x.checked=false);$('city').value='';$('year').value='';$('fmin').value='';$('fmax').value='';$('destination').value='';$('condition').value='both';condition='both';document.querySelectorAll('input[name="cond"]').forEach(x=>x.checked=x.value==='both');quickFilter='';document.querySelectorAll('.chip').forEach((x,i)=>x.classList.toggle('active',i===0));queueSearch()};
 loadCatalog();
 </script>
 </body></html>
