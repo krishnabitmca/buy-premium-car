@@ -1200,14 +1200,14 @@ def test_production_gunicorn_serves_real_indexed_inventory_and_shuts_down(db,dis
                 with urllib.request.urlopen(req,timeout=15) as response:
                     return json.load(response)
             db.execute('lock table public.listings in access exclusive mode')
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                pending=[executor.submit(search_again) for _ in range(2)]
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                pending=[executor.submit(search_again) for _ in range(3)]
                 deadline=time.monotonic()+5
                 while True:
                     db.execute('select pg_stat_clear_snapshot()')
                     waiting=db.execute("""select count(*) as n from pg_stat_activity
                         where application_name='carscanner_gunicorn_test' and wait_event_type='Lock'""").fetchone()['n']
-                    if waiting>=2:break
+                    if waiting>=3:break
                     if time.monotonic()>deadline:
                         db.rollback()
                         raise AssertionError('Search did not reach the database lock')

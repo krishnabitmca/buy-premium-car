@@ -11,8 +11,8 @@ from src.source_registry_db import _connect, enabled
 
 log = logging.getLogger(__name__)
 MAX_BODY_BYTES = 64 * 1024
-# Worker-local: leave two of the default four threads outside expensive API work.
-API_SLOTS = BoundedSemaphore(2)
+# Worker-local: leave one of the default four threads outside expensive API work.
+API_SLOTS = BoundedSemaphore(3)
 
 
 def request_path(environ):

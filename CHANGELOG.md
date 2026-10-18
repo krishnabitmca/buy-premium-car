@@ -221,7 +221,7 @@
 
 ## 2026-10-18 — Worker-local API overload protection
 
-- Bound WSGI API execution to two concurrent handlers per worker; excess work
+- Bound WSGI API execution to three concurrent handlers per worker; excess work
   receives a retryable, no-store 503 before body reads.
 - Preserve health/static/version/preflight access and release capacity after
   handler or response failures. Verify concurrent rejection and recovery.

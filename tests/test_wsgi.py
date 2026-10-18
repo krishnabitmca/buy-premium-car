@@ -111,8 +111,8 @@ def test_uncaught_errors_are_redacted_and_replace_partial_response(monkeypatch):
 
 
 def test_concurrent_api_overload_is_immediate_and_preserves_health(monkeypatch):
-    monkeypatch.setattr(wsgi, 'API_SLOTS', BoundedSemaphore(2))
-    entered = Barrier(3)
+    monkeypatch.setattr(wsgi, 'API_SLOTS', BoundedSemaphore(3))
+    entered = Barrier(4)
     release = Event()
     def slow(handler):
         entered.wait(timeout=5)
@@ -122,8 +122,8 @@ def test_concurrent_api_overload_is_immediate_and_preserves_health(monkeypatch):
     class Unreadable:
         def read(self, *_):
             raise AssertionError('Overloaded requests must not read their bodies')
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        active = [executor.submit(request, '/api/search', 'POST', b'{}') for _ in range(2)]
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        active = [executor.submit(request, '/api/search', 'POST', b'{}') for _ in range(3)]
         try:
             entered.wait(timeout=5)
             busy = request('/api/search', 'POST', CONTENT_LENGTH='2', **{'wsgi.input': Unreadable()})
