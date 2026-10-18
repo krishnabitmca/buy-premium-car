@@ -47,3 +47,25 @@ def test_request_requires_https_and_a_server_credential(monkeypatch):
     import pytest
     with pytest.raises(elastic.IndexUnavailable, match='configuration unavailable'):
         elastic.request('GET', '/_doc/manifest')
+
+
+def test_new_index_strict_mapping_accepts_every_published_manifest_field(monkeypatch):
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+    monkeypatch.setattr(elastic,'require_database',lambda:None)
+    monkeypatch.setattr(elastic,'_connect',lambda:nullcontext(SimpleNamespace(execute=lambda *args:[])))
+    monkeypatch.setattr(elastic,'revision',lambda conn:7)
+    monkeypatch.setattr(elastic.inventory_db,'search_inventory',lambda **kwargs:([],[]))
+    mapping={};published=[]
+    def fake_request(method,path,body=None,**kwargs):
+        if path=='/_mapping':raise elastic.IndexUnavailable('index does not exist')
+        if method=='PUT' and path=='':mapping.update(body['mappings'])
+        if method=='PUT' and path.startswith('/_doc/manifest'):
+            assert mapping['dynamic']=='strict'
+            assert set(body)<=set(mapping['properties'])
+            assert body['used_expire_minutes']==2880 and body['demo_expire_minutes']==1440
+            published.append(body)
+        return {}
+    monkeypatch.setattr(elastic,'request',fake_request)
+    result=elastic.rebuild()
+    assert result['ok'] and result['count']==0 and len(published)==1

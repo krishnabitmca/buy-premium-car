@@ -1,5 +1,9 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Publish expiry-policy metadata into a versioned Elasticsearch v2 index with
+  explicit strict mappings. Existing scoped create-index permissions suffice;
+  no mapping-management privilege or deletion of the v1 index is required.
+
 - Coalesce rapid refinement edits for 250ms; explicit Search remains immediate
   and cancels queued work. Changing brand cancels a pending reset/refinement scan.
 
