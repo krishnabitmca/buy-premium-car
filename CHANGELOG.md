@@ -1,5 +1,9 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Record allowlisted AI evidence failure stages/status categories without prompts,
+  provider bodies or credentials, so live provider/selection failures can be
+  diagnosed independently of fixture tests.
+
 - Add an opt-in AI evidence guide that retrieves eligible offers server-side and
   lets Gemini select evidence IDs. Render fact text/citations from that registry;
   reject generated factual prose and unsupported IDs. Keep unknown inspection,

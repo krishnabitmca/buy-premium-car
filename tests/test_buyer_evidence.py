@@ -118,3 +118,12 @@ def test_api_database_failure_redacts_details(monkeypatch):
     monkeypatch.setattr(evidence,'search_inventory',fail)
     result=request('/api/explain','POST',json.dumps({'vehicle_id':IDENTIFIER,'price_basis':'asking','question':'Price?','consent':True}).encode())
     assert result['status']==503 and b'private-connection' not in result['body']
+
+
+def test_provider_diagnostics_never_log_prompt_key_or_raw_output(monkeypatch,caplog):
+    configured(monkeypatch,{'fact_ids':['invented-private-value'],'unknowns':[]})
+    with pytest.raises(buyer_ai.AIUnavailable):
+        buyer_ai.select_evidence('private question text',[{'id':'s1.price','text':'37'}],list(evidence.UNKNOWNS),consent=True)
+    assert 'stage=selection' in caplog.text and 'finish=STOP' in caplog.text
+    for private in ['synthetic-not-secret','private question text','invented-private-value']:
+        assert private not in caplog.text
