@@ -39,6 +39,13 @@ def test_skoda_preserves_individual_ids_unknown_mileage_and_range_is_not_manufac
     assert rows[0]['source_listing_id']=='209538'
 
 
+def test_reviewed_stock_uses_shared_brand_aliases_instead_of_dropping_mg(monkeypatch):
+    monkeypatch.setattr('src.live_marketplaces._known_brand_names',lambda:['MG Motor'])
+    body=fixture('skoda.html').replace('SKODA','MG').replace('KUSHAQ','HECTOR').replace('KYLAQ','ASTOR')
+    rows=parse_reviewed_cards(body,'OEM',SKODA,'skoda_cards')
+    assert len(rows)==2 and all(row['brand']=='MG Motor' for row in rows)
+
+
 @pytest.mark.parametrize('name,strategy,url',[('fusion.html','fusion_cards',FUSION),('skoda.html','skoda_cards',SKODA)])
 def test_duplicate_cards_external_links_and_missing_price_never_create_extra_stock(name,strategy,url):
     body=fixture(name);rows=parse_reviewed_cards(body,'S',url,strategy)

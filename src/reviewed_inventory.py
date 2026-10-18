@@ -12,6 +12,9 @@ from .dealer_inventory import _price, _text
 
 def _brand(label):
     tokens=lm._identity_tokens(label)
+    for alias,canonical in lm.BRAND_ALIASES.items():
+        if lm._identity_tokens(alias)==tokens:
+            tokens=lm._identity_tokens(canonical);break
     for name in lm._known_brand_names():
         if lm._identity_tokens(name)==tokens:return name
     if tokens==['range','rover','land','rover']:return 'Land Rover'
