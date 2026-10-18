@@ -57,3 +57,37 @@ def test_observed_variant_names_also_expose_existing_base_family_normalization()
     names=[r['name'] for r in catalog._observed_model_names('BMW',[
         {'name':'3-Series 320d'},{'name':'3 Series Gran Limousine'},{'name':'6-Series GT 630d'}])]
     assert '3 Series' in names and '6 Series' in names and 'Series' not in names
+def test_brand_taxonomy_returns_before_single_background_discovery(monkeypatch):
+    from api import catalog
+    from src.car_catalog import CAR_MAKES
+    tasks=[]
+    class Executor:
+        def submit(self, fn):tasks.append(fn)
+    monkeypatch.setattr(catalog,'_brand_cache',[])
+    monkeypatch.setattr(catalog,'_brand_next_refresh',0)
+    monkeypatch.setattr(catalog,'_brand_refresh_pending',False)
+    monkeypatch.setattr(catalog,'_model_refresh',Executor())
+    monkeypatch.setattr(catalog,'live_brands',lambda:[{'name':'Discovered Example','catalog_verified':'discovered'}])
+    for _ in range(4):
+        rows=catalog.catalog_brands()
+        assert {row['name'] for row in rows}==set(CAR_MAKES)
+        assert all(row['inventory_coverage']=='unverified' for row in rows)
+    assert len(tasks)==1
+    tasks.pop()()
+    assert any(row['name']=='Discovered Example' for row in catalog.catalog_brands())
+    assert not tasks
+
+
+def test_brand_discovery_failure_retains_metadata_and_backs_off(monkeypatch):
+    from api import catalog
+    import time
+    monkeypatch.setattr(catalog,'_brand_cache',[{'name':'Observed Example'}])
+    monkeypatch.setattr(catalog,'_brand_next_refresh',0)
+    monkeypatch.setattr(catalog,'_brand_refresh_pending',True)
+    def fail():raise RuntimeError('unavailable')
+    monkeypatch.setattr(catalog,'live_brands',fail)
+    catalog._refresh_brands()
+    assert catalog._brand_cache==[{'name':'Observed Example'}]
+    assert not catalog._brand_refresh_pending
+    assert catalog._brand_next_refresh>time.monotonic()
+

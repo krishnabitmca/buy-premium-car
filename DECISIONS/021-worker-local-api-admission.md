@@ -26,6 +26,13 @@ at most two seconds. Small jitter reduces synchronized retries. Existing overall
 abort deadlines cover fetches and retry waits; cancellation stops replay. Other
 statuses and mutation routes are not replayed.
 
+Brand catalogue HTTP returns the make taxonomy plus previously discovered public
+metadata immediately. At most one enrichment task is pending per worker, using
+the existing bounded metadata executor. Refresh after 15 minutes on success,
+back off 30 seconds on failure/empty discovery and retain prior metadata. This
+does not cache vehicle prices or availability; taxonomy entries remain labelled
+as unverified inventory coverage. Model lookup behavior is preserved.
+
 Concurrent tests hold both permits, verify rejection without body reads and health
 access, then prove recovery. Failure tests verify no permit leaks on handler or
 start_response failure. Linux runtime and browser CI remain required before merge.

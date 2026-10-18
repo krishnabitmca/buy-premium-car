@@ -22,6 +22,39 @@ _model_cache_lock=threading.Lock()
 _model_load_locks=[threading.Lock() for _ in range(16)]
 _model_refresh=ThreadPoolExecutor(max_workers=2,thread_name_prefix='model-catalog')
 _model_pending=set()
+_brand_cache=[]
+_brand_next_refresh=0.0
+_brand_refresh_pending=False
+
+
+def _refresh_brands():
+    global _brand_cache,_brand_next_refresh,_brand_refresh_pending
+    try:
+        rows=live_brands()
+        with _model_cache_lock:
+            if rows:_brand_cache=[dict(row) for row in rows]
+            _brand_next_refresh=time.monotonic()+(900 if rows else 30)
+    except Exception:
+        with _model_cache_lock:_brand_next_refresh=time.monotonic()+30
+    finally:
+        with _model_cache_lock:_brand_refresh_pending=False
+
+
+def catalog_brands():
+    """Taxonomy is immediately selectable; discovery enrichment never blocks HTTP."""
+    global _brand_refresh_pending
+    with _model_cache_lock:
+        cached=[dict(row) for row in _brand_cache]
+        refresh=not _brand_refresh_pending and time.monotonic()>=_brand_next_refresh
+        if refresh:_brand_refresh_pending=True
+    if refresh:
+        try:_model_refresh.submit(_refresh_brands)
+        except Exception:
+            with _model_cache_lock:_brand_refresh_pending=False
+    discovered={row['name']:row for row in cached}
+    return [discovered.get(name,{'name':name,'catalog_verified':'taxonomy',
+                                'inventory_coverage':'unverified'})
+            for name in sorted(set(CAR_MAKES)|set(discovered))]
 
 
 def observed_models(brand):
@@ -143,10 +176,7 @@ class handler(BaseHTTPRequestHandler):
             if brand:
                 models=catalog_models(brand)
                 return response(self,200,{"ok":True,"mode":"live","source":"Observed model metadata with live catalogue enrichment","brand":brand,"catalog_fallback":any(x.get("catalog_verified") in {"fallback","observed_inventory"} for x in models),"models":models})
-            discovered={b['name']:b for b in live_brands()}
-            brands=[discovered.get(name,{'name':name,'catalog_verified':'taxonomy',
-                                        'inventory_coverage':'unverified'})
-                    for name in sorted(set(CAR_MAKES)|set(discovered))]
+            brands=catalog_brands()
             return response(self,200,{"ok":True,"mode":"live",
                 "source":"India make taxonomy with discovered catalog metadata",
                 "coverage_notice":"A selectable brand does not establish indexed inventory or marketplace coverage.",
