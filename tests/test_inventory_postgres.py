@@ -252,7 +252,555 @@ def test_real_database_rows_reach_http_client_with_multiple_offers(db,monkeypatc
     v=ingest(db,condition_signal=condition)
     add_source(db,'Second Dealer')
     ingest_vehicles([replace(v,source_name='Second Dealer',url='https://fixture.invalid/second',price_lakh=32)])
-    # Newer verification of the expensive offer must not relabel t…8248 tokens truncated…_state,status) select source_id,'','','both','','completed' from sources")
+    # Newer verification of the expensive offer must not relabel the cheapest.
+    old=datetime.now(timezone.utc)-timedelta(hours=2)
+    db.execute('update public.vehicle_observations set observed_at=%s where price_lakh=30',(old,))
+    db.execute('update public.listings set last_verified_at=%s where source_id=(select source_id from public.sources where name=%s)',(old,'Fixture Dealer'))
+    db.commit()
+    payload=post_search(monkeypatch,{'query':'BMW X1','condition':condition,'budget_max':40,'destination':'Bengaluru'},['Fixture Dealer','Second Dealer'])
+    assert payload['ok'] and payload['mode']=='inventory'
+    assert payload['total_results']==1
+    row=payload['results'][0]
+    assert isinstance(row['vehicle_id'],str) and isinstance(row['price_lakh'],float)
+    assert row['condition_signal']==condition and row['source_count']==2
+    assert row['purchase_context']['mode']=='interstate'
+    assert datetime.fromisoformat(row['observed_at'])==old
+    assert datetime.fromisoformat(row['last_verified_at'])==old
+    assert {offer['price_lakh'] for offer in row['offers']}=={30,32}
+    assert all(offer['observed_at'] and offer['last_verified_at'] for offer in row['offers'])
+
+
+def test_scheduler_claim_worker_ingestion_and_http_boundary(db,monkeypatch):
+    add_source(db)
+    assert schedule_refreshes()==1
+    queued=db.execute('select status,metadata from public.inventory_refresh_queue').fetchone()
+    assert queued['status']=='queued' and queued['metadata']['freshness']=='expired'
+    jobs=claim_jobs(1)
+    assert len(jobs)==1 and jobs[0]['status']=='running'
+    # Fetch is the only external acquisition boundary replaced by a fixture.
+    listing={'source':'Fixture Dealer','brand':'BMW','model':'X1','mfg_year':2024,
+             'km':10000,'price_lakh':30,'condition_signal':'used','live_verified':True,
+             'url':'https://fixture.invalid/car/1','vin':'WBA12345678901234'}
+    monkeypatch.setattr('src.inventory_refresh_worker.BuiltinMarketplaceAdapter.fetch',
+                        lambda self,request:AdapterResult(self.source_name,[listing],status='live'))
+    assert process_job(jobs[0])['observations']==1
+    db.commit()  # Finish fixture read transaction before checking worker writes.
+    assert db.execute('select status from public.inventory_refresh_queue').fetchone()['status']=='completed'
+    db.commit()
+    payload=post_search(monkeypatch,{'query':'BMW X1','condition':'used'},['Fixture Dealer'])
+    assert len(payload['results'])==1 and payload['mode']=='inventory'
+
+
+def test_baseline_refresh_covers_non_example_brands_and_all_marketplaces(db,monkeypatch):
+    monkeypatch.setattr('src.inventory_refresh_planner.CAR_MAKES',['Audi','Toyota','Hyundai'])
+    first = add_source(db, 'National Marketplace')
+    second = add_source(db, 'Second Marketplace')
+    db.execute("update public.source_capabilities set capability_value='all'")
+    for brand in ('Audi', 'Toyota', 'Hyundai'):
+        db.execute("insert into public.source_capabilities(source_id,capability_type,capability_value) values (%s,'brand',%s)",(first,brand))
+    db.commit()
+    # Restore the production function rather than the single-job fixture stub.
+    monkeypatch.setattr('src.inventory_refresh_planner.baseline_brand_demands',baseline_brand_demands)
+    monkeypatch.setattr('src.inventory_refresh_planner.load_search_demand',lambda **kwargs:[])
+    assert schedule_refreshes()==8  # global + each brand, on both sources
+    db.commit()
+    rows=db.execute("select source_id,brand from public.inventory_refresh_queue").fetchall()
+    assert {(r['source_id'],r['brand']) for r in rows}=={(s,b) for s in (first,second) for b in ('','audi','hyundai','toyota')}
+
+
+def test_partial_inventory_paginates_without_repricing_comparison_cohort(db,monkeypatch):
+    add_source(db)
+    cars=[vehicle(vin='WBA1234567890123'+str(i),url='https://fixture.invalid/car/'+str(i),price_lakh=price) for i,price in enumerate([20,30,40])]
+    assert ingest_vehicles(cars)['observations']==3
+    first=post_search(monkeypatch,{'query':'BMW X1','page_size':1},['Fixture Dealer','Missing Dealer'])
+    assert first['mode']=='inventory_partial'
+    assert first['total_results']==3 and first['has_more']
+    assert first['results'][0]['comp_median']==30
+    assert first['results'][0]['comparable_count']==3
+    assert first['results'][0]['discount_pct']==33.3
+    last=post_search(monkeypatch,{'query':'BMW X1','page_size':1,'page':3},['Fixture Dealer','Missing Dealer'])
+    assert not last['has_more'] and last['total_results']==3
+    assert last['results'][0]['comp_median']==30
+    rows, sources, total=search_inventory(query='BMW X1',limit=1,offset=99,return_count=True)
+    assert rows==[] and sources==[] and total==3
+
+
+def test_search_reports_every_planned_source_including_missing_inventory(db,monkeypatch):
+    add_source(db)
+    ingest_vehicles([vehicle()])
+    names=['Fixture Dealer']+[f'Missing marketplace {i}' for i in range(20)]
+    payload=post_search(monkeypatch,{'query':'BMW'},names)
+    assert [s['name'] for s in payload['source_plan']]==names
+    assert payload['mode']=='inventory_partial'
+
+
+def test_successful_empty_scan_is_fresh_and_other_model_still_scheduled(db,monkeypatch):
+    add_source(db)
+    assert schedule_refreshes()==1
+    job=claim_jobs(1)[0]
+    monkeypatch.setattr('src.inventory_refresh_worker.BuiltinMarketplaceAdapter.fetch',
+                        lambda self,request:AdapterResult(self.source_name,[],status='live'))
+    assert process_job(job)['observations']==0
+    assert schedule_refreshes()==0
+    monkeypatch.setattr('src.inventory_refresh_planner.load_search_demand',
+        lambda **kwargs:[{'brand':'BMW','model':'X1','condition':'used','search_count':1}])
+    assert schedule_refreshes()==1
+    db.commit()
+    assert db.execute("select model from public.inventory_refresh_queue where status='queued'").fetchone()['model']=='x1'
+
+
+def test_abandoned_claim_recovered_and_old_attempt_cannot_complete(db):
+    add_source(db)
+    schedule_refreshes()
+    first=claim_jobs(1)[0]
+    db.execute("update public.inventory_refresh_queue set started_at=now()-interval '31 minutes'")
+    db.commit()
+    assert recover_jobs()==1
+    second=claim_jobs(1)[0]
+    assert second['attempt_count']==2
+    complete_job(first['refresh_id'],success=True,attempt_count=first['attempt_count'])
+    assert db.execute('select status from public.inventory_refresh_queue').fetchone()['status']=='running'
+    db.commit()
+    complete_job(second['refresh_id'],success=True,attempt_count=second['attempt_count'])
+    assert db.execute('select status from public.inventory_refresh_queue').fetchone()['status']=='completed'
+
+
+def test_retry_backoff_and_exhausted_job_remains_failed(db):
+    add_source(db)
+    schedule_refreshes()
+    for attempt in (1,2,3):
+        job=claim_jobs(1)[0]
+        assert job['attempt_count']==attempt
+        complete_job(job['refresh_id'],success=False,error='blocked',attempt_count=attempt)
+        assert recover_jobs()==0
+        db.execute("update public.inventory_refresh_queue set completed_at=now()-interval '1 day'")
+        db.commit()
+        assert recover_jobs()==(1 if attempt<3 else 0)
+    schedule_refreshes()
+    assert claim_jobs(1)==[]
+
+
+def test_worker_passes_parser_configuration_and_continues_after_failure(db,monkeypatch):
+    add_source(db)
+    second=add_source(db,'Other Dealer')
+    db.execute("update public.sources set metadata=%s where source_id=%s",
+               (json.dumps({'parser_strategy':'custom_fixture'}),second))
+    db.commit()
+    schedule_refreshes()
+    seen=[]
+    def fetch(adapter,request):
+        seen.append(adapter.source)
+        if adapter.source_name=='Fixture Dealer':
+            raise RuntimeError('source unavailable')
+        return AdapterResult(adapter.source_name,[],status='live')
+    monkeypatch.setattr('src.inventory_refresh_worker.BuiltinMarketplaceAdapter.fetch',fetch)
+    assert run_batch(10)=={'completed':1,'failed':1}
+    assert len(seen)==2
+    assert next(s for s in seen if s['name']=='Other Dealer')['metadata']['parser_strategy']=='custom_fixture'
+
+
+def seed_adapter_inventory(db,monkeypatch):
+    from src.inventory_service import run_cycle
+    add_source(db)
+    rows=[{'source':'Fixture Dealer','brand':'BMW','model':'X1','mfg_year':2024,
+           'km':10000+i*1000,'owners':1,'price_lakh':price,'condition_signal':'used',
+           'live_verified':True,'url':'https://fixture.invalid/shared-inventory',
+           'source_listing_id':f'stock-{i}','vin':f'WBA123456789{i:05d}',
+           'price_basis':'asking'} for i,price in enumerate((30,40,50),1)]
+    monkeypatch.setattr('src.inventory_refresh_worker.BuiltinMarketplaceAdapter.fetch',
+                        lambda self,request:AdapterResult(self.source_name,rows,status='live'))
+    assert run_cycle(10)=={'scheduled':1,'completed':1,'failed':0,'lifecycle':{'expired':0,'enrolled':0,'recovered':0,'heartbeat_gap_seconds':None}}
+    return rows
+
+
+def test_daily_pipeline_keeps_shared_url_cars_and_paginates_full_price_cohort(db,monkeypatch):
+    seed_adapter_inventory(db,monkeypatch)
+    monkeypatch.setenv('CARSCANNER_INVENTORY_FIRST','false')
+    pages=list(iter_inventory(query='BMW X1',condition='used',page_size=1))
+    assert len(pages)==3
+    results=[p[0] for p in pages]
+    assert {v['price_lakh'] for v in results}=={30,40,50}
+    assert len({v['listing_id'] for v in results})==3
+    assert all(v['comparable_count']==3 and v['comp_median']==40 for v in results)
+    assert all(v['source_tier']==2 and v['price_basis']=='asking' for v in results)
+    db.commit()
+    db.execute("update public.sources set enabled=false")
+    db.commit()
+    assert list(iter_inventory(query='BMW X1'))==[]
+
+
+def test_inventory_comparison_does_not_mix_year_or_price_basis(db,monkeypatch):
+    seed_adapter_inventory(db,monkeypatch)
+    ingest_vehicles([vehicle(source_listing_id='stock-other-year',vin='WBA12345678999998',
+                             year_manufacture=2023,price_lakh=5,price_basis='asking'),
+                     vehicle(source_listing_id='stock-on-road',vin='WBA12345678999997',
+                             year_manufacture=2024,price_lakh=10,price_basis='on_road')])
+    results=[v for p in iter_inventory(query='BMW X1') for v in p]
+    asking=[v for v in results if v['mfg_year']==2024 and v['price_basis']=='asking']
+    assert len(asking)==3 and all(v['comp_median']==40 for v in asking)
+    assert all(v['comp_median'] is None for v in results if v not in asking)
+
+
+def test_stable_marketplace_id_adopts_existing_url_offer_without_old_price(db):
+    original=ingest(db,price_lakh=30)
+    before=search_inventory(query='BMW X1')[0][0]['listing_id']
+    ingest_vehicles([replace(original,source_listing_id='new-stable-id',price_lakh=40)])
+    rows,_=search_inventory(query='BMW X1')
+    assert len(rows)==1 and rows[0]['listing_id']==before and rows[0]['price_lakh']==40
+    assert rows[0]['source_count']==1
+    db.commit()
+    assert db.execute('select count(*) as n from public.listings').fetchone()['n']==1
+    assert db.execute('select count(*) as n from public.vehicle_observations').fetchone()['n']==2
+
+
+def test_watch_comparison_needs_known_year_and_consistent_observations(db,monkeypatch):
+    seed_adapter_inventory(db,monkeypatch)
+    db.execute('update public.vehicles set manufacture_year=null')
+    db.commit()
+    assert all(v['comp_median'] is None for p in iter_inventory(query='BMW X1') for v in p)
+    db.execute('update public.vehicles set manufacture_year=2024')
+    db.execute('update public.vehicle_observations set data_consistent=false where price_lakh=50')
+    db.commit()
+    rows=[v for p in iter_inventory(query='BMW X1') for v in p]
+    assert len(rows)==3 and all(v['comparable_count']==2 and v['comp_median'] is None for v in rows)
+
+
+def test_database_crawl_to_watch_outbox_price_change_and_sold_suppression(db,monkeypatch,tmp_path):
+    from scripts import process_alerts as alerts
+    from src.inventory_contract import json_inventory_value
+    from unittest.mock import Mock
+    from urllib.parse import parse_qs
+    rows=seed_adapter_inventory(db,monkeypatch)
+    user=db.execute("insert into public.deal_watch_users(email) values ('fixture@example.invalid') returning user_id").fetchone()
+    criteria={'make':'BMW','model':'X1','condition':'both','budget_min_lakh':25,'budget_max_lakh':35,
+              'mileage_max_km':50000,'max_owners':2}
+    watch=db.execute("""insert into public.deal_watches(user_id,name,constraints,alert_quality,target_discount_pct)
+                      values (%s,'BMW Watch',%s,'good',20) returning *""",
+                     (user['user_id'],json.dumps(criteria))).fetchone()
+    db.execute("""insert into public.watch_channel_preferences(watch_id,channel,enabled,consent_at)
+                  values (%s,'email',true,now())""",(watch['watch_id'],))
+    db.commit()
+    def request(method,path,payload=None,prefer=None):
+        table,_,query=path.partition('?')
+        filters=parse_qs(query)
+        if table=='deal_watches':
+            record=dict(db.execute('select * from public.deal_watches').fetchone())
+            record['deal_watch_users']=dict(db.execute('select * from public.deal_watch_users').fetchone())
+            record['watch_channel_preferences']=[dict(r) for r in db.execute('select * from public.watch_channel_preferences').fetchall()]
+            db.commit()
+            return [json_inventory_value(record)]
+        assert table=='alert_events'
+        if method=='GET':
+            values=[filters[k][0].removeprefix('eq.') for k in ('watch_id','listing_id','channel','event_type')]
+            result=[dict(r) for r in db.execute('select alert_id,status from public.alert_events where watch_id=%s and listing_id=%s and channel=%s and event_type=%s',values).fetchall()]
+        elif method=='POST':
+            result=[dict(db.execute('''insert into public.alert_events(user_id,watch_id,listing_id,channel,event_type,status,payload)
+                    values (%s,%s,%s,%s,%s,%s,%s) returning alert_id''',
+                    tuple(payload[k] for k in ('user_id','watch_id','listing_id','channel','event_type','status'))+
+                    (json.dumps(payload['payload']),)).fetchone())]
+        else:
+            assert method=='PATCH'
+            db.execute('update public.alert_events set status=%s,provider_message_id=%s where alert_id=%s',
+                       (payload['status'],payload.get('provider_message_id'),filters['alert_id'][0].removeprefix('eq.')))
+            result=[]
+        db.commit()
+        return json_inventory_value(result)
+    monkeypatch.setattr(alerts,'sb_request',request)
+    provider=Mock(return_value={'id':'fixture-provider-id'})
+    monkeypatch.setattr(alerts,'send_resend',provider)
+    # A poisoned snapshot in the working directory must never affect matches.
+    (tmp_path/'data').mkdir()
+    (tmp_path/'data'/'latest.json').write_text('{"vehicles":[{"price_lakh":1}]}')
+    monkeypatch.chdir(tmp_path)
+    assert alerts.process_alerts()['sent']==1
+    assert 'Open original listing' in provider.call_args.args[2]
+    assert alerts.process_alerts()['sent']==0
+    v=vehicle(url=rows[0]['url'],vin=rows[0]['vin'],source_listing_id='stock-1',
+              owner_count=1,price_lakh=29,price_basis='asking')
+    ingest_vehicles([v])
+    assert alerts.process_alerts()['sent']==1
+    ingest_vehicles([replace(v,sold_signal=True,live_verified=False)])
+    assert alerts.process_alerts()['matched']==0
+    assert provider.call_count==2
+    assert db.execute("select count(*) as n from public.alert_events where status='sent'").fetchone()['n']==2
+
+
+def test_continuation_is_persisted_fenced_and_resumed(db,monkeypatch):
+    add_source(db)
+    schedule_refreshes()
+    first=claim_jobs(1)[0]
+    cursor={'pending_urls':['https://fixture.invalid/page-2'],'visited_urls':['https://fixture.invalid/catalog']}
+    complete_job(first['refresh_id'],success=True,attempt_count=first['attempt_count'],continuation=cursor,pages_fetched=1)
+    row=db.execute('select * from public.inventory_refresh_queue where refresh_id=%s',(first['refresh_id'],)).fetchone()
+    assert row['status']=='queued' and row['metadata']['continuation']==cursor
+    assert 'last_success_at' not in row['metadata']
+    second=claim_jobs(1)[0]
+    assert second['attempt_count']>first['attempt_count']
+    complete_job(first['refresh_id'],success=True,attempt_count=first['attempt_count'])
+    assert db.execute('select status from public.inventory_refresh_queue where refresh_id=%s',(first['refresh_id'],)).fetchone()['status']=='running'
+    requests=[]
+    def fetch(adapter,request):
+        requests.append(request)
+        return AdapterResult(adapter.source_name,[],status='live',pages_fetched=1)
+    monkeypatch.setattr('src.source_adapters.BuiltinMarketplaceAdapter.fetch',fetch)
+    process_job(second)
+    assert requests[0].continuation==cursor
+    row=db.execute('select * from public.inventory_refresh_queue where refresh_id=%s',(first['refresh_id'],)).fetchone()
+    assert row['status']=='completed' and row['metadata']['pages_fetched']==2
+    assert 'continuation' not in row['metadata'] and row['metadata']['last_success_at']
+
+
+def test_continuation_retry_budget_counts_failures_since_last_batch(db):
+    add_source(db)
+    schedule_refreshes()
+    job=claim_jobs(1)[0]
+    cursor={'pending_urls':['https://fixture.invalid/page-9'],'visited_urls':[]}
+    db.execute("update public.inventory_refresh_queue set attempt_count=8 where refresh_id=%s",(job['refresh_id'],));db.commit()
+    complete_job(job['refresh_id'],success=True,attempt_count=8,continuation=cursor,pages_fetched=8)
+    failed=claim_jobs(1)[0]
+    assert failed['attempt_count']==9
+    complete_job(failed['refresh_id'],success=False,error='offline',attempt_count=9)
+    db.execute("update public.inventory_refresh_queue set completed_at=now()-interval '1 day' where refresh_id=%s",(job['refresh_id'],));db.commit()
+    assert recover_jobs()==1
+    retried=claim_jobs(1)[0]
+    assert retried['metadata']['continuation']==cursor and retried['attempt_count']==10
+
+
+def test_oem_transport_to_persisted_resume_ingestion_and_index(db, monkeypatch):
+    from urllib.parse import parse_qs
+    source_id = add_source(db, 'Fixture OEM')
+    url = 'https://www.mercedes-benzusedcar.in/buy-used-cars'
+    db.execute("update public.sources set url=%s,metadata=%s::jsonb where source_id=%s",
+               (url, json.dumps({'parser_strategy': 'mercedes_inventory'}), source_id))
+    db.execute("update public.source_capabilities set capability_value='Mercedes-Benz' where source_id=%s", (source_id,))
+    db.commit()
+    html = Path('tests/fixtures/mercedes_demo_cards.html').read_text(encoding='utf-8')
+    groups = []
+    class Response:
+        def __init__(self, text): self.text = text
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def read(self, size): return self.text.encode()
+    class Opener:
+        def open(self, request, timeout):
+            if request.data is None:
+                return Response(json.dumps({'details': dict(security_token1='session-only', security_token2='two', security_token2_rand='three')}))
+            fields = parse_qs(request.data.decode())
+            if 'group_no' not in fields:
+                return Response(html + '<input id="tr_load" value="1"><input id="total_groups" value="3">')
+            group = int(fields['group_no'][0])
+            groups.append(group)
+            return Response(html.replace('.html', f'-group-{group}.html'))
+    monkeypatch.setattr('src.oem_inventory.urllib.request.build_opener', lambda *args: Opener())
+    monkeypatch.setenv('CARSCANNER_MAX_PAGES_PER_SOURCE', '2')
+    schedule_refreshes()
+    first = claim_jobs(1)[0]
+    assert process_job(first)['observations'] == 4
+    row = db.execute('select * from public.inventory_refresh_queue where refresh_id=%s', (first['refresh_id'],)).fetchone()
+    assert row['status'] == 'queued'
+    assert row['metadata']['continuation']['oem_cursors'][url] == {'next_group': 2}
+    assert 'session-only' not in json.dumps(row['metadata'])
+    second = claim_jobs(1)[0]
+    assert process_job(second)['observations'] == 2
+    row = db.execute('select * from public.inventory_refresh_queue where refresh_id=%s', (first['refresh_id'],)).fetchone()
+    assert row['status'] == 'completed' and row['metadata']['pages_fetched'] == 3
+    assert groups == [1, 2]
+    assert db.execute('select count(*) as n from public.listings').fetchone()['n'] == 6
+    db.commit()
+    payload = post_search(monkeypatch, {'query': 'Mercedes-Benz', 'condition': 'demo'}, ['Fixture OEM'])
+    assert payload['results'] and all(row['brand'] == 'Mercedes-Benz' for row in payload['results'])
+
+
+def test_elastic_revision_fences_price_sold_and_disabled_sources(db, monkeypatch):
+    from src import elastic_inventory as elastic
+    v = ingest(db)
+    row = search_inventory(query='BMW X1')[0][0]
+    now = datetime.now(timezone.utc)
+    rev = elastic.revision(db)
+    db.commit()
+    manifest = dict(schema=1, revision=rev, year=now.year, generation='fixture',
+                    expire_minutes=10080, valid_until=(now+timedelta(hours=1)).isoformat())
+    def provider(method, path, *args, **kwargs):
+        if path == '/_doc/manifest':
+            return {'_source': manifest}
+        return {'hits': {'total': {'value': 1, 'relation': 'eq'}, 'hits': [
+            {'_source': {'vehicle_id': row['vehicle_id'], 'key': elastic.key_of(row)}}]}}
+    monkeypatch.setattr(elastic, 'request', provider)
+    monkeypatch.setenv('CARSCANNER_SEARCH_ENGINE', 'elasticsearch')
+    monkeypatch.setattr(elastic, '_retry_after', 0)
+    assert elastic.search_inventory(query='BMW X1', return_count=True)[2] == 1
+    assert elastic.backend() == 'elasticsearch'
+    ingest_vehicles([replace(v, price_lakh=45)])
+    assert elastic.search_inventory(query='BMW X1', budget_max=40, return_count=True)[2] == 0
+    assert elastic.backend() == 'postgresql'
+    monkeypatch.setattr(elastic, '_retry_after', 0)
+    ingest_vehicles([replace(v, sold_signal=True, live_verified=False)])
+    assert elastic.search_inventory(query='BMW X1', return_count=True)[2] == 0
+    assert elastic.backend() == 'postgresql'
+    monkeypatch.setattr(elastic, '_retry_after', 0)
+    db.execute('update public.sources set enabled=false')
+    db.commit()
+    assert elastic.search_inventory(query='BMW X1', return_count=True)[2] == 0
+    assert elastic.backend() == 'postgresql'
+    # Rollbacks also roll back invalidation; readers never see uncommitted data.
+    before = elastic.revision(db)
+    db.execute('update public.sources set enabled=true')
+    assert elastic.revision(db) > before
+    db.rollback()
+    assert elastic.revision(db) == before
+    db.commit()
+
+
+def test_elastic_failed_bulk_does_not_publish_generation(db, monkeypatch):
+    from src import elastic_inventory as elastic
+    ingest(db)
+    calls = []
+    def provider(method, path, *args, **kwargs):
+        calls.append((method, path))
+        return {'errors': True} if '/_bulk' in path else {}
+    monkeypatch.setattr(elastic, 'request', provider)
+    with pytest.raises(elastic.IndexUnavailable, match='not published'):
+        elastic.rebuild()
+    assert any('/_bulk' in path for _, path in calls)
+    assert not any('/_doc/manifest' in path for _, path in calls)
+
+
+def test_shared_registry_cache_cannot_hide_price_updates_or_disabled_sources(db, monkeypatch):
+    url = os.getenv('CARSCANNER_TEST_REDIS_URL')
+    if not url: pytest.skip('Disposable Redis is required')
+    from urllib.parse import urlsplit
+    assert urlsplit(url).hostname in {'127.0.0.1', 'localhost', '::1'}
+    monkeypatch.setenv('CARSCANNER_REDIS_URL', url)
+    v = ingest(db)
+    initial = post_search(monkeypatch, {'query': 'BMW X1', 'condition': 'used'}, ['Fixture Dealer'])
+    assert initial['results'][0]['price_lakh'] == 30
+    ingest_vehicles([replace(v, price_lakh=45)])
+    current = post_search(monkeypatch, {'query': 'BMW X1', 'condition': 'used'}, ['Fixture Dealer'])
+    assert current['results'][0]['price_lakh'] == 45
+    db.execute('update public.sources set enabled=false')
+    db.commit()
+    disabled = post_search(monkeypatch, {'query': 'BMW X1', 'condition': 'used'}, ['Fixture Dealer'])
+    assert disabled['results'] == []
+
+
+def test_whole_index_refinements_and_ordering_precede_pagination(db):
+    source=add_source(db)
+    records=[vehicle(url=f'https://fixture.invalid/whole/{i}',vin=f'WBA{i:014d}',
+                     price_lakh=10+i/10,fuel='diesel' if i<55 else 'petrol',
+                     transmission='Automatic',mileage_km=100000-i*1000,
+                     body_type='suv',owner_count=1) for i in range(65)]
+    ingest_vehicles(records)
+    rows,sources,total,summary=search_inventory(query='BMW',fuels=['petrol'],
+        transmissions=['automatic'],body_types=['suv'],max_mileage_km=46000,
+        limit=3,sort='km',return_count=True,with_summary=True)
+    assert total==10
+    assert [r['km'] for r in rows]==[36000,37000,38000]
+    assert summary['result_count']==10
+    assert summary['sources']==['Fixture Dealer']
+    next_rows,_,next_total=search_inventory(query='BMW',fuels=['petrol'],
+        transmissions=['automatic'],body_types=['suv'],max_mileage_km=46000,
+        limit=3,offset=3,sort='km',return_count=True)
+    assert next_total==10 and [r['km'] for r in next_rows]==[39000,40000,41000]
+    assert not {r['vehicle_id'] for r in rows}&{r['vehicle_id'] for r in next_rows}
+    # Restricting the buyer's budget must not change the comparison reference.
+    cheap,_,_=search_inventory(query='BMW',budget_max=11,return_count=True)
+    assert cheap and all(r['comparable_count']==65 for r in cheap)
+    assert all(float(r['comp_median'])==13.2 for r in cheap)
+
+
+def test_ai_daily_quota_is_atomic_and_durable(db,monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from src.buyer_ai import reserve_call, AIUnavailable
+    db.execute('truncate public.buyer_ai_daily_usage');db.commit()
+    monkeypatch.setenv('CARSCANNER_AI_DAILY_LIMIT','5')
+    def attempt(_):
+        try: reserve_call();return True
+        except AIUnavailable:return False
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        outcomes=list(executor.map(attempt,range(15)))
+    assert sum(outcomes)==5
+    assert db.execute('select calls from public.buyer_ai_daily_usage').fetchone()['calls']==5
+    db.execute('set local role anon')
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        db.execute('select * from public.buyer_ai_daily_usage')
+    db.rollback()
+
+
+def test_worker_gives_unserved_brands_a_turn_before_high_priority_continuations(db):
+    source=add_source(db)
+    for brand,priority,started in [('bmw',100,True),('hyundai',8,False),('skoda',8,False)]:
+        db.execute("""insert into inventory_refresh_queue(source_id,brand,priority,started_at)
+            values (%s,%s,%s,case when %s then now() else null end)""",(source,brand,priority,started))
+    db.commit()
+    first=claim_jobs(1)[0]
+    assert first['brand'] in {'hyundai','skoda'}
+    complete_job(first['refresh_id'],success=True,attempt_count=first['attempt_count'],continuation={'pending_urls':['https://fixture.invalid/page2']})
+    second=claim_jobs(1)[0]
+    assert {first['brand'],second['brand']}=={'hyundai','skoda'}
+
+
+def test_scheduler_preserves_queue_age_and_normalizes_demand_keys(db,monkeypatch):
+    add_source(db)
+    db.execute("update source_capabilities set capability_value='all'");db.commit()
+    monkeypatch.setattr('src.inventory_refresh_planner.load_search_demand',lambda **kwargs:[
+        {'brand':'Honda','model':'City','condition':'used'}, {'brand':'honda','model':'city','condition':'used'}])
+    schedule_refreshes()
+    db.execute("update inventory_refresh_queue set requested_at=now()-interval '3 days'");db.commit()
+    before=db.execute('select refresh_id,requested_at from inventory_refresh_queue order by refresh_id').fetchall();db.commit()
+    schedule_refreshes()
+    after=db.execute('select refresh_id,requested_at from inventory_refresh_queue order by refresh_id').fetchall()
+    assert after==before and len(after)==2
+    assert db.execute("select brand,model from inventory_refresh_queue where brand<>''").fetchone()=={'brand':'honda','model':'city'}
+
+
+def test_national_sweep_excludes_local_and_model_demand(db):
+    source=add_source(db)
+    for brand,model,state,priority in [('tata','nexon','',100),('tata','','delhi',100),('tata','','',1)]:
+        db.execute("""insert into inventory_refresh_queue(source_id,brand,model,destination_state,priority)
+            values (%s,%s,%s,%s,%s)""",(source,brand,model,state,priority))
+    db.commit()
+    job=claim_jobs(1,baseline_only=True)[0]
+    assert job['brand']=='tata' and job['model']=='' and job['destination_state']==''
+
+
+@pytest.mark.parametrize('stored,query',[('MG Motor','MG'),('Citroën','Citroen')])
+def test_make_aliases_find_current_inventory(db,stored,query):
+    add_source(db)
+    ingest_vehicles([vehicle(brand=stored,model='Test model')])
+    assert search_inventory(query=query,condition='used',return_count=True)[2]==1
+
+
+def test_discovered_models_fan_out_only_to_verified_model_adapters_and_resume(db):
+    from src.used_inventory_frontier import enqueue_models,reschedule_models
+    for name in ('A','B','Unverified'):
+        add_source(db,name)
+    db.execute("update sources set metadata=%s::jsonb",(json.dumps({'parser_strategy':'carwale_cards','query_url_template':'https://fixture.invalid/{model_slug}'}),))
+    db.execute("update source_capabilities set capability_value='all'")
+    db.execute("update source_adapters set status='draft' where source_id=(select source_id from sources where name='Unverified')")
+    db.commit()
+    evidence=[{'model':'Nano','discovery_kind':'used_catalog_link','evidence_url':'https://fixture.invalid/used/tata-nano/','advertised_count':200}]
+    assert enqueue_models('Tata',evidence)==2
+    first=claim_jobs(1,models_only=True)[0]
+    assert first['model']=='nano' and first['destination_state']==''
+    complete_job(first['refresh_id'],success=True,attempt_count=first['attempt_count'],continuation={'pending_urls':['https://fixture.invalid/page-2']})
+    enqueue_models('Tata',evidence)
+    resumed=claim_jobs(1,continuations_only=True)[0]
+    assert resumed['refresh_id']==first['refresh_id']
+    assert resumed['metadata']['continuation']['pending_urls']==['https://fixture.invalid/page-2']
+    complete_job(resumed['refresh_id'],success=True,attempt_count=resumed['attempt_count'])
+    assert reschedule_models()==0
+    db.execute("update inventory_refresh_queue set metadata=jsonb_set(metadata,'{last_success_at}',to_jsonb((now()-interval '1 day')::text)) where status='completed'")
+    db.commit()
+    assert reschedule_models()==1
+    assert enqueue_models('MG Motor',[{**evidence[0],'model':'Hector'}])==2
+    assert db.execute("select distinct brand from inventory_refresh_queue where model='hector'").fetchall()==[{'brand':'mg'}]
+
+
+def test_catalogue_reservation_and_saved_evidence(db):
+    from src.catalog_traversal import wake_catalogues
+    add_source(db, 'Catalogue')
+    db.execute("update sources set metadata=%s::jsonb", (json.dumps({'city_catalog_path_pattern':'/used/[a-z-]+'}),))
+    db.execute("insert into inventory_refresh_queue(source_id,brand,model,condition,destination_state,status) select source_id,'','','both','','completed' from sources")
     db.commit()
     assert wake_catalogues() == 1
     first = claim_jobs(1, catalogues_only=True)[0]
