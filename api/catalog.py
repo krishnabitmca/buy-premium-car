@@ -4,6 +4,7 @@ import re
 import threading
 import time
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs,urlparse
 from src.live_marketplaces import live_brands,live_models
@@ -19,6 +20,41 @@ _NON_MODEL_NAMES = {
 _model_cache=OrderedDict()
 _model_cache_lock=threading.Lock()
 _model_load_locks=[threading.Lock() for _ in range(16)]
+_model_refresh=ThreadPoolExecutor(max_workers=2,thread_name_prefix='model-catalog')
+_model_pending=set()
+
+
+def observed_models(brand):
+    """Names are metadata, including discontinued models; never proof of stock."""
+    from src.source_registry_db import enabled,_connect
+    if not enabled():return []
+    try:
+        with _connect() as conn,conn.cursor() as cur:
+            cur.execute("""select distinct v.model as name from vehicles v
+                where lower(v.brand)=lower(%s) and length(v.model) between 1 and 100
+                and exists(select 1 from listings l join sources s using(source_id)
+                    where l.vehicle_id=v.vehicle_id and s.enabled and l.last_verified_at is not null)
+                order by v.model limit 500""",(brand,))
+            return [{'name':row['name'],'catalog_verified':'observed_inventory'} for row in cur.fetchall()]
+    except Exception:
+        return []
+
+
+def _cache_models(key,models):
+    with _model_cache_lock:
+        _model_cache[key]=(time.monotonic()+900,models)
+        _model_cache.move_to_end(key)
+        while len(_model_cache)>64:_model_cache.popitem(last=False)
+
+
+def _refresh_models(key,brand,observed):
+    try:
+        models=_sanitize_models([*live_models(brand),*observed])
+        if models:_cache_models(key,models)
+    except Exception:
+        pass  # Keep observed model names during an upstream outage.
+    finally:
+        with _model_cache_lock:_model_pending.discard(key)
 
 
 def catalog_models(brand):
@@ -31,13 +67,17 @@ def catalog_models(brand):
             if cached and cached[0]>now:
                 _model_cache.move_to_end(key)
                 return [dict(row) for row in cached[1]]
+        observed=_sanitize_models(observed_models(brand))
+        if observed:
+            _cache_models(key,observed)
+            with _model_cache_lock:
+                refresh=key not in _model_pending and len(_model_pending)<16
+                if refresh:_model_pending.add(key)
+            if refresh:_model_refresh.submit(_refresh_models,key,brand,observed)
+            return [dict(row) for row in observed]
         models=_sanitize_models(live_models(brand))
         if models:
-            with _model_cache_lock:
-                _model_cache[key]=(time.monotonic()+900,models)
-                _model_cache.move_to_end(key)
-                while len(_model_cache)>64:
-                    _model_cache.popitem(last=False)
+            _cache_models(key,models)
         # Empty/error responses never poison the successful metadata cache.
         return [dict(row) for row in models]
 
@@ -83,7 +123,7 @@ class handler(BaseHTTPRequestHandler):
             brand=(q.get("brand") or [""])[0].strip()
             if brand:
                 models=catalog_models(brand)
-                return response(self,200,{"ok":True,"mode":"live","source":"CarDekho current catalog with resilient fallback","brand":brand,"catalog_fallback":any(x.get("catalog_verified")=="fallback" for x in models),"models":models})
+                return response(self,200,{"ok":True,"mode":"live","source":"Observed model metadata with live catalogue enrichment","brand":brand,"catalog_fallback":any(x.get("catalog_verified") in {"fallback","observed_inventory"} for x in models),"models":models})
             discovered={b['name']:b for b in live_brands()}
             brands=[discovered.get(name,{'name':name,'catalog_verified':'taxonomy',
                                         'inventory_coverage':'unverified'})

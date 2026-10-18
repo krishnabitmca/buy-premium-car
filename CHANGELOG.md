@@ -1,5 +1,9 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Serve observed model names independently of live catalogue latency and enrich
+  them in a bounded background task. Historical model metadata never establishes
+  current listing availability.
+
 - Bound the API database pool at eight connections by default, allow a ten-second
   checkout wait, and increase pending HTTP sockets for parallel browser bursts.
   Client disconnects do not trigger a second search error response; server errors

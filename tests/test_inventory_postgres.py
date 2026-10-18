@@ -827,6 +827,15 @@ def test_historical_model_bootstrap_never_restores_expired_inventory(db):
     assert search_inventory(query='Ford Fiesta',condition='used',return_count=True)[2]==0
 
 
+def test_observed_model_metadata_survives_expired_stock_without_restoring_it(db):
+    from api.catalog import observed_models
+    ingest(db,brand='Jaguar',model='F-Pace')
+    db.execute("update listings set last_verified_at=now()-interval '30 days'");db.commit()
+    assert observed_models('Jaguar')==[{'name':'F-Pace','catalog_verified':'observed_inventory'}]
+    assert observed_models('Honda')==[]
+    assert search_inventory(query='Jaguar F-Pace',return_count=True)[2]==0
+
+
 def old_renewal(db,condition='used'):
     from src.inventory_lifecycle import maintain,claim
     v=ingest(db,condition_signal=condition,source_listing_id='stock-1')
