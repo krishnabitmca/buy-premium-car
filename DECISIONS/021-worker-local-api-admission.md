@@ -20,7 +20,11 @@ consume runtime resources. Changing the thread count can remove this headroom.
 The limit is worker-local, not per user or distributed: N workers admit up to 2N
 API handlers. This is load shedding, not a replacement for deadlines, distributed
 abuse controls, database budgets or national capacity measurements. No automatic
-request replay is added; mutating clients must preserve their retry semantics.
+mutation replay is added. Browser catalogue GET and search POST (a read-only
+contract) retry at most three times only for 503 with a positive Retry-After of
+at most two seconds. Small jitter reduces synchronized retries. Existing overall
+abort deadlines cover fetches and retry waits; cancellation stops replay. Other
+statuses and mutation routes are not replayed.
 
 Concurrent tests hold both permits, verify rejection without body reads and health
 access, then prove recovery. Failure tests verify no permit leaks on handler or

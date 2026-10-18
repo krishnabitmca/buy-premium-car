@@ -35,6 +35,10 @@ threads leave dispatch headroom, but socket queuing and dependency latency can
 still delay health requests. This worker-local cap is not a distributed rate
 limit; fewer request threads remove the intended headroom.
 
+The browser retries read-only catalogue/search overload responses up to three
+times within existing overall deadlines, honoring a short Retry-After with jitter.
+Watch and AI mutations are never replayed by this helper.
+
 - `/health`: process liveness, independent of database availability.
 - `/ready`: database accessibility and canonical table presence. Returns 200/503
   and small generic JSON. It performs no marketplace requests or inventory writes.
