@@ -1,6 +1,6 @@
 /* Public app shell only. Inventory, accounts and third-party media are never cached. */
-const CACHE='carscanner-shell-v1';
-const SHELL=['/index.html','/buyer_state.js','/manifest.webmanifest','/app-icon.svg','/app-icon-192.png','/app-icon-512.png'];
+const CACHE='carscanner-shell-v2';
+const SHELL=['/index.html','/buyer_state.js','/buyer_evidence.js','/manifest.webmanifest','/app-icon.svg','/app-icon-192.png','/app-icon-512.png'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL.map(path=>new Request(path,{cache:'reload'})))));
 });

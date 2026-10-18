@@ -1,5 +1,11 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Add an opt-in AI evidence guide that retrieves eligible offers server-side and
+  lets Gemini select evidence IDs. Render fact text/citations from that registry;
+  reject generated factual prose and unsupported IDs. Keep unknown inspection,
+  warranty, identity, availability, coverage and purchase-cost evidence explicit.
+  Share the existing free-tier daily cap; no automatic replay or paid fallback.
+
 - Run Docker HTTP traffic through pinned Gunicorn/WSGI with bounded concurrency,
   worker-local pools, private access logs and configured graceful request drain.
 - Add a separate canonical-database readiness probe and verify actual Linux
