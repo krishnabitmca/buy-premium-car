@@ -58,7 +58,7 @@ def require_database() -> None:
         raise RuntimeError("Set SOURCE_INTELLIGENCE_DATABASE_URL or DATABASE_URL before running inventory refresh")
 
 
-def _connect():
+def _connect(*, checkout_timeout=None):
     global _pool, _pool_key
     if psycopg is None:
         raise RuntimeError("PostgreSQL is configured but psycopg is not installed")
@@ -66,7 +66,8 @@ def _connect():
     # Each caller retains its own transaction; returned connections are not
     # shared concurrently. Inventory itself is never cached by this pool.
     if ConnectionPool is None or os.getenv('CARSCANNER_DB_POOL', 'true').lower() in {'0','false','no'}:
-        return psycopg.connect(database_url(), row_factory=dict_row,prepare_threshold=None)
+        options = {'connect_timeout': max(1, int(checkout_timeout))} if checkout_timeout is not None else {}
+        return psycopg.connect(database_url(), row_factory=dict_row,prepare_threshold=None,**options)
     key = (os.getpid(), database_url())
     with _pool_lock:
         if _pool is None or _pool_key != key:
@@ -81,7 +82,7 @@ def _connect():
             )
             _pool_key = key
         pool = _pool
-    return pool.connection()
+    return pool.connection(timeout=checkout_timeout) if checkout_timeout is not None else pool.connection()
 
 
 def source_key(source: dict[str, Any]) -> str:
