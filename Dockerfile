@@ -8,7 +8,7 @@ COPY src /app/src
 COPY api /app/api
 COPY config /app/config
 COPY index.html /app/index.html
-COPY buyer_state.js /app/buyer_state.js
+COPY buyer_state.js sw.js manifest.webmanifest app-icon.svg app-icon-192.png app-icon-512.png /app/
 COPY render_server.py wsgi.py gunicorn.conf.py /app/
 
 RUN pip install --no-cache-dir -e . \

@@ -195,3 +195,14 @@ def test_warming_model_catalogue_is_retryable_without_blocking_http(monkeypatch)
     result=request('/api/catalog',QUERY_STRING='brand=BMW')
     assert result['status']==503 and result['headers']['Retry-After']=='1'
     assert result['headers']['Cache-Control']=='no-store, max-age=0'
+
+
+def test_only_declared_public_mobile_shell_assets_are_served():
+    for path,content_type in (('/sw.js','text/javascript'),('/manifest.webmanifest','application/manifest+json'),
+                              ('/app-icon.svg','image/svg+xml'),('/buyer_state.js','text/javascript')):
+        result=request(path)
+        assert result['status']==200 and result['headers']['Content-Type'].startswith(content_type)
+        assert result['headers']['Cache-Control']=='no-cache'
+        assert request(path,'HEAD')['body']==b''
+    assert request('/.env')['status']==404
+    assert request('/src/buyer_ai.py')['status']==404

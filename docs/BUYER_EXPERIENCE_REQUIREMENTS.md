@@ -58,8 +58,13 @@ semantic retrieval and national inventory completeness remain separate gates.
 Device-local save/share/compare is implemented in ADR 024: five saved searches,
 six car choices, three-car comparison, typed URL restoration and current-offer
 revalidation. Storage is explicitly this-browser only; prices are not persisted.
-These are partial delivery of the buyer/mobile gates below, not verified accounts,
-cross-device sync, alerts or an offline-launchable mobile shell.
+These partially deliver the buyer/mobile gates below. Verified accounts,
+cross-device sync and controlled alert delivery remain open.
+
+ADR 026 adds the PWA-first public offline shell: interface/saved-choice labels can
+reload offline, while inventory and personal APIs always bypass the shell cache.
+Standalone manifest/assets and reconnect handling are implemented; native/store
+distribution and actual device/assistive-technology certification remain open.
 
 | Priority | Requirement | Acceptance evidence required |
 |---|---|---|

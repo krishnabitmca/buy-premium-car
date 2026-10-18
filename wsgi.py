@@ -6,7 +6,7 @@ import json
 import logging
 from threading import BoundedSemaphore
 
-from render_server import RenderHandler, ROOT
+from render_server import RenderHandler, ROOT, PUBLIC_ASSETS
 from src.source_registry_db import _connect, enabled
 
 log = logging.getLogger(__name__)
@@ -120,7 +120,7 @@ def _application(environ, start_response):
             adapter.wfile.write(json.dumps({'ok': ready, 'database': 'ready' if ready else 'unavailable'}).encode())
         elif method == 'HEAD':
             # HEAD shares only the static/liveness/version routes, not API work.
-            if path not in {'/', '/index.html', '/buyer_state.js', '/health', '/api/version', '/favicon.ico'}:
+            if path not in {'/', '/index.html', '/health', '/api/version', '/favicon.ico'} and path not in PUBLIC_ASSETS:
                 adapter.send_error(405)
             else:
                 adapter.do_GET()
