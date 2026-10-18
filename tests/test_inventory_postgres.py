@@ -1088,3 +1088,15 @@ def test_reviewed_oem_resume_reaches_canonical_search_without_persisting_session
     rows,_,total=search_inventory(condition='used',return_count=True)
     assert total==4 and all(row['source']=='Skoda Certified Pre-Owned' for row in rows)
     assert search_inventory(condition='demo',return_count=True)[2]==0
+
+
+def test_global_catalogue_source_does_not_duplicate_whole_scans_for_each_buyer_intent(db,monkeypatch):
+    add_source(db)
+    db.execute("update sources set metadata=%s::jsonb",(json.dumps({'global_catalogue_only':True}),))
+    db.execute("update source_capabilities set capability_value='all'");db.commit()
+    monkeypatch.setattr('src.inventory_refresh_planner.baseline_brand_demands',lambda:[
+        dict(brand='Honda',model='City',condition='used',destination_state='Karnataka'),
+        dict(brand='BMW',model='',condition='both',destination_state='')])
+    assert schedule_refreshes()==1
+    job=db.execute('select brand,model,condition,destination_state from inventory_refresh_queue').fetchone()
+    assert dict(job)==dict(brand='',model='',condition='both',destination_state='')

@@ -41,5 +41,11 @@ individual-detail checks. Keep discovery staging separate, disable the obsolete
 Škoda homepage endpoint and remove its unsupported demo capability. No schema,
 credentials, public database grants or paid infrastructure changes are required.
 
+These two adapters expose whole catalogues, not reviewed targeted API routes.
+Set `global_catalogue_only` so the scheduler creates one continuing India-wide,
+both-condition catalogue intent instead of replaying the same whole catalogue
+for every make, model and destination. Indexed searches still cover every brand
+and model actually observed. Other sources retain their existing workload mix.
+
 GaadiBazaar and Motodeals remain research candidates. Broad demo feeds and an
 independent market benchmark remain open; these two adapters are incremental.

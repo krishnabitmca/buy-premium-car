@@ -111,9 +111,11 @@ def schedule_refreshes(*, limit: int = 100, lookback_hours: int = 168) -> int:
                               and lower(sc.capability_value) in (lower(%s),'all')
                          )
                        )
+                       and (s.metadata->>'global_catalogue_only' is distinct from 'true'
+                            or (%s='' and %s='' and %s='' and %s='both'))
                      group by s.source_id,s.name,s.freshness_target_minutes,
                               s.stale_after_minutes,s.expire_after_minutes,sh.status,q.metadata""",
-                (brand, model, condition, state,condition,brand,model,brand,brand),
+                (brand, model, condition, state,condition,brand,model,brand,brand,brand,model,state,condition),
             )
             sources = cur.fetchall()
 

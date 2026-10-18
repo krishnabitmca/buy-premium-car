@@ -591,6 +591,7 @@ known_sources:
 - name: Skoda Certified Pre-Owned
   url: https://www.skodapreowned.in/buy
   parser_strategy: skoda_cards
+  global_catalogue_only: true
   tier: 2
   source_type: oem_certified
   adapter_status: live
@@ -603,6 +604,7 @@ known_sources:
 - name: Fusion Cars
   url: https://fusioncars.in/collections/
   parser_strategy: fusion_cards
+  global_catalogue_only: true
   catalogue_link_pattern: /brand/[a-z0-9-]+/?
   vehicle_link_pattern: /cars/[^/]+/?
   tier: 2
