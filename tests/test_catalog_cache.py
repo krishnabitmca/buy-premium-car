@@ -31,3 +31,29 @@ def test_empty_model_fetch_is_retried_and_cache_is_bounded(monkeypatch):
     for n in range(70): catalog.catalog_models(str(n))
     assert len(catalog._model_cache)==64
     catalog._model_cache.clear()
+
+
+def test_observed_models_return_before_slow_live_refresh_and_survive_failure(monkeypatch):
+    catalog._model_cache.clear()
+    catalog._model_pending.clear()
+    monkeypatch.setattr(catalog,'observed_models',lambda brand:[{'name':'F-Pace','catalog_verified':'observed_inventory'}])
+    tasks=[]
+    monkeypatch.setattr(catalog._model_refresh,'submit',lambda fn,*args:tasks.append((fn,args)))
+    def unavailable(brand):raise RuntimeError('upstream unavailable')
+    monkeypatch.setattr(catalog,'live_models',unavailable)
+    assert catalog.catalog_models('Jaguar')[0]['name']=='F-Pace'
+    assert len(tasks)==1
+    tasks[0][0](*tasks[0][1])
+    assert catalog.catalog_models('Jaguar')[0]['catalog_verified']=='observed_inventory'
+    assert not catalog._model_pending
+    catalog._model_cache.clear()
+
+
+def test_observed_variant_names_also_expose_existing_base_family_normalization():
+    rows=catalog._observed_model_names('Mercedes-Benz',[
+        {'name':'E Class E 220d'},{'name':'E-Class E 200 Exclusive'}])
+    assert 'E-Class' in [row['name'] for row in rows]
+    assert catalog._observed_model_names('Volvo',[{'name':'XC60 B5 Ultimate'}])[0]['name']=='XC60'
+    names=[r['name'] for r in catalog._observed_model_names('BMW',[
+        {'name':'3-Series 320d'},{'name':'3 Series Gran Limousine'},{'name':'6-Series GT 630d'}])]
+    assert '3 Series' in names and '6 Series' in names and 'Series' not in names

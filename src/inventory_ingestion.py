@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from contextlib import nullcontext
 from .models import Vehicle
 from .source_registry_db import _connect, enabled
 from .canonical_identity import candidate_identity
@@ -17,11 +18,11 @@ def _listing_key(v: Vehicle) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def ingest_vehicles(vehicles: list[Vehicle]) -> dict[str,int]:
+def ingest_vehicles(vehicles: list[Vehicle], *, _connection=None) -> dict[str,int]:
     if not enabled() or not vehicles:
         return {"vehicles":0,"listings":0,"observations":0}
     counts={"vehicles":0,"listings":0,"observations":0}
-    with _connect() as conn,conn.cursor() as cur:
+    with (nullcontext(_connection) if _connection is not None else _connect()) as conn,conn.cursor() as cur:
         for v in vehicles:
             # Explicit negative evidence updates an existing offer, even if its
             # price/identity fields are no longer present on the sold page.
@@ -114,7 +115,7 @@ def ingest_vehicles(vehicles: list[Vehicle]) -> dict[str,int]:
                    on conflict(source_id,source_listing_key) do update set
                      vehicle_id=excluded.vehicle_id,url=excluded.url,final_url=excluded.final_url,
                      title=excluded.title,seller_city=excluded.seller_city,seller_state=excluded.seller_state,
-                     condition=excluded.condition,status='active',last_seen_at=now(),last_verified_at=now(),
+                     condition=excluded.condition,status='active',freshness_state='fresh',last_seen_at=now(),last_verified_at=now(),
                      metadata=excluded.metadata returning listing_id""",
                 (source_id,vehicle_id,listing_key,v.url,v.final_url,v.title,None,v.seller_city,v.seller_state,
                  str(v.condition_signal or "used").lower() if str(v.condition_signal or "used").lower() in {"used","demo"} else "unknown",
@@ -136,5 +137,5 @@ def ingest_vehicles(vehicles: list[Vehicle]) -> dict[str,int]:
                   "condition":v.condition_signal,"identity_evidence":evidence,"vin":v.vin,"chassis_number":v.chassis_number,
                   "source_listing_id":v.source_listing_id,"price_basis":v.price_basis,"body_type":v.body_type})))
             counts["observations"]+=1
-        conn.commit()
+        if _connection is None:conn.commit()
     return counts

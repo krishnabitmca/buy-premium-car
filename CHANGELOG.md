@@ -1,3 +1,32 @@
+## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
+
+- Coalesce rapid refinement edits for 250ms; explicit Search remains immediate
+  and cancels queued work. Changing brand cancels a pending reset/refinement scan.
+
+- Serve observed model names independently of live catalogue latency and enrich
+  them in a bounded background task. Historical model metadata never establishes
+  current listing availability.
+
+- Bound the API database pool at eight connections by default, allow a ten-second
+  checkout wait, and increase pending HTTP sockets for parallel browser bursts.
+  Client disconnects do not trigger a second search error response; server errors
+  record exception types without buyer input or credentials.
+- Use transaction pooling for Supabase shared-pooler runtime URLs on port 5432,
+  preserving the host, role and database and disabling prepared statements. An
+  explicit session-mode override remains available for session-dependent tooling.
+
+- Add private durable per-listing renewal, domain leases and worker heartbeat
+  records; preserve history and fence all canonical writes against stale claims.
+- Reserve demo catalogue acquisition and used/demo renewal capacity independently
+  from large discovery queues. Apply bounded retries, cooldowns and crash recovery.
+- Renew exact structured listing offers, retire card-local sold/booked inventory,
+  and require two spaced disappearance checks; errors never establish sold status.
+- Share source-aware 48-hour used / 24-hour demo expiry across customer search,
+  watches, maintenance and derived index validity. Successful observations restore
+  expired offers; no history is deleted.
+- Upload lifecycle/backlog evidence every scheduled run and report heartbeat gaps.
+  Free scheduled dispatch delays remain a production freshness SLA limitation.
+
 ## 2026-10-17 — Advertised city and dealer catalogue acquisition
 
 - Traverse reviewed marketplace city links and full dealer catalogues with
@@ -147,6 +176,7 @@
 - Preserve exact model, budget and condition filtering. Separate on-road price observations from unspecified-price comparable groups.
 
 # CarScanner Changelog
+
 
 ## 2026-10-11 — AI search acceptance standard
 

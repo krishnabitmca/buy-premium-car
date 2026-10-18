@@ -4,9 +4,28 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
+import os
 
 
 STATES = ("fresh", "aging", "stale", "expired")
+
+
+def global_expiry_minutes():
+    return max(60,int(os.getenv('CARSCANNER_INVENTORY_EXPIRE_MINUTES','10080')))
+
+
+def expiry_minutes(condition='used', source_minutes=10080):
+    global_cap=global_expiry_minutes()
+    demo_cap=max(60,int(os.getenv('CARSCANNER_DEMO_EXPIRE_MINUTES','1440')))
+    used_cap=max(60,int(os.getenv('CARSCANNER_USED_EXPIRE_MINUTES','2880')))
+    return max(1,min(global_cap,int(source_minutes),demo_cap if condition=='demo' else used_cap))
+
+
+def expiry_sql():
+    # Internal aliases only; values come from bounded server configuration.
+    demo_cap=max(60,int(os.getenv('CARSCANNER_DEMO_EXPIRE_MINUTES','1440')))
+    used_cap=max(60,int(os.getenv('CARSCANNER_USED_EXPIRE_MINUTES','2880')))
+    return f"least(%s,greatest(1,s.expire_after_minutes),case when l.condition='demo' then {demo_cap} else least(%s,{used_cap}) end)"
 
 
 def freshness_state(

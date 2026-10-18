@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import json
 import re
-from http.server import SimpleHTTPRequestHandler
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from api.catalog import handler as CatalogHandler
@@ -12,6 +12,11 @@ from api.watch import handler as WatchHandler
 from api.intent import handler as IntentHandler
 
 ROOT = Path(__file__).resolve().parent
+
+
+class CarScannerServer(ThreadingHTTPServer):
+    # A browser burst can exceed the stdlib default of five pending sockets.
+    request_queue_size = 128
 
 
 class RenderHandler(SimpleHTTPRequestHandler):
@@ -84,8 +89,7 @@ class RenderHandler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "10000"))
-    from http.server import ThreadingHTTPServer
     host = os.environ.get("HOST", "127.0.0.1")
-    server = ThreadingHTTPServer((host, port), RenderHandler)
+    server = CarScannerServer((host, port), RenderHandler)
     print(f"CarScanner listening on {host}:{port}", flush=True)
     server.serve_forever()
