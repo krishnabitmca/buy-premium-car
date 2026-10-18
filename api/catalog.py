@@ -19,12 +19,15 @@ _NON_MODEL_NAMES = {
 # Public catalogue metadata only. Never cache listing prices or availability.
 _model_cache=OrderedDict()
 _model_cache_lock=threading.Lock()
-_model_load_locks=[threading.Lock() for _ in range(16)]
 _model_refresh=ThreadPoolExecutor(max_workers=2,thread_name_prefix='model-catalog')
 _model_pending=set()
 _brand_cache=[]
 _brand_next_refresh=0.0
 _brand_refresh_pending=False
+
+
+class CatalogPending(Exception):
+    pass
 
 
 def _refresh_brands():
@@ -62,7 +65,8 @@ def observed_models(brand):
     from src.source_registry_db import enabled,_connect
     if not enabled():return []
     try:
-        with _connect() as conn,conn.cursor() as cur:
+        with _connect(checkout_timeout=2) as conn,conn.cursor() as cur:
+            cur.execute("set local statement_timeout='1000ms'")
             cur.execute("""select distinct v.model as name from vehicles v
                 where lower(v.brand)=lower(%s) and length(v.model) between 1 and 100
                 and exists(select 1 from listings l join sources s using(source_id)
@@ -92,46 +96,44 @@ def _observed_model_names(brand,rows):
     return _sanitize_models([*derived,*rows])
 
 
-def _cache_models(key,models):
+def _cache_models(key,models,ttl=900):
     with _model_cache_lock:
-        _model_cache[key]=(time.monotonic()+900,models)
+        _model_cache[key]=(time.monotonic()+ttl,models)
         _model_cache.move_to_end(key)
         while len(_model_cache)>64:_model_cache.popitem(last=False)
 
 
 def _refresh_models(key,brand,observed):
     try:
+        if observed is None:observed=_sanitize_models(observed_models(brand))
+        if observed:_cache_models(key,observed)
         models=_sanitize_models([*live_models(brand),*observed])
         if models:_cache_models(key,models)
+        else:_cache_models(key,[],ttl=30)
     except Exception:
-        pass  # Keep observed model names during an upstream outage.
+        with _model_cache_lock:previous=_model_cache.get(key)
+        _cache_models(key,previous[1] if previous else [],ttl=30)
     finally:
         with _model_cache_lock:_model_pending.discard(key)
 
 
 def catalog_models(brand):
     key=brand.strip().casefold()
-    # Fixed lock stripes and a bounded LRU prevent arbitrary query growth.
-    with _model_load_locks[hash(key)%len(_model_load_locks)]:
-        now=time.monotonic()
-        with _model_cache_lock:
-            cached=_model_cache.get(key)
-            if cached and cached[0]>now:
-                _model_cache.move_to_end(key)
-                return [dict(row) for row in cached[1]]
-        observed=_sanitize_models(observed_models(brand))
-        if observed:
-            _cache_models(key,observed)
-            with _model_cache_lock:
-                refresh=key not in _model_pending and len(_model_pending)<16
-                if refresh:_model_pending.add(key)
-            if refresh:_model_refresh.submit(_refresh_models,key,brand,observed)
-            return [dict(row) for row in observed]
-        models=_sanitize_models(live_models(brand))
-        if models:
-            _cache_models(key,models)
-        # Empty/error responses never poison the successful metadata cache.
-        return [dict(row) for row in models]
+    with _model_cache_lock:
+        cached=_model_cache.get(key)
+        due=not cached or cached[0]<=time.monotonic()
+        refresh=due and key not in _model_pending and len(_model_pending)<16
+        if refresh:_model_pending.add(key)
+    if refresh:
+        try:_model_refresh.submit(_refresh_models,key,brand,None)
+        except Exception:
+            with _model_cache_lock:_model_pending.discard(key)
+    with _model_cache_lock:
+        cached=_model_cache.get(key)
+        if cached and cached[1]:
+            _model_cache.move_to_end(key)
+            return [dict(row) for row in cached[1]]
+    raise CatalogPending('Model metadata is warming; retry shortly')
 
 def _sanitize_models(models):
     """Defense-in-depth: never expose source navigation as customer models."""
@@ -158,12 +160,13 @@ def _sanitize_models(models):
         result.append({**item,"name":name,"slug":key})
     return sorted(result,key=lambda x:x["name"].lower())
 
-def response(h,status,payload):
+def response(h,status,payload,*,retry_after=None):
     raw=json.dumps(payload,ensure_ascii=False).encode()
     h.send_response(status)
     h.send_header("Content-Type","application/json; charset=utf-8")
     h.send_header("Cache-Control","no-store, max-age=0")
     h.send_header("Access-Control-Allow-Origin","*")
+    if retry_after is not None:h.send_header('Retry-After',str(retry_after))
     h.end_headers();h.wfile.write(raw)
 
 class handler(BaseHTTPRequestHandler):
@@ -181,5 +184,7 @@ class handler(BaseHTTPRequestHandler):
                 "source":"India make taxonomy with discovered catalog metadata",
                 "coverage_notice":"A selectable brand does not establish indexed inventory or marketplace coverage.",
                 "brands":brands})
+        except CatalogPending:
+            return response(self,503,{'ok':False,'error':'Model metadata is warming; retry shortly'},retry_after=1)
         except Exception as exc:
             return response(self,502,{"ok":False,"mode":"live","error":f"Live catalog unavailable: {exc}"})

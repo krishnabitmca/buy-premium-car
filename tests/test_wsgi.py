@@ -186,3 +186,12 @@ def test_shortlist_revalidation_limits_ids_and_never_falls_back_to_client_snapsh
     monkeypatch.setattr('api.shortlist.search_inventory',fail)
     result=request('/api/shortlist','POST',json.dumps({'vehicle_ids':[identifier]}).encode())
     assert result['status']==503 and b'credential' not in result['body']
+
+
+def test_warming_model_catalogue_is_retryable_without_blocking_http(monkeypatch):
+    from api.catalog import CatalogPending
+    def pending(_):raise CatalogPending()
+    monkeypatch.setattr('api.catalog.catalog_models',pending)
+    result=request('/api/catalog',QUERY_STRING='brand=BMW')
+    assert result['status']==503 and result['headers']['Retry-After']=='1'
+    assert result['headers']['Cache-Control']=='no-store, max-age=0'

@@ -36,3 +36,12 @@ This delivers a device-local subset of product gates 4/5. Verified accounts,
 cross-device persistence, controlled watch delivery, advanced shareable dossiers,
 real-device accessibility acceptance and mobile application distribution remain
 open. No new paid service, notification send, credential or database schema.
+
+Four-tab QA also exposed cold model metadata holding API admission while duplicate
+requests waited on a synchronous load. Model HTTP now returns cached names or a
+no-store 503/Retry-After while one bounded background task loads observed metadata
+and enriches it. Publish observed names before contacting external catalogues.
+Keep at most 16 pending model tasks/two executor threads and 64 cached brands;
+serve stale model names during refresh (never stale inventory prices). Empty/error
+loads back off 30 seconds. Database metadata uses a two-second pool checkout and
+one-second statement timeout; transport timing is not an end-to-end SLA.
