@@ -326,7 +326,8 @@ class TestPureFunctions(unittest.TestCase):
             if "cardekho" in url: return jsonld()
             raise TimeoutError("synthetic source timeout")
         with patch.object(lm, "fetch_text", side_effect=fake_fetch), \
-             patch("src.oem_inventory.fetch_mercedes_inventory", side_effect=TimeoutError("synthetic source timeout")):
+             patch("src.oem_inventory.fetch_mercedes_inventory", side_effect=TimeoutError("synthetic source timeout")), \
+             patch("src.reviewed_inventory.fetch_skoda_inventory", side_effect=TimeoutError("synthetic source timeout")):
             vehicles, sources = lm.live_inventory()
         self.assertEqual(len(vehicles), 1)
         live=[s for s in sources if s["status"]=="live"]

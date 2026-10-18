@@ -11,6 +11,10 @@ ordinary indexed search remains independent of model availability.
 
 ## Continuous inventory operations
 
+[ADR 018](DECISIONS/018-reviewed-dealer-oem-stock.md) adds reviewed Škoda public
+stock API continuation, Fusion brand catalogues and identified individual-page
+renewal. Rollout verifies stock/detail evidence before enabling either adapter.
+
 [ADR 017](DECISIONS/017-fair-source-probes-city-evidence.md) adds durable fair
 candidate probe rotation and conservative city rollups. New discovered endpoints
 remain inactive pending adapter review. Scheduled source expansion publishes

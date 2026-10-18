@@ -81,6 +81,7 @@ def structured_evidence(html,url,brand,model,condition='both'):
 
 def catalogue_tombstones(html,base_url,strategy):
     selectors={
+        'fusion_cards':('.product[data-price][data-features]',r'/cars/[^/]+/?'),
         'luxuryride_cards':('.tfcl-listing-card, .listing-post',r'/listing/[^/]+/?'),
         'cartrade_cards':('li.card-list-container',r'/second-hand/[^/]+/[^/]+/[a-z0-9]{8}/?'),
         'cardekho_cards':('.NewUcExCard',r'/used-car-details/[^/]+\.htm'),

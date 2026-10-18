@@ -160,6 +160,18 @@ class BuiltinMarketplaceAdapter:
                     all_parsed.extend(parse_gurudev(fetch_text(endpoint_url), self.source_name, endpoint_url))
                     fetched_urls.append(endpoint_url)
                     continue
+                if parser_strategy == 'skoda_cards':
+                    from .reviewed_inventory import fetch_skoda_inventory
+                    batch=fetch_skoda_inventory(endpoint_url,self.source_name,
+                        continuation=oem_cursors.get(endpoint_url) or {},page_budget=max_pages-fetched_this_batch+1)
+                    all_parsed.extend(batch.listings)
+                    fetched_this_batch+=batch.pages_fetched-1
+                    if batch.continuation:
+                        oem_cursors[endpoint_url]=batch.continuation
+                        seen_pages.remove(endpoint_url)
+                    else:oem_cursors.pop(endpoint_url,None)
+                    fetched_urls.append(endpoint_url)
+                    continue
                 if parser_strategy in {'mercedes_inventory', 'bmw_cards'}:
                     from .oem_inventory import fetch_mercedes_inventory, fetch_bmw_inventory
                     kwargs = {} if request.continuation is None else {
@@ -206,6 +218,9 @@ class BuiltinMarketplaceAdapter:
                     parsed = live_marketplaces.parse_motozite_cards(
                         html, self.source_name, endpoint_url, request.query, condition="both"
                     )
+                elif parser_strategy == 'fusion_cards':
+                    from .reviewed_inventory import parse_reviewed_cards
+                    parsed=parse_reviewed_cards(html,self.source_name,endpoint_url,parser_strategy,request.query)
                 elif parser_strategy in {"bbt_cards", "autobest_cards", "luxuryride_cards", "ninthgear_cards"}:
                     from .dealer_inventory import parse_dealer_cards
                     parsed = parse_dealer_cards(html, self.source_name, endpoint_url, parser_strategy, request.query)

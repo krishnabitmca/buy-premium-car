@@ -589,13 +589,28 @@ known_sources:
   priority: 80
 
 - name: Skoda Certified Pre-Owned
-  url: https://www.skodapreowned.in/
+  url: https://www.skodapreowned.in/buy
+  parser_strategy: skoda_cards
   tier: 2
   source_type: oem_certified
-  adapter_status: candidate
+  adapter_status: live
   geography: india
-  conditions: [used, demo]
-  brands: [Skoda]
+  conditions: [used]
+  brands: [all]
+  segments: [mass_market, premium, luxury]
+  priority: 80
+
+- name: Fusion Cars
+  url: https://fusioncars.in/collections/
+  parser_strategy: fusion_cards
+  catalogue_link_pattern: /brand/[a-z0-9-]+/?
+  vehicle_link_pattern: /cars/[^/]+/?
+  tier: 2
+  source_type: dealer_group
+  adapter_status: live
+  geography: regional
+  conditions: [used]
+  brands: [all]
   segments: [mass_market, premium, luxury]
   priority: 80
 
