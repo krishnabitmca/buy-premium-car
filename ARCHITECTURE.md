@@ -11,6 +11,11 @@ ordinary indexed search remains independent of model availability.
 
 ## Continuous inventory operations
 
+[ADR 016](DECISIONS/016-measurable-coverage-capacity.md) defines the source/location/
+model coverage matrix, declared scope evidence and individual-renewal capacity
+scenarios. These private operational artifacts guide acquisition; they never
+claim market completeness from source-advertised counts or brand presence.
+
 [ADR 015](DECISIONS/015-continuous-inventory-lifecycle.md) adds durable per-listing
 renewal alongside catalogue acquisition, shared domain leases, source-aware expiry,
 negative availability observations and heartbeat/backlog reporting. Canonical

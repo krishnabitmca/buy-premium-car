@@ -8,15 +8,21 @@ def test_cycle_schedules_then_consumes_persistent_work(monkeypatch):
         calls.append(('schedule',kwargs['limit']))
         return 4
     def consume(limit,**kwargs):
-        if kwargs.get('demo_only'):
-            calls.append(('demo',limit));return {'completed':0,'failed':0}
-        calls.append(('consume',limit))
-        return {'completed':2,'failed':1}
+        kind=next(iter(kwargs),'general').removesuffix('_only')
+        calls.append((kind,limit))
+        return {'completed':limit,'failed':0}
     monkeypatch.setattr(service,'schedule_refreshes',schedule)
     monkeypatch.setattr(service,'run_batch',consume)
     monkeypatch.setattr(service,'renew_listings',lambda limit:{'expired':0})
-    assert service.run_cycle(7)=={'scheduled':4,'completed':2,'failed':1,'lifecycle':{'expired':0}}
-    assert calls==[('schedule',7),('consume',6),('demo',1)]
+    assert service.run_cycle(7)=={'scheduled':4,'completed':7,'failed':0,'lifecycle':{'expired':0}}
+    assert calls==[('schedule',7),('general',1),('demo',1),('catalogues',3),('models',1),('continuations',1)]
+
+
+def test_default_cycle_reserves_catalogues_before_model_fanout():
+    plan=service.acquisition_plan(10)
+    assert [(kind,budget) for kind,budget,_ in plan]==[('general',1),('demo',1),('catalogues',4),('models',2),('continuations',2)]
+    assert sum(budget for _,budget,_ in service.acquisition_plan(1))==1
+    assert sum(budget for _,budget,_ in service.acquisition_plan(200))==100
 
 
 @pytest.mark.parametrize('stage',['schedule','acquire'])

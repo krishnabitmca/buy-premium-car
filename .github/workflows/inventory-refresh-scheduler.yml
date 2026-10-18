@@ -39,9 +39,9 @@ jobs:
           failed=0
           python -m src.inventory_refresh_worker --limit 1 || failed=1
           python -m src.inventory_refresh_worker --demo-only --limit 1 || failed=1
-          python -m src.inventory_refresh_worker --models-only --limit 3 || failed=1
-          python -m src.inventory_refresh_worker --continuations-only --limit 3 || failed=1
-          python -m src.inventory_refresh_worker --catalogues-only --limit 2 || failed=1
+          python -m src.inventory_refresh_worker --catalogues-only --limit 4 || failed=1
+          python -m src.inventory_refresh_worker --models-only --limit 2 || failed=1
+          python -m src.inventory_refresh_worker --continuations-only --limit 2 || failed=1
           exit "$failed"
       - name: Renew existing listings and expire stale offers
         if: always()
@@ -54,6 +54,21 @@ jobs:
         with:
           name: inventory-lifecycle-${{ github.run_number }}
           path: coverage/inventory-lifecycle.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Measure coverage gaps and worker capacity
+        if: always()
+        env:
+          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.CARSCANNER_FREE_TEST_DATABASE_URL || secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
+        run: python -m src.inventory_coverage --operations-only --output coverage/operations.json --markdown coverage/operations.md
+      - name: Upload coverage operations evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-operations-${{ github.run_number }}
+          path: |
+            coverage/operations.json
+            coverage/operations.md
           if-no-files-found: error
           retention-days: 14
       - name: Refresh derived Elasticsearch inventory

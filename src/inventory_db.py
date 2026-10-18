@@ -22,6 +22,17 @@ def enabled() -> bool:
     return source_db_enabled() and os.getenv("CARSCANNER_INVENTORY_FIRST", "true").lower() not in {"0", "false", "no"}
 
 
+def eligibility_predicates():
+    """Shared offer eligibility for customer search and operational coverage."""
+    from .inventory_freshness import expiry_sql
+    return [
+        "l.status = 'active'", "v.status in ('active','unknown')",
+        "o.live_verified = true", "o.sold_signal = false", "o.price_lakh > 0",
+        "s.enabled = true", "s.adapter_status = 'live'",
+        "l.last_verified_at >= now() - make_interval(mins => "+expiry_sql()+")",
+    ]
+
+
 def search_inventory(
     *,
     query: str = "",
@@ -55,17 +66,7 @@ def search_inventory(
     condition = str(condition or "both").strip().lower()
     expire_minutes=max(60, int(os.getenv("CARSCANNER_INVENTORY_EXPIRE_MINUTES", "10080")))
     params: list[Any] = [expire_minutes,expire_minutes]
-    from .inventory_freshness import expiry_sql
-    predicates = [
-        "l.status = 'active'",
-        "v.status in ('active','unknown')",
-        "o.live_verified = true",
-        "o.sold_signal = false",
-        "o.price_lakh > 0",
-        "s.enabled = true",
-        "s.adapter_status = 'live'",
-        "l.last_verified_at >= now() - make_interval(mins => "+expiry_sql()+")",
-    ]
+    predicates = eligibility_predicates()
     if brand:
         canonical=_canonical_brand(brand)
         aliases={brand.lower(),canonical.lower()}

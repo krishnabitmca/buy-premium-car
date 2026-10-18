@@ -1,5 +1,14 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Add operational source/location/brand/model/condition coverage cells, declared
+  scope progress, source repair priorities and explicit worker-capacity scenarios.
+  Publish JSON/Markdown artifacts without inventing market coverage percentages.
+- Share offer eligibility with search; measure extraction yield with per-batch
+  pages rather than cumulative traversal pages. Preserve raw location evidence.
+- Reserve catalogue/model/continuation capacity in standalone workers, isolate
+  bucket failures, lend unused renewal slots and avoid enrolling unknown-condition
+  inventory into condition-specific renewal work.
+
 - Publish expiry-policy metadata into a versioned Elasticsearch v2 index with
   explicit strict mappings. Existing scoped create-index permissions suffice;
   no mapping-management privilege or deletion of the v1 index is required.

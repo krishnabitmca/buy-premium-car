@@ -114,7 +114,8 @@ def complete_job(refresh_id: int, *, success: bool, error: str | None = None,
              error, bool(success and continuation), success,
              json.dumps(({"continuation": continuation} if continuation else
                         {"last_success_at": datetime.now(timezone.utc).isoformat()}) |
-                        ({'last_scan_evidence':scan_evidence} if scan_evidence else {})),
+                        ({'last_scan_evidence':scan_evidence,
+                          'last_batch_observed_at':datetime.now(timezone.utc).isoformat()} if scan_evidence else {})),
              max(0, int(pages_fetched)), refresh_id, attempt_count, attempt_count),
         )
         if _connection is None:conn.commit()

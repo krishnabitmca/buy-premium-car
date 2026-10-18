@@ -43,7 +43,8 @@ def maintain(limit=1000):
             select l.listing_id,coalesce(l.last_verified_at,'epoch')+
                 make_interval(mins=>least(s.freshness_target_minutes,case when l.condition='demo' then 180 else 360 end))
             from listings l join sources s using(source_id)
-            where l.status in ('active','stale') and l.vehicle_id is not null and s.enabled and s.adapter_status='live'
+            where l.status in ('active','stale') and l.condition in ('used','demo')
+            and l.vehicle_id is not null and s.enabled and s.adapter_status='live'
             and exists(select 1 from source_adapters a where a.source_id=s.source_id and a.status='verified')
             and l.url ~ '^https?://' and rtrim(l.url,'/')<>rtrim(s.url,'/')
             and not exists(select 1 from listings other where other.source_id=l.source_id
@@ -188,7 +189,9 @@ def run_cycle(limit=10):
         summary['heartbeat_gap_seconds']=int((datetime.now(timezone.utc)-prior).total_seconds()) if prior else None
         # Separate slots prevent used volume from starving demonstrator renewal.
         for i in range(max(1,min(int(limit),100))):
-            job=claim('demo' if i%2==0 else 'used')
+            condition='demo' if i%2==0 else 'used'
+            job=claim(condition)
+            if not job:job=claim('used' if condition=='demo' else 'demo')
             if not job:continue
             outcome=revalidate(job);summary[outcome]=summary.get(outcome,0)+1
         status='degraded' if any(summary.get(k) for k in ('error','inconclusive','missing','condition_unverified')) or (summary['heartbeat_gap_seconds'] or 0)>3600 else 'ok'

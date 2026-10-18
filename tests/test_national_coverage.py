@@ -4,6 +4,7 @@ from src import live_marketplaces as lm
 
 
 def test_coverage_audits_both_conditions_and_never_equates_empty_with_no_market(monkeypatch):
+    monkeypatch.setattr(coverage,'operations_report',lambda **kwargs:{'coverage_matrix':[]})
     class Cursor:
         def __enter__(self): return self
         def __exit__(self,*args): pass
