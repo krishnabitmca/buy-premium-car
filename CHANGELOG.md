@@ -8,6 +8,9 @@
   checkout wait, and increase pending HTTP sockets for parallel browser bursts.
   Client disconnects do not trigger a second search error response; server errors
   record exception types without buyer input or credentials.
+- Use transaction pooling for Supabase shared-pooler runtime URLs on port 5432,
+  preserving the host, role and database and disabling prepared statements. An
+  explicit session-mode override remains available for session-dependent tooling.
 
 - Add private durable per-listing renewal, domain leases and worker heartbeat
   records; preserve history and fence all canonical writes against stale claims.

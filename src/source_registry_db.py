@@ -7,7 +7,7 @@ import os
 import atexit
 from threading import Lock
 from typing import Any, Iterable
-from urllib.parse import urlparse
+from urllib.parse import urlparse,urlsplit,urlunsplit
 
 try:
     import psycopg
@@ -39,7 +39,14 @@ atexit.register(close_connection_pool)
 
 
 def database_url() -> str | None:
-    return os.getenv("SOURCE_INTELLIGENCE_DATABASE_URL") or os.getenv("DATABASE_URL")
+    value=os.getenv("SOURCE_INTELLIGENCE_DATABASE_URL") or os.getenv("DATABASE_URL")
+    if value and os.getenv('CARSCANNER_SUPABASE_POOL_MODE','transaction')=='transaction':
+        parsed=urlsplit(value)
+        if (parsed.scheme in {'postgres','postgresql'} and
+                (parsed.hostname or '').endswith('.pooler.supabase.com') and parsed.port==5432):
+            # Same approved host, database and role; multiplex short transactions.
+            value=urlunsplit(parsed._replace(netloc=parsed.netloc.rsplit(':',1)[0]+':6543'))
+    return value
 
 def enabled() -> bool:
     return bool(database_url())
@@ -59,7 +66,7 @@ def _connect():
     # Each caller retains its own transaction; returned connections are not
     # shared concurrently. Inventory itself is never cached by this pool.
     if ConnectionPool is None or os.getenv('CARSCANNER_DB_POOL', 'true').lower() in {'0','false','no'}:
-        return psycopg.connect(database_url(), row_factory=dict_row)
+        return psycopg.connect(database_url(), row_factory=dict_row,prepare_threshold=None)
     key = (os.getpid(), database_url())
     with _pool_lock:
         if _pool is None or _pool_key != key:

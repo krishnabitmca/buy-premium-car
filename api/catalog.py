@@ -35,9 +35,26 @@ def observed_models(brand):
                 and exists(select 1 from listings l join sources s using(source_id)
                     where l.vehicle_id=v.vehicle_id and s.enabled and l.last_verified_at is not null)
                 order by v.model limit 500""",(brand,))
-            return [{'name':row['name'],'catalog_verified':'observed_inventory'} for row in cur.fetchall()]
+            rows=[{'name':row['name'],'catalog_verified':'observed_inventory'} for row in cur.fetchall()]
+        return _observed_model_names(brand,rows)
     except Exception:
         return []
+
+
+def _observed_model_names(brand,rows):
+    from src.normalize import normalize_model
+    original={row['name'].casefold():row['name'] for row in rows}
+    derived=[]
+    for row in rows:
+        model=normalize_model(brand+' '+row['name'],'')[1]
+        if model:
+            # Preserve source casing for acronyms and prefer existing base names.
+            match=re.match(re.escape(model),row['name'],re.I)
+            name=original.get(model.casefold()) or (match[0] if match else model)
+            derived.append({'name':name,'catalog_verified':'observed_inventory'})
+    # Equivalent class-family spellings prefer the observed hyphenated form.
+    derived.sort(key=lambda row:'-' not in row['name'])
+    return _sanitize_models([*derived,*rows])
 
 
 def _cache_models(key,models):

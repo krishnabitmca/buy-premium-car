@@ -47,3 +47,10 @@ def test_observed_models_return_before_slow_live_refresh_and_survive_failure(mon
     assert catalog.catalog_models('Jaguar')[0]['catalog_verified']=='observed_inventory'
     assert not catalog._model_pending
     catalog._model_cache.clear()
+
+
+def test_observed_variant_names_also_expose_existing_base_family_normalization():
+    rows=catalog._observed_model_names('Mercedes-Benz',[
+        {'name':'E Class E 220d'},{'name':'E-Class E 200 Exclusive'}])
+    assert 'E-Class' in [row['name'] for row in rows]
+    assert catalog._observed_model_names('Volvo',[{'name':'XC60 B5 Ultimate'}])[0]['name']=='XC60'

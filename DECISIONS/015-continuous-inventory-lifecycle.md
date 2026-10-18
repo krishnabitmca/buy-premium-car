@@ -51,6 +51,13 @@ traffic and supports a continuously running deployment.
 
 ## Limits and operations
 
+Runtime URLs targeting Supabase's shared session pooler on port 5432 use the same
+host, role and database through transaction port 6543 by default. Concurrent web,
+preview and crawler processes otherwise exhausted the free session client limit.
+Prepared statements are disabled; application transactions do not rely on session
+state. `CARSCANNER_SUPABASE_POOL_MODE=session` preserves an explicitly required
+session connection. Other hosts and ports remain unchanged.
+
 Observed free GitHub scheduled dispatch gaps were several hours, so a requested
 15-minute cron is not an availability SLA. Heartbeat gaps over an hour are
 reported explicitly. A production always-on worker must be provisioned with an

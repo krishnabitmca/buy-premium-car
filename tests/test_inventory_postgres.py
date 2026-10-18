@@ -831,7 +831,7 @@ def test_observed_model_metadata_survives_expired_stock_without_restoring_it(db)
     from api.catalog import observed_models
     ingest(db,brand='Jaguar',model='F-Pace')
     db.execute("update listings set last_verified_at=now()-interval '30 days'");db.commit()
-    assert observed_models('Jaguar')==[{'name':'F-Pace','catalog_verified':'observed_inventory'}]
+    assert observed_models('Jaguar')==[{'name':'F-Pace','slug':'f-pace','catalog_verified':'observed_inventory'}]
     assert observed_models('Honda')==[]
     assert search_inventory(query='Jaguar F-Pace',return_count=True)[2]==0
 
