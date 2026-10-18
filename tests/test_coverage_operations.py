@@ -82,6 +82,8 @@ def test_no_batch_page_measurement_means_no_invented_yield_and_recorded_runs_are
     result=summarize([], [configured],jobs,runs,now=NOW)
     assert result['source_priorities'][0]['last_batch_yield'] is None
     assert result['declared_scopes'][1]['traversal_status']=='condition_not_declared'
+    assert result['declared_scopes'][1]['job_status']=='failed'
+    assert result['declared_scopes'][1]['last_attempt_failed']
     assert result['capacity']['recorded_outcomes_last24h']['inconclusive']==3
     assert result['capacity']['mean_completed_run_seconds']==12
 
@@ -91,3 +93,23 @@ def test_disabled_or_unverified_sources_do_not_create_renewal_capacity_demand():
     result=summarize([fact(eligible=False)],[configured],[],[],now=NOW)
     assert result['capacity']['conditions'][0]['renewable_offers']==0
     assert 'review_adapter_or_provider_feed' in result['source_priorities'][0]['actions']
+
+
+def test_failed_attempt_cannot_retimestamp_previous_successful_batch():
+    measured=NOW-timedelta(days=1)
+    jobs=[dict(source='A',brand='',model='',condition='both',status='failed',started_at=NOW,
+        completed_at=NOW,last_error='failed latest attempt',batch_observed_at=measured.isoformat(),
+        scan_evidence={'coverage_state':'partial_traversal','pages_this_batch':2,'listings_this_batch':40})]
+    result=summarize([], [source()],jobs,[],now=NOW)
+    assert result['source_priorities'][0]['last_batch_yield']['measured_at']==measured.isoformat()
+    assert result['declared_scopes'][1]['traversal_status']=='partial_traversal'
+    assert result['declared_scopes'][1]['last_attempt_failed']
+
+
+def test_case_variant_scope_duplicates_report_the_latest_attempt():
+    old=dict(source='A',brand='bmw',model='x5',condition='used',status='failed',
+        started_at=NOW-timedelta(days=1),last_error='old failure')
+    new={**old,'brand':'BMW','model':'X5','started_at':NOW,'status':'completed','last_error':None}
+    result=summarize([], [source()],[old,new],[],now=NOW)
+    scopes=[r for r in result['declared_scopes'] if r['scope_kind']=='model']
+    assert len(scopes)==1 and scopes[0]['job_status']=='completed' and not scopes[0]['last_attempt_failed']

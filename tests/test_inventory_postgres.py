@@ -1008,3 +1008,20 @@ def test_unclassified_offers_are_reported_but_not_enrolled_for_condition_specifi
     assert db.execute('select count(*) as n from inventory_listing_refresh').fetchone()['n']==0
     result=operations_report()
     assert result['source_priorities'][0]['needs_classification']==1
+
+
+def test_coverage_keeps_successful_batch_timestamp_when_a_later_attempt_fails(db):
+    from src.coverage_operations import operations_report
+    add_source(db)
+    db.execute('insert into inventory_refresh_queue(source_id) select source_id from sources');db.commit()
+    job=claim_jobs(1)[0]
+    evidence={'pages_this_batch':2,'listings_this_batch':40,'coverage_state':'partial_traversal'}
+    complete_job(job['refresh_id'],success=True,attempt_count=job['attempt_count'],
+        continuation={'pending_urls':['https://fixture.invalid/page-3']},scan_evidence=evidence)
+    stamp=db.execute("select metadata->>'last_batch_observed_at' as stamp from inventory_refresh_queue").fetchone()['stamp']
+    assert stamp
+    job=claim_jobs(1)[0]
+    complete_job(job['refresh_id'],success=False,attempt_count=job['attempt_count'],error='fixture failure')
+    result=operations_report()
+    assert result['source_priorities'][0]['last_batch_yield']['measured_at']==stamp
+    assert any(r['last_attempt_failed'] for r in result['declared_scopes'])

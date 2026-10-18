@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 
 def acquisition_plan(limit):
     """Reserve every work class before expanding any discovery bucket."""
-    slots=('general','demo','catalogues','models','continuations','models','continuations','catalogues','models','continuations')
+    slots=('general','demo','catalogues','models','continuations','catalogues','catalogues','models','continuations','catalogues')
     counts=Counter(slots[i%len(slots)] for i in range(max(1,min(int(limit),100))))
     return [(kind,counts[kind],{} if kind=='general' else {kind+'_only':True})
             for kind in dict.fromkeys(slots) if counts[kind]]

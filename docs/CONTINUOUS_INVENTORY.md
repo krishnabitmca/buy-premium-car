@@ -63,8 +63,8 @@ jobs from stored source observations; old observations only identify what to cra
 The daily national workflow runs this bootstrap automatically.
 
 Regular scheduling requeues stale completed model jobs without resetting partial
-or failed work. The quarter-hour worker reserves one general, one demo, three model,
-three continuation and two global catalogue jobs. Use `--models-only`,
+or failed work. The quarter-hour worker reserves one general, one demo, two model,
+two continuation and four global catalogue jobs. Use `--models-only`,
 `--catalogues-only` or `--continuations-only` for bounded
 operator runs. All classes retain normal claim locks, source verification and retry
 fences. Audit artifacts now include `model_frontier` source/model progress.

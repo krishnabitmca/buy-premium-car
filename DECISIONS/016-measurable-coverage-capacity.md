@@ -24,6 +24,8 @@ page slots, unknown condition and inconclusive detail parsers. Rank work using
 observed backlog, retaining the existing worker claim and origin pacing fences.
 Record pages and offers for the same successful batch; cumulative pages cannot
 serve as the denominator for latest-batch extraction yield.
+Retain that batch's own observation timestamp when a later attempt fails, and
+report the latest queue attempt separately from prior traversal evidence.
 
 Capacity scenarios distinguish recurring individual checks from configured
 attempt slots, policy-overdue offers from retry-ready jobs, and unknown-condition
@@ -34,8 +36,11 @@ servers: bulk catalogue batches, extraction yield, origin limits and dispatch
 delays determine actual throughput. No paid resources are provisioned.
 
 The standalone service reserves the same ten-job workload mix as the scheduled
-worker: one general, one demo, two catalogue, three model and three continuation
-jobs. Catalogue slots execute before discovery fan-out. A failed bucket does not
+worker: one general, one demo, four catalogue, two model and two continuation
+jobs. October 18 catalogue validation yielded 89 and 72 source offers across three
+pages each, with substantial remaining city work. This shifts two existing slots
+toward bulk acquisition while retaining every work class and the ten-job ceiling.
+Catalogue slots execute before discovery fan-out. A failed bucket does not
 skip the other buckets or listing renewal. Idle demo/used renewal slots can be
 borrowed by the other condition while both retain alternating reservations when
 both have ready work. Unclassified offers need catalogue classification evidence

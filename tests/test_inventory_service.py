@@ -15,12 +15,12 @@ def test_cycle_schedules_then_consumes_persistent_work(monkeypatch):
     monkeypatch.setattr(service,'run_batch',consume)
     monkeypatch.setattr(service,'renew_listings',lambda limit:{'expired':0})
     assert service.run_cycle(7)=={'scheduled':4,'completed':7,'failed':0,'lifecycle':{'expired':0}}
-    assert calls==[('schedule',7),('general',1),('demo',1),('catalogues',1),('models',2),('continuations',2)]
+    assert calls==[('schedule',7),('general',1),('demo',1),('catalogues',3),('models',1),('continuations',1)]
 
 
 def test_default_cycle_reserves_catalogues_before_model_fanout():
     plan=service.acquisition_plan(10)
-    assert [(kind,budget) for kind,budget,_ in plan]==[('general',1),('demo',1),('catalogues',2),('models',3),('continuations',3)]
+    assert [(kind,budget) for kind,budget,_ in plan]==[('general',1),('demo',1),('catalogues',4),('models',2),('continuations',2)]
     assert sum(budget for _,budget,_ in service.acquisition_plan(1))==1
     assert sum(budget for _,budget,_ in service.acquisition_plan(200))==100
 

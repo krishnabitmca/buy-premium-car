@@ -87,13 +87,16 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
         cells.append(cell)
 
     declared=[];scope_seen=set();priorities={}
-    def scope(source,kind,label,url,brand='',model='',condition='both',status='unknown',advertised=None,attempted=False):
+    def scope(source,kind,label,url,brand='',model='',condition='both',status='unknown',advertised=None,attempted=False,job=None):
         key=(source,kind,url,_tokens(brand),_tokens(model),condition)
         if key in scope_seen:return
         scope_seen.add(key)
+        job=job or {}
         declared.append(dict(source=source,scope_kind=kind,label=label,evidence_url=url,
             brand=brand or None,model=model or None,condition=condition,
             traversal_status=status,attempted=attempted,advertised_count=advertised,
+            job_status=job.get('status'),last_attempt_at=_iso(job.get('started_at')),
+            last_attempt_failed=bool(job.get('last_error') or job.get('status')=='failed'),
             advertised_count_is_verified_stock=False,market_coverage_percent=None))
     for source in sources:
         name=source['source'];stat=source_stats[name]
@@ -107,6 +110,7 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
         scope(name,'source_root',None,source.get('url'),status='not_measured')
     latest_catalogue={}
     job_totals=Counter()
+    jobs=sorted(jobs,key=lambda row:row.get('started_at') or datetime.min.replace(tzinfo=timezone.utc),reverse=True)
     for job in jobs:
         name=job['source'];priority=priorities.get(name)
         if not priority:continue
@@ -120,7 +124,7 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
         scope(name,'model' if job.get('model') else 'make' if job.get('brand') else 'global',None,
             job.get('model_evidence_url') or source_map[name].get('url'),
             _brand(job.get('brand')),job.get('model') or '',condition,state,
-            job.get('advertised_model_count'),bool(job.get('started_at')))
+            job.get('advertised_model_count'),bool(job.get('started_at')),job)
         for advertised in evidence.get('catalog_scopes') or []:
             url=advertised.get('url')
             visited=set(cursor.get('visited_urls') or [])
@@ -128,17 +132,17 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
             # A visited category is only a visited page, not a completed city.
             scope(name,advertised.get('kind') or 'advertised_catalogue',advertised.get('label'),url,
                 condition=condition,status='page_visited_completeness_unknown' if attempted else 'discovered_unvisited',
-                advertised=(evidence.get('advertised_counts') or {}).get(url),attempted=attempted)
+                advertised=(evidence.get('advertised_counts') or {}).get(url),attempted=attempted,job=job)
         pending=evidence.get('pending_page_count')
         if isinstance(pending,int):priority['pending_pages']+=pending
-        if not job.get('brand') and not job.get('model') and condition=='both':latest_catalogue[name]=job
+        if not job.get('brand') and not job.get('model') and condition=='both':latest_catalogue.setdefault(name,job)
     for name,priority in priorities.items():
         job=latest_catalogue.get(name,{})
         evidence=job.get('scan_evidence') or {}
         pages=evidence.get('pages_this_batch');offers=evidence.get('listings_this_batch')
         if isinstance(pages,int) and pages>0 and isinstance(offers,int):
             priority['last_batch_yield']=dict(pages=pages,offers=offers,offers_per_page=round(offers/pages,2),
-                measured_at=_iso(job.get('completed_at')),is_latest_batch_only=True)
+                measured_at=_iso(job.get('batch_observed_at')),is_latest_batch_only=True)
         if not priority['adapter_verified'] or not priority['parser']:priority['actions'].append('review_adapter_or_provider_feed')
         if priority['failed_jobs']:priority['actions'].append('inspect_source_failures')
         if priority['pending_pages']:priority['actions'].append('resume_advertised_catalogues')
@@ -212,6 +216,7 @@ def operations_report(*,renewal_limit=10,interval_minutes=15):
         cur.execute("""select s.name as source,q.brand,q.model,q.condition,q.status,q.started_at,q.completed_at,q.last_error,
             q.metadata->'last_scan_evidence' as scan_evidence,q.metadata->'continuation' as continuation,
             q.metadata->'advertised_model_count' as advertised_model_count,
+            q.metadata->>'last_batch_observed_at' as batch_observed_at,
             q.metadata->'model_discovery'->>'evidence_url' as model_evidence_url
             from inventory_refresh_queue q join sources s using(source_id)
             where s.enabled order by q.requested_at,q.refresh_id""")
