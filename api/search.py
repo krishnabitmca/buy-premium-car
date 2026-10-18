@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import logging
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse
@@ -39,8 +40,12 @@ def _response(handler,status,payload):
     handler.send_header("Access-Control-Allow-Origin","*")
     handler.send_header("Access-Control-Allow-Headers","Content-Type")
     handler.send_header("Access-Control-Allow-Methods","GET, POST, OPTIONS")
-    handler.end_headers()
-    handler.wfile.write(raw)
+    try:
+        handler.end_headers()
+        handler.wfile.write(raw)
+    except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+        # Cancelled browser requests cannot receive a second error response.
+        return
 
 
 def _budget_band(budget_min, budget_max):
@@ -335,5 +340,6 @@ class handler(BaseHTTPRequestHandler):
             })
         except ValueError as exc:
             return _response(self,400,{"error":str(exc)})
-        except Exception:
+        except Exception as exc:
+            logging.getLogger(__name__).error('search_request_failed exception_type=%s', type(exc).__name__)
             return _response(self,500,{"error":"Search failed: inventory is temporarily unavailable. Please retry."})

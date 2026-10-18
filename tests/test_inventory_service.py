@@ -1,4 +1,5 @@
 from src import inventory_service as service
+import pytest
 
 
 def test_cycle_schedules_then_consumes_persistent_work(monkeypatch):
@@ -16,3 +17,16 @@ def test_cycle_schedules_then_consumes_persistent_work(monkeypatch):
     monkeypatch.setattr(service,'renew_listings',lambda limit:{'expired':0})
     assert service.run_cycle(7)=={'scheduled':4,'completed':2,'failed':1,'lifecycle':{'expired':0}}
     assert calls==[('schedule',7),('consume',6),('demo',1)]
+
+
+@pytest.mark.parametrize('stage',['schedule','acquire'])
+def test_acquisition_failure_still_runs_listing_renewal(monkeypatch,stage):
+    calls=[]
+    monkeypatch.setattr(service,'schedule_refreshes',lambda **kw:0)
+    def failed(*args,**kwargs):
+        raise RuntimeError('acquisition failed')
+    monkeypatch.setattr(service,'schedule_refreshes' if stage=='schedule' else 'run_batch',failed)
+    monkeypatch.setattr(service,'renew_listings',lambda limit:calls.append(limit))
+    with pytest.raises(RuntimeError,match='acquisition failed'):
+        service.run_cycle(10)
+    assert calls==[10]
