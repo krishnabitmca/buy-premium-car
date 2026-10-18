@@ -34,6 +34,10 @@ back off 30 seconds on failure/empty discovery and retain prior metadata. This
 does not cache vehicle prices or availability; taxonomy entries remain labelled
 as unverified inventory coverage. Model lookup behavior is preserved.
 
+Clear before the first explicit search resets controls without submitting a broad
+inventory query. Once a buyer has searched, Clear retains its result-refresh
+behavior. This avoids unintended startup traffic competing with model lookup.
+
 Concurrent tests hold all three permits, verify rejection without body reads and health
 access, then prove recovery. Failure tests verify no permit leaks on handler or
 start_response failure. Linux runtime and browser CI remain required before merge.

@@ -45,6 +45,22 @@ def test_current_search_first_journey(dashboard_url):
         browser.close()
 
 
+def test_clear_before_first_search_does_not_submit_broad_inventory_query(dashboard_url):
+    with sync_playwright() as p:
+        browser=p.chromium.launch();page=browser.new_page()
+        page.route('**/api/catalog*',lambda route:route.fulfill(content_type='application/json',
+            body='{"ok":true,"mode":"live","brands":[{"name":"BMW"}]}'))
+        searches=[]
+        page.route('**/api/search*',lambda route:(searches.append(route.request),route.abort()))
+        page.goto(dashboard_url,wait_until='networkidle')
+        page.locator('#brand').select_option('BMW')
+        page.locator('#clear').click()
+        page.wait_for_timeout(600)  # Exceeds the real 250ms automatic-search debounce.
+        assert page.locator('#brand').input_value()==''
+        assert not searches
+        browser.close()
+
+
 def test_old_model_response_cannot_replace_new_make(dashboard_url):
     import json
     with sync_playwright() as p:
