@@ -162,6 +162,27 @@ def test_identity_audit_reports_legacy_groups_without_rewriting_history(db):
     assert db.execute('select count(*) as n from vehicle_observations').fetchone()['n']==1
 
 
+def test_manual_source_benchmark_uses_canonical_eligibility_and_read_only_snapshot(db):
+    from src.coverage_benchmark import benchmark_database
+    v=ingest(db)
+    sample={'version':1,'sampling':{'method':'manual_source_review','reviewer':'fixture-reviewer',
+            'scope':'Synthetic fixture, not actual market coverage',
+            'collected_at':datetime.now(timezone.utc).isoformat()},
+            'records':[{'source':'Fixture Dealer','url':v.url,'brand':'BMW','model':'X1',
+                        'seller_state':'Delhi','condition':'used','eligible':True}]}
+    report=benchmark_database(sample)
+    assert report['sample_recall']==1 and report['snapshot_eligible_offers']==1
+    assert not report['national_coverage_established']
+    ingest_vehicles([replace(v,sold_signal=True,live_verified=False)])
+    report=benchmark_database(sample)
+    assert report['matched']==0 and report['gaps'][0]['status']=='missing'
+    sample['records'][0]['eligible']=False
+    report=benchmark_database(sample)
+    assert report['eligible_sample']==0 and report['sample_recall'] is None
+    assert report['ineligible_indexed_count']==0
+    assert db.execute('select count(*) as n from vehicle_observations').fetchone()['n']==2
+
+
 @pytest.mark.parametrize('initial,current,filters',[(30,45,{'budget_max':40}),(45,30,{'budget_min':40})])
 def test_budget_cannot_select_an_older_qualifying_price(db,initial,current,filters):
     v=ingest(db,price_lakh=initial)

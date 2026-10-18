@@ -1,5 +1,12 @@
 # CarScanner Architecture
 
+## Source recall measurement
+
+[ADR 023](DECISIONS/023-scoped-source-coverage-benchmark.md) adds private sampled
+source recall against the same canonical eligible-offer snapshot as buyer search.
+See [collection and operation](docs/COVERAGE_BENCHMARK.md). Sample scores do not
+establish national coverage or independently validate collector labels.
+
 ## Identifier evidence
 
 [ADR 022](DECISIONS/022-full-identifier-evidence.md) restricts exact vehicle keys

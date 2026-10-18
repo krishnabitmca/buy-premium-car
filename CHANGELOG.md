@@ -219,6 +219,14 @@
 
 # CarScanner Changelog
 
+## 2026-10-18 — Scoped source coverage benchmark
+
+- Add private sampled-source recall evaluation against canonical eligible offers
+  in a read-only consistent snapshot, with actionable source/brand/model/region gaps.
+- Reject stale/duplicate/export-derived samples and disclose source-reviewed sold
+  stock still indexed; never equate sample recall with national completeness.
+- Preserve listing URL query identities and reuse buyer latest/expiry/source rules.
+
 ## 2026-10-18 — Full identifier evidence safeguards
 
 - Require complete VIN-form identifiers for exact cross-source identity; partial,
