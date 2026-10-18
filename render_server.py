@@ -11,9 +11,11 @@ from api.search import handler as SearchHandler
 from api.watch import handler as WatchHandler
 from api.intent import handler as IntentHandler
 from api.shortlist import handler as ShortlistHandler
+from api.explain import handler as ExplainHandler
 
 ROOT = Path(__file__).resolve().parent
 PUBLIC_ASSETS={
+    '/buyer_evidence.js':('buyer_evidence.js','text/javascript; charset=utf-8'),
     '/buyer_state.js':('buyer_state.js','text/javascript; charset=utf-8'),
     '/sw.js':('sw.js','text/javascript; charset=utf-8'),
     '/manifest.webmanifest':('manifest.webmanifest','application/manifest+json'),
@@ -38,7 +40,7 @@ class RenderHandler(SimpleHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path == "/api/watch":
             return WatchHandler.do_OPTIONS(self)
-        if path in {"/api/catalog", "/api/search", "/api/intent", "/api/shortlist"}:
+        if path in {"/api/catalog", "/api/search", "/api/intent", "/api/shortlist", "/api/explain"}:
             return SearchHandler.do_OPTIONS(self)
         self.send_response(204)
         self.end_headers()
@@ -90,6 +92,8 @@ class RenderHandler(SimpleHTTPRequestHandler):
             return IntentHandler.do_POST(self)
         if path == '/api/shortlist':
             return ShortlistHandler.do_POST(self)
+        if path == '/api/explain':
+            return ExplainHandler.do_POST(self)
         if path == "/api/search":
             return SearchHandler.do_POST(self)
         if path == "/api/watch":

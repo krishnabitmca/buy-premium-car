@@ -50,10 +50,16 @@ The UI states Google's free-tier product-improvement use before consent.
 Provider outages still return a clear error while ordinary filters remain usable.
 
 This is a small verified pilot, not an intent-accuracy benchmark or a guarantee
-that free-tier capacity is always available. Grounded generated explanations,
+that free-tier capacity is always available. Grounded free-form explanations,
 semantic retrieval and national inventory completeness remain separate gates.
 
 ## Remaining product and national-scale gates
+
+ADR 027 adds opt-in evidence selection for car questions: server-retrieved eligible
+offers, bounded model-selected evidence IDs, server-rendered cited facts and
+explicit unsupported-evidence notes. It shares the existing 30/day free-testing
+cap. This is not unrestricted generated advice or a completed factuality,
+multilingual relevance or buyer-evaluation benchmark.
 
 Device-local save/share/compare is implemented in ADR 024: five saved searches,
 six car choices, three-car comparison, typed URL restoration and current-offer

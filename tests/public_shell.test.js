@@ -23,7 +23,7 @@ function worker(options={}){
 }
 test('inventory/account/watch APIs, mutations and third-party images bypass shell cache',()=>{
   const instance=worker();
-  for(const path of ['/api/search','/api/shortlist','/api/watch','/api/version','/api/account',
+  for(const path of ['/api/search','/api/shortlist','/api/explain','/api/watch','/api/version','/api/account',
                      'https://seller.invalid/photo.jpg']){
     assert.equal(instance.dispatch(path),undefined);
   }

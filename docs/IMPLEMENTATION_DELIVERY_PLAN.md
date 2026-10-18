@@ -10,9 +10,9 @@ an independently verified deployment before it is described as live.
 | 3 | Source expansion | Reviewed adapters and incremental dealer/OEM acquisition exist | Expand according to measured gaps, including explicitly verified demo inventory and source-specific traversal evidence |
 | 4 | Facts and deal accuracy | Conservative identity and current comparison cohorts exist | Labelled real identity/availability/deal evaluation and conflict review |
 | 5 | Public-launch controls | Token/consent and recovery foundations exist | Verified account/destination ownership, safe sessions, recoverable delivery, restore/readiness and controlled delivery pilot |
-| 6 | Buyer journeys | Search and multi-source offer dossier exist | Persisted shortlist, different-car comparison, saved/shareable searches and current-offer revalidation |
-| 7 | Grounded AI | Consented Gemini intent pilot exists | Evaluated intent accuracy and cited, evidence-grounded explanations/questions |
-| 8 | Mobile | Responsive web exists | Network recovery, accessibility acceptance and explicit PWA/native decision and implementation |
+| 6 | Buyer journeys | Device-local save/share/compare and current-offer revalidation implemented (ADR 024); live Honda City journey checked | Verified account sync, broader buyer testing and controlled watches remain separate |
+| 7 | Grounded AI | Consented Gemini intent plus constrained cited evidence selection (ADR 027) | Held-out intent/question relevance, multilingual quality and real buyer evaluation; unrestricted advice is not delivered |
+| 8 | Mobile | Public PWA offline shell and network recovery implemented (ADR 026), Chromium tested | Actual device installation and assistive-technology acceptance; native distribution remains separate |
 | 9 | National capacity | PostgreSQL search and optional Elasticsearch projection/metadata cache exist | Measured national workloads and India-network latency; incremental projection, query parity, cursors and measured operating cost |
 | 10 | Purchase assistance | Destination context exists | Sourced transport/registration/tax assumptions and location-aware cost estimates |
 

@@ -174,6 +174,14 @@ was slower; `search_engine` in the response reports the actual engine used.
 
 Do not introduce distributed infrastructure merely because the long-term system may need it.
 
+## Grounded buyer guide
+
+The optional dossier guide in [ADR 027](DECISIONS/027-grounded-buyer-evidence.md)
+reads eligible canonical offers before invoking Gemini. The model selects bounded
+evidence IDs only; factual text, amounts, observation times and citations come
+from the server registry. It shares the durable AI daily cap and explicit consent
+boundary. No model-authored factual prose or private buyer records are served.
+
 ## Public mobile shell
 
 [ADR 026](DECISIONS/026-public-offline-shell.md) adds a PWA-first shell shared
