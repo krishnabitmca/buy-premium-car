@@ -7,8 +7,21 @@ const testUrl = key => { const u = new URL(base); u.searchParams.set(key, String
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   const errors = [];
+  const apiResponses = new Map();
   page.on("pageerror", e => errors.push("pageerror: " + e.message));
-  page.on("console", m => { if (m.type() === "error") errors.push("console: " + m.text()); });
+  page.on("console", m => {
+    if (m.type() !== "error") return;
+    // Chromium logs HTTP errors even for intentionally handled overload retries
+    // and third-party images. Check actual first-party API outcomes below.
+    if (/^Failed to load resource: the server responded with a status of \d+/i.test(m.text())) return;
+    errors.push("console: " + m.text());
+  });
+  page.on("response", response => {
+    const url = new URL(response.url()), request = response.request();
+    if (url.origin !== new URL(base).origin || !url.pathname.startsWith('/api/')) return;
+    const key = [request.method(), response.url(), request.postData() || ''].join('\n');
+    apiResponses.set(key, {path: url.pathname, status: response.status()});
+  });
 
   try {
     await page.goto(testUrl("e2e"), { waitUntil: "networkidle", timeout: 90000 });
@@ -41,6 +54,9 @@ const testUrl = key => { const u = new URL(base); u.searchParams.set(key, String
     if (/Live models unavailable/i.test(body)) throw new Error("model catalog fell into unavailable state");
     if (/Unexpected error|Search failed|Application error/i.test(body)) throw new Error("customer-facing error shown");
 
+    for (const outcome of apiResponses.values()) {
+      if (outcome.status >= 400) errors.push('API failure: ' + outcome.path + ' status=' + outcome.status);
+    }
     console.log(JSON.stringify({
       pass: true,
       brandCount,
