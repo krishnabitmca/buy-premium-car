@@ -35,7 +35,7 @@ threads leave dispatch headroom, but socket queuing and dependency latency can
 still delay health requests. This worker-local cap is not a distributed rate
 limit; fewer request threads remove the intended headroom.
 
-The browser retries read-only catalogue/search overload responses up to three
+The browser retries read-only catalogue/search overload responses up to five
 times within existing overall deadlines, honoring a short Retry-After with jitter.
 Watch and AI mutations are never replayed by this helper.
 

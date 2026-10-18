@@ -21,8 +21,9 @@ The limit is worker-local, not per user or distributed: N workers admit up to 3N
 API handlers. This is load shedding, not a replacement for deadlines, distributed
 abuse controls, database budgets or national capacity measurements. No automatic
 mutation replay is added. Browser catalogue GET and search POST (a read-only
-contract) retry at most three times only for 503 with a positive Retry-After of
-at most two seconds. Small jitter reduces synchronized retries. Existing overall
+contract) retry at most five times only for 503 with a positive Retry-After of
+at most two seconds. Backoff grows to at most two seconds plus small jitter.
+Existing overall
 abort deadlines cover fetches and retry waits; cancellation stops replay. Other
 statuses and mutation routes are not replayed.
 

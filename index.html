@@ -85,10 +85,10 @@ function setBrandOptions(brands){
 async function readOnlyFetch(url,options={}){
  // Retry only these read-only contracts; never replay watch/AI mutations.
  const path=new URL(url,location.href).pathname;
- const retryable=path==='/api/catalog'||(path==='/api/search'&&options.method==='POST');
+ const retryable=(path==='/api/catalog'&&(!options.method||options.method==='GET'))||(path==='/api/search'&&options.method==='POST');
  for(let attempt=0;;attempt++){
   const response=await fetch(url,options);
-  if(response.status!==503||!retryable||attempt>=3)return response;
+  if(response.status!==503||!retryable||attempt>=5)return response;
   const seconds=Number(response.headers.get('Retry-After'));
   if(!Number.isFinite(seconds)||seconds<=0||seconds>2)return response;
   await response.body?.cancel();
@@ -96,7 +96,7 @@ async function readOnlyFetch(url,options={}){
    const signal=options.signal;
    if(signal?.aborted){reject(signal.reason||new DOMException('Aborted','AbortError'));return}
    const abort=()=>{clearTimeout(timer);reject(signal.reason||new DOMException('Aborted','AbortError'))};
-   const timer=setTimeout(()=>{signal?.removeEventListener('abort',abort);resolve()},seconds*1000+Math.random()*250);
+   const timer=setTimeout(()=>{signal?.removeEventListener('abort',abort);resolve()},Math.min(2,seconds*2**attempt)*1000+Math.random()*250);
    signal?.addEventListener('abort',abort,{once:true});
   });
  }

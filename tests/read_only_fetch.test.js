@@ -29,7 +29,7 @@ test('catalogue and read-only search recover from admission overload', async () 
 test('retries are bounded and require a usable short Retry-After', async () => {
   const busy = setup([[503, '1']]);
   assert.equal((await busy.run('/api/catalog')).status, 503);
-  assert.equal(busy.calls(), 4);
+  assert.equal(busy.calls(), 6);
   for (const retry of [null, '', 'bad', '0', '-1', '60']) {
     const fixture = setup([[503, retry]]);
     await fixture.run('/api/catalog');
@@ -37,7 +37,7 @@ test('retries are bounded and require a usable short Retry-After', async () => {
   }
 });
 test('mutation and other failure responses are never replayed', async () => {
-  for (const url of ['/api/watch', '/api/intent']) {
+  for (const url of ['/api/watch', '/api/intent', '/api/catalog']) {
     const fixture = setup([[503, '1']]);
     await fixture.run(url, { method: 'POST' });
     assert.equal(fixture.calls(), 1);
