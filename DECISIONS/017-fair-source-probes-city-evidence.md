@@ -22,6 +22,13 @@ Existing workflow concurrency and five-probe budget remain. Finite recurring
 candidate pools rotate; an unbounded influx of new candidates can delay retries.
 Dispatch delays and public-source blocking still prevent a completeness SLA.
 
+The configured query bank has 512 queries before demand enrichment, with four
+search backends. Limit each run to six queries, rotating the window by the
+three-hour UTC time slot. Preserve other discover() callers' default behavior.
+Missed scheduler windows are not replayed or counted as observed coverage, and
+changing demand can change the bank. This bounds work, not elapsed-time or
+full-bank completion guarantees.
+
 Add a private city rollup using recognized city labels, known aliases and an
 optional matching state suffix. Preserve every raw seller label in the sparse
 matrix. Ambiguous regions, addresses, conflicting states and absent labels stay

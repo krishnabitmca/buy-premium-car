@@ -3,6 +3,8 @@
 - Rotate source probes by durable last-attempt evidence; reserve web-discovery
   capacity, recover interrupted probes and fence stale completions. Publish
   per-run evidence. Stage new endpoints inactive until adapter review.
+- Bound background web discovery to six rotating queries per run, leaving
+  capacity for validation instead of exhausting the full query bank first.
 - Add canonical city/state coverage rollups while retaining raw seller labels,
   unresolved location evidence and India-wide search behavior.
 

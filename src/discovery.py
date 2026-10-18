@@ -243,12 +243,15 @@ def _looks_like_source_landing(url: str, title: str, snippet: str) -> bool:
     )
 
 
-def discover(settings, known_domains, demand=None, *, include_known_domain_urls=False, max_queries=None):
+def discover(settings, known_domains, demand=None, *, include_known_domain_urls=False, max_queries=None, query_offset=0):
     results = []
     search = settings.search
     max_n = int(search.get("max_discovery_results_per_query", 8))
     engines = search.get("engines", ["bing", "duckduckgo", "google"])
     query_bank = build_query_bank(search, demand=demand)
+    if query_bank and query_offset:
+        offset = int(query_offset) % len(query_bank)
+        query_bank = query_bank[offset:] + query_bank[:offset]
     if max_queries is not None:
         query_bank = query_bank[:max(0, int(max_queries))]
     brands = list(search.get("brands", []))

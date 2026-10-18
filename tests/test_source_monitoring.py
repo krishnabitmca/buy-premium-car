@@ -63,3 +63,23 @@ def test_running_probe_lease_and_staged_adapter_are_not_reselected():
     assert [s.url for s in plan_probes(seeds,[],history,.7,5,now=now)]==[seeds[2].url]
     later=plan_probes(seeds,[],history,.7,5,now=now+timedelta(minutes=31))
     assert [s.url for s in later]==[seeds[2].url,seeds[1].url]
+
+
+def test_discovery_query_budget_rotates_and_wraps_without_changing_default_callers(monkeypatch):
+    from src import discovery
+    from types import SimpleNamespace
+    queries=[]
+    class FakeSearch:
+        def __enter__(self):return self
+        def __exit__(self,*args):pass
+        def text(self,query,**kwargs):
+            queries.append(query)
+            return []
+    monkeypatch.setattr(discovery,'DDGS',FakeSearch)
+    monkeypatch.setattr(discovery,'build_query_bank',lambda *args,**kwargs:['A','B','C','D','E'])
+    settings=SimpleNamespace(search={'engines':['fixture']})
+    discovery.discover(settings,set(),max_queries=3,query_offset=4)
+    assert queries==['E','A','B']
+    queries.clear()
+    discovery.discover(settings,set())
+    assert queries==['A','B','C','D','E']

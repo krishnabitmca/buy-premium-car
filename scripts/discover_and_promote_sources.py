@@ -98,6 +98,7 @@ def main() -> None:
     parser.add_argument('--skip-web-discovery', action='store_true', help='Probe registered candidates only')
     parser.add_argument('--plan-only', action='store_true', help='Read-only candidate plan; no fetch or database writes')
     parser.add_argument('--report', default='coverage/source-expansion.json')
+    parser.add_argument('--max-discovery-queries', type=int, choices=range(1,25), default=6)
     args = parser.parse_args()
 
     if not source_db_enabled():
@@ -114,7 +115,11 @@ def main() -> None:
     }
 
     demand = load_search_demand(limit=100, lookback_hours=168)
-    found = [] if args.skip_web_discovery or args.plan_only else discover(settings, known_domains, demand=demand, include_known_domain_urls=True)
+    # Rotate across the full query bank instead of repeating its first brands.
+    # This is a target time window, not evidence that missed dispatches ran.
+    query_offset = int(time.time() // (3*3600)) * args.max_discovery_queries
+    found = [] if args.skip_web_discovery or args.plan_only else discover(settings, known_domains, demand=demand,
+        include_known_domain_urls=True,max_queries=args.max_discovery_queries,query_offset=query_offset)
     print(f"demand_intents={len(demand)}")
     # Known candidates must be probed even if search engines do not return
     # them. Merge versioned seeds with the DB registry; existing live URLs are
@@ -127,6 +132,7 @@ def main() -> None:
     report = dict(started_at=datetime.now(timezone.utc).isoformat(),plan_only=args.plan_only,
         registered_candidates=len(seeds),web_candidates=len(found),
         selected_urls=[item.url for item in candidates],results=[],
+        max_discovery_queries=args.max_discovery_queries,query_offset=query_offset,
         policy='Least recently attempted within registered/web pools; one in five slots reserved for web, idle slots borrowed. Staged sources await review.')
     def save_report():
         path = Path(args.report)
