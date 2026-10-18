@@ -28,6 +28,13 @@ worker. A process restart cannot undo already committed external side effects.
 
 ## Liveness and readiness
 
+API admission is limited to two active handlers per WSGI worker (ADR 021).
+Additional requests receive a no-store 503 with `Retry-After: 1` before their body
+is read. Preflight, `/api/version` and non-API routes are exempt. The default four
+threads leave dispatch headroom, but socket queuing and dependency latency can
+still delay health requests. This worker-local cap is not a distributed rate
+limit; fewer request threads remove the intended headroom.
+
 - `/health`: process liveness, independent of database availability.
 - `/ready`: database accessibility and canonical table presence. Returns 200/503
   and small generic JSON. It performs no marketplace requests or inventory writes.

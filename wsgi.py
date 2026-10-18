@@ -4,12 +4,15 @@ from http import HTTPStatus
 from io import BytesIO
 import json
 import logging
+from threading import BoundedSemaphore
 
 from render_server import RenderHandler, ROOT
 from src.source_registry_db import _connect, enabled
 
 log = logging.getLogger(__name__)
 MAX_BODY_BYTES = 64 * 1024
+# Worker-local: leave two of the default four threads outside expensive API work.
+API_SLOTS = BoundedSemaphore(2)
 
 
 def request_path(environ):
@@ -76,6 +79,26 @@ class RequestAdapter(RenderHandler):
 
 
 def application(environ, start_response):
+    path = request_path(environ)
+    # OPTIONS and the cheap release endpoint must remain available during overload.
+    guarded = path.startswith('/api/') and path != '/api/version' and environ.get('REQUEST_METHOD') != 'OPTIONS'
+    admitted = not guarded or API_SLOTS.acquire(blocking=False)
+    if not admitted:
+        payload = b'{"ok":false,"error":"Service busy; please retry"}'
+        start_response('503 Service Unavailable', [
+            ('Content-Type', 'application/json'), ('Cache-Control', 'no-store'),
+            ('Access-Control-Allow-Origin', '*'),
+            ('Retry-After', '1'), ('Content-Length', str(len(payload))),
+            ('X-CarScanner-Runtime', 'wsgi')])
+        return [b'' if environ.get('REQUEST_METHOD') == 'HEAD' else payload]
+    try:
+        return _application(environ, start_response)
+    finally:
+        if guarded:
+            API_SLOTS.release()
+
+
+def _application(environ, start_response):
     method = environ.get('REQUEST_METHOD', 'GET')
     path = request_path(environ)
     adapter = RequestAdapter(environ, b'')
