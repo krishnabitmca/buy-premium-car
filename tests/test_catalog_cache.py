@@ -5,10 +5,12 @@ from api import catalog
 
 @pytest.fixture(autouse=True)
 def isolate_model_metadata(monkeypatch):
-    catalog._model_cache.clear();catalog._model_pending.clear()
+    catalog._model_cache.clear();catalog._model_pending.clear();catalog._enrichment_pending.clear()
     monkeypatch.setattr(catalog,'observed_models',lambda brand:[])
+    monkeypatch.setattr(catalog,'_observed_refresh',ImmediateExecutor())
+    monkeypatch.setattr(catalog,'_model_refresh',ImmediateExecutor())
     yield
-    catalog._model_cache.clear();catalog._model_pending.clear()
+    catalog._model_cache.clear();catalog._model_pending.clear();catalog._enrichment_pending.clear()
 
 
 class ImmediateExecutor:
@@ -61,7 +63,7 @@ def test_observed_models_return_before_slow_live_refresh_and_survive_failure(mon
     catalog._model_pending.clear()
     monkeypatch.setattr(catalog,'observed_models',lambda brand:[{'name':'F-Pace','catalog_verified':'observed_inventory'}])
     tasks=[]
-    monkeypatch.setattr(catalog._model_refresh,'submit',lambda fn,*args:tasks.append((fn,args)))
+    monkeypatch.setattr(catalog._observed_refresh,'submit',lambda fn,*args:tasks.append((fn,args)))
     def unavailable(brand):
         # Observed names are published before the background external request.
         assert catalog.catalog_models(brand)[0]['name']=='F-Pace'
@@ -77,13 +79,32 @@ def test_observed_models_return_before_slow_live_refresh_and_survive_failure(mon
 
 def test_cold_model_requests_never_call_database_or_live_provider_on_http_thread(monkeypatch):
     tasks=[]
-    monkeypatch.setattr(catalog._model_refresh,'submit',lambda fn,*args:tasks.append((fn,args)))
+    monkeypatch.setattr(catalog._observed_refresh,'submit',lambda fn,*args:tasks.append((fn,args)))
     def forbidden(_):raise AssertionError('HTTP thread must not fetch metadata')
     monkeypatch.setattr(catalog,'observed_models',forbidden)
     monkeypatch.setattr(catalog,'live_models',forbidden)
     for _ in range(4):
         with pytest.raises(catalog.CatalogPending):catalog.catalog_models('BMW')
     assert len(tasks)==1
+
+
+def test_observed_metadata_is_not_starved_by_queued_external_enrichment(monkeypatch):
+    external=[]
+    monkeypatch.setattr(catalog._model_refresh,'submit',lambda fn,*args:external.append((fn,args)))
+    monkeypatch.setattr(catalog,'observed_models',lambda brand:[{'name':'City' if brand=='Honda' else 'X5'}])
+    assert catalog.catalog_models('BMW')[0]['name']=='X5'
+    assert catalog.catalog_models('Honda')[0]['name']=='City'
+    assert len(external)==2  # Neither external request has run.
+
+
+def test_full_external_backlog_does_not_block_observed_model_metadata(monkeypatch):
+    catalog._enrichment_pending.update(str(n) for n in range(16))
+    monkeypatch.setattr(catalog,'observed_models',lambda brand:[{'name':'City'}])
+    def forbidden(*_args):raise AssertionError('External backlog must stay bounded')
+    monkeypatch.setattr(catalog._model_refresh,'submit',forbidden)
+    assert catalog.catalog_models('Honda')[0]['name']=='City'
+    assert not catalog._model_pending
+    assert len(catalog._enrichment_pending)==16
 
 
 def test_observed_variant_names_also_expose_existing_base_family_normalization():
