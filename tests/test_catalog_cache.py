@@ -54,3 +54,6 @@ def test_observed_variant_names_also_expose_existing_base_family_normalization()
         {'name':'E Class E 220d'},{'name':'E-Class E 200 Exclusive'}])
     assert 'E-Class' in [row['name'] for row in rows]
     assert catalog._observed_model_names('Volvo',[{'name':'XC60 B5 Ultimate'}])[0]['name']=='XC60'
+    names=[r['name'] for r in catalog._observed_model_names('BMW',[
+        {'name':'3-Series 320d'},{'name':'3 Series Gran Limousine'},{'name':'6-Series GT 630d'}])]
+    assert '3 Series' in names and '6 Series' in names and 'Series' not in names

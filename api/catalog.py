@@ -46,10 +46,12 @@ def _observed_model_names(brand,rows):
     original={row['name'].casefold():row['name'] for row in rows}
     derived=[]
     for row in rows:
-        model=normalize_model(brand+' '+row['name'],'')[1]
+        title=re.sub(r'(?i)\b(\d+)[- ]+series\b',r'\1 Series',row['name'])
+        series=re.match(r'(\d+) Series\b',title)
+        model=series[0] if series else normalize_model(brand+' '+title,'')[1]
         if model:
             # Preserve source casing for acronyms and prefer existing base names.
-            match=re.match(re.escape(model),row['name'],re.I)
+            match=re.match(re.escape(model),title,re.I)
             name=original.get(model.casefold()) or (match[0] if match else model)
             derived.append({'name':name,'catalog_verified':'observed_inventory'})
     # Equivalent class-family spellings prefer the observed hyphenated form.
