@@ -13,9 +13,10 @@ from pathlib import Path
 from .inventory_db import search_inventory
 from .inventory_refresh_planner import baseline_brand_demands
 from .source_registry_db import _connect, require_database
+from .coverage_operations import operations_report,markdown_report
 
 
-def coverage_report():
+def coverage_report(*,renewal_limit=10,interval_minutes=15):
     require_database()
     with _connect() as conn, conn.cursor() as cur:
         cur.execute("""select lower(q.brand) as brand,s.name as source,q.status,
@@ -64,7 +65,7 @@ def coverage_report():
             }
         makes.append({'brand':brand,'conditions':conditions,
             'scans':[row for (make,_),row in scans.items() if make==brand.lower()]})
-    return {'generated_at':datetime.now(timezone.utc).isoformat(),
+    return {**operations_report(renewal_limit=renewal_limit,interval_minutes=interval_minutes),'generated_at':datetime.now(timezone.utc).isoformat(),
         'model_frontier':model_scans,
         'catalogue_frontier':catalogues,
         'scope':'india','complete_market_coverage':False,
@@ -75,13 +76,22 @@ def coverage_report():
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--operations-only',action='store_true',help='Fast source/city/model matrix and capacity snapshot without make-by-make searches')
+    parser.add_argument('--markdown',type=Path,help='Write a readable operations summary alongside JSON')
+    parser.add_argument('--renewal-limit',type=int,default=10)
+    parser.add_argument('--interval-minutes',type=int,default=15,help='Hypothetical capacity scenario, not a scheduler SLA')
     args=parser.parse_args()
-    report=coverage_report()
+    builder=operations_report if args.operations_only else coverage_report
+    report=builder(renewal_limit=args.renewal_limit,interval_minutes=args.interval_minutes)
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_text(json.dumps(report,indent=2,default=str),encoding='utf-8')
-    print(json.dumps({'brands_checked':len(report['brands']),
-        'used_coverage_gaps':[b['brand'] for b in report['brands'] if not b['conditions']['used']['indexed_results']],
-        'demo_coverage_gaps':[b['brand'] for b in report['brands'] if not b['conditions']['demo']['indexed_results']]}))
+    if args.markdown:
+        args.markdown.parent.mkdir(parents=True,exist_ok=True)
+        args.markdown.write_text(markdown_report(report),encoding='utf-8')
+    print(json.dumps({'brands_checked':len(report.get('brands',[])),
+        'matrix_cells':len(report['coverage_matrix']),'declared_scopes':len(report['declared_scopes']),
+        'used_coverage_gaps':[b['brand'] for b in report.get('brands',[]) if not b['conditions']['used']['indexed_results']],
+        'demo_coverage_gaps':[b['brand'] for b in report.get('brands',[]) if not b['conditions']['demo']['indexed_results']]}))
 
 
 if __name__=='__main__':

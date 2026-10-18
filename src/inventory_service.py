@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import logging
 import time
+from collections import Counter
 
 from .inventory_refresh_planner import schedule_refreshes
 from .inventory_refresh_worker import run_batch
@@ -17,13 +18,27 @@ from .inventory_lifecycle import run_cycle as renew_listings
 log = logging.getLogger(__name__)
 
 
+def acquisition_plan(limit):
+    """Reserve every work class before expanding any discovery bucket."""
+    slots=('general','demo','catalogues','models','continuations','models','continuations','catalogues','models','continuations')
+    counts=Counter(slots[i%len(slots)] for i in range(max(1,min(int(limit),100))))
+    return [(kind,counts[kind],{} if kind=='general' else {kind+'_only':True})
+            for kind in dict.fromkeys(slots) if counts[kind]]
+
+
 def run_cycle(limit: int) -> dict[str, int]:
     try:
         scheduled = schedule_refreshes(limit=limit)
-        acquisition=run_batch(max(1,limit-1))
-        if limit>1:
-            for key,count in run_batch(1,demo_only=True).items():
-                acquisition[key]=acquisition.get(key,0)+count
+        acquisition={'completed':0,'failed':0}
+        failure=None
+        for kind,budget,kwargs in acquisition_plan(limit):
+            try:
+                for key,count in run_batch(budget,**kwargs).items():
+                    acquisition[key]=acquisition.get(key,0)+count
+            except Exception as exc:
+                failure=failure or exc
+                log.error('Acquisition bucket failed: %s',kind)
+        if failure:raise failure
     finally:
         renewal=renew_listings(limit)
     return {"scheduled": scheduled, **acquisition,'lifecycle':renewal}

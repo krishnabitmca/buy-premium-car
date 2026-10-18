@@ -337,7 +337,8 @@ class BuiltinMarketplaceAdapter:
                 tombstones=list(tombstones.values()),
                 scan_evidence={'visited_page_count':len(seen_pages),'scope_count':len(catalog_scopes),
                     'pending_page_count':sum(page not in seen_pages for page in urls),
-                    'listings_this_batch':len(filtered),'catalog_scopes':list(catalog_scopes.values()),
+                    'listings_this_batch':len(filtered),'pages_this_batch':fetched_this_batch,
+                    'catalog_scopes':list(catalog_scopes.values()),
                     'advertised_counts':advertised_counts,'coverage_state':'partial_traversal' if any(page not in seen_pages for page in urls) else 'traversal_exhausted_unverified'},
             )
             if result.continuation is not None:

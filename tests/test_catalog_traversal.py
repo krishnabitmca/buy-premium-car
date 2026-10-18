@@ -80,4 +80,5 @@ def test_background_city_frontier_resumes_without_revisiting_root(monkeypatch):
     assert second.continuation['pending_urls'] == ['https://example.com/used/pune?page=2']
     assert second.scan_evidence['scope_count'] == 1
     assert second.scan_evidence['coverage_state'] == 'partial_traversal'
+    assert second.scan_evidence['pages_this_batch'] == 1
 

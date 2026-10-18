@@ -1,5 +1,27 @@
 # Continuous inventory operations
 
+## Coverage control and capacity evidence
+
+Run `python -m src.inventory_coverage --operations-only --output coverage/operations.json
+--markdown coverage/operations.md` for a consistent read-only snapshot of observed
+source/location/brand/model/condition cells, declared queue/catalogue scopes,
+prioritized repair work and renewal capacity. The regular refresh workflow uploads
+both artifacts after every run; the daily national report includes this evidence.
+The default full report also retains the make-level customer-search audit.
+
+`--renewal-limit 10 --interval-minutes 15` describes a hypothetical configured
+budget, not a measured scheduling SLA. Per-condition demand is the recurring
+individual-check scenario, with retry readiness and classification/shared-URL
+exceptions reported separately. Bulk catalogue batches can renew many offers at
+once; source parser yield and origin pacing determine effective throughput.
+
+The matrix is sparse observed evidence. Missing combinations are unknown. Raw
+seller location labels are not normalized cities. Declared advertised scopes
+retain original evidence URLs; visiting a landing page does not complete its
+catalogue. Market coverage percentages remain null until independent eligible
+listing samples establish a valid denominator. Source claims are not added into
+one market total. See ADR 016 for definitions and workload reservations.
+
 ## Listing renewal and availability lifecycle
 
 Apply `20261017182735_inventory_lifecycle.sql` before deploying this worker.

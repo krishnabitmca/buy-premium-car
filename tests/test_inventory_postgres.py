@@ -981,3 +981,30 @@ def test_private_lifecycle_tables_have_no_browser_access(db):
     for table in ['inventory_listing_refresh','inventory_crawl_leases','inventory_pipeline_runs']:
         assert db.execute("select relrowsecurity from pg_class where oid=%s::regclass",('public.'+table,)).fetchone()['relrowsecurity']
         assert not db.execute("select has_table_privilege('anon',%s,'select') as allowed",('public.'+table,)).fetchone()['allowed']
+
+
+def test_coverage_matrix_uses_latest_customer_eligibility_and_keeps_raw_location_evidence(db):
+    from src.coverage_operations import operations_report
+    v=ingest(db)
+    before=operations_report()
+    assert sum(r['eligible_offers'] for r in before['coverage_matrix'])==1
+    assert before['coverage_matrix'][0]['seller_location_label']=='Delhi'
+    db.execute("""insert into vehicle_observations(vehicle_id,listing_id,source_id,observed_at,
+        live_verified,data_consistent,sold_signal,price_lakh,snapshot)
+        select vehicle_id,listing_id,source_id,now()+interval '1 second',true,true,true,30,'{}'
+        from listings""");db.commit()
+    assert search_inventory(return_count=True)[2]==0
+    after=operations_report()
+    assert sum(r['eligible_offers'] for r in after['coverage_matrix'])==0
+    assert sum(r['observed_offers'] for r in after['coverage_matrix'])==1
+    assert not after['complete_market_coverage']
+
+
+def test_unclassified_offers_are_reported_but_not_enrolled_for_condition_specific_renewal(db):
+    from src.inventory_lifecycle import maintain
+    from src.coverage_operations import operations_report
+    ingest(db,condition_signal='unknown')
+    maintain()
+    assert db.execute('select count(*) as n from inventory_listing_refresh').fetchone()['n']==0
+    result=operations_report()
+    assert result['source_priorities'][0]['needs_classification']==1
