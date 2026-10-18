@@ -2,7 +2,8 @@ from __future__ import annotations
 
 """Canonical physical-vehicle identity evidence.
 
-VIN/chassis is authoritative.  When it is unavailable we create a deterministic
+Only a full, format-checked VIN can provide a cross-source exact key. When no
+identifier is supplied we create a deterministic
 candidate identity only when enough independent attributes agree.  The key is
 source-agnostic so the same physical car can accumulate multiple provider offers.
 """
@@ -18,24 +19,53 @@ def _norm(value: Any) -> str:
     return re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
 
 
+def normalized_full_vin(value: Any) -> str | None:
+    """Conservative modern VIN syntax, not manufacturer/physical verification.
+
+    Never strip masking or punctuation into a plausible VIN. Do not impose the
+    US check digit on Indian/imported vehicles without manufacturer evidence.
+    """
+    text = str(value or '').strip().upper()
+    if not re.fullmatch(r'[A-HJ-NPR-Z0-9]{17}', text):
+        return None
+    if not re.search(r'[A-Z]', text) or not re.search(r'[0-9]', text):
+        return None
+    if len(set(text)) <= 2 or re.search(r'X{4,}', text):
+        return None
+    return text.lower()
+
+
+def identifier_evidence(v: Vehicle) -> tuple[str | None, dict[str, Any]]:
+    supplied = [('vin', v.vin), ('chassis_number', v.chassis_number)]
+    if isinstance(v.metadata, dict):
+        supplied.extend(('metadata.'+key, v.metadata.get(key)) for key in
+                        ('vin', 'vehicle_identification_number', 'chassis_number'))
+    supplied = [(field, value) for field, value in supplied if str(value or '').strip()]
+    valid = {normalized_full_vin(value) for _, value in supplied}
+    valid.discard(None)
+    provenance = {'identifier_fields': [field for field, _ in supplied],
+                  'identity_policy': 'full-vin-v1'}
+    if len(valid) > 1:
+        return None, {**provenance, 'mode': 'conflict', 'reason': 'conflicting_full_identifiers'}
+    if valid:
+        return 'vin:'+next(iter(valid)), {**provenance, 'mode': 'vin',
+                'validation': 'format_only', 'physical_identity_verified': False}
+    return None, {**provenance, 'mode': 'provisional',
+                  'reason': 'unsupported_or_partial_identifier' if supplied else 'identifier_absent'}
+
+
 def strong_identity(v: Vehicle) -> str | None:
-    for value in (getattr(v, "vin", None), getattr(v, "chassis_number", None)):
-        normalized = _norm(value)
-        if len(normalized) >= 8:
-            return "vin:" + normalized
-    metadata = getattr(v, "metadata", None)
-    if isinstance(metadata, dict):
-        for key in ("vin", "vehicle_identification_number", "chassis_number"):
-            value = _norm(metadata.get(key))
-            if len(value) >= 8:
-                return "vin:" + value
-    return None
+    return identifier_evidence(v)[0]
 
 
 def candidate_identity(v: Vehicle) -> tuple[str | None, float, dict[str, Any]]:
-    strong = strong_identity(v)
+    strong, identifiers = identifier_evidence(v)
     if strong:
-        return strong, 1.0, {"mode": "vin"}
+        return strong, 1.0, identifiers
+    if identifiers['reason'] != 'identifier_absent':
+        # A partial/masked/conflicting identifier cannot become a shared key
+        # indirectly through attribute buckets. Ingestion uses a source offer key.
+        return None, 0.0, identifiers
 
     evidence: dict[str, Any] = {
         "brand": _norm(v.brand),

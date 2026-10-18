@@ -62,7 +62,7 @@ def test_search_ranking_rewards_provider_choice_and_completeness():
 
 def test_vin_is_authoritative_across_sources():
     a,ca,ea=candidate_identity(_v("OEM","https://oem/a",vin="WBA12345678901234"))
-    b,cb,eb=candidate_identity(_v("Marketplace","https://market/b",vin="wba-12345678901234",mileage_km=9900))
+    b,cb,eb=candidate_identity(_v("Marketplace","https://market/b",vin="wba12345678901234",mileage_km=9900))
     assert a == b == "vin:wba12345678901234"
     assert ca == cb == 1.0
     assert ea["mode"] == eb["mode"] == "vin"

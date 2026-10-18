@@ -219,6 +219,15 @@
 
 # CarScanner Changelog
 
+## 2026-10-18 — Full identifier evidence safeguards
+
+- Require complete VIN-form identifiers for exact cross-source identity; partial,
+  masked and conflicting identifiers remain source-offer-scoped and provisional.
+- Preserve identifier provenance and derive ingestion confidence from canonical
+  evidence, without treating parser confidence as confirmed identity.
+- Add a private read-only legacy identity audit and regression coverage; keep
+  real matching benchmarks and reviewed merge/split handling as open gates.
+
 ## 2026-10-18 — Worker-local API overload protection
 
 - Bound WSGI API execution to three concurrent handlers per worker; excess work

@@ -1,5 +1,12 @@
 # CarScanner Architecture
 
+## Identifier evidence
+
+[ADR 022](DECISIONS/022-full-identifier-evidence.md) restricts exact vehicle keys
+to full VIN-form evidence, preserves conflicting/partial identifiers as provisional
+source offers, and adds a private read-only legacy identity audit. Format checking
+is not physical verification; labelled matching and reviewed merge/split remain open.
+
 ## Production HTTP boundary
 
 [ADR 020](DECISIONS/020-production-http-boundary.md) introduces the supervised
