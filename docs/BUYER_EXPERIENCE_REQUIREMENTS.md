@@ -55,6 +55,12 @@ semantic retrieval and national inventory completeness remain separate gates.
 
 ## Remaining product and national-scale gates
 
+Device-local save/share/compare is implemented in ADR 024: five saved searches,
+six car choices, three-car comparison, typed URL restoration and current-offer
+revalidation. Storage is explicitly this-browser only; prices are not persisted.
+These are partial delivery of the buyer/mobile gates below, not verified accounts,
+cross-device sync, alerts or an offline-launchable mobile shell.
+
 | Priority | Requirement | Acceptance evidence required |
 |---|---|---|
 | P0 | More verified marketplace/OEM/dealer coverage across brands and regions | Per-source catalogue traversal/freshness and brand/city coverage measurements; partial/failing scans remain visible |

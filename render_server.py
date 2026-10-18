@@ -10,6 +10,7 @@ from api.catalog import handler as CatalogHandler
 from api.search import handler as SearchHandler
 from api.watch import handler as WatchHandler
 from api.intent import handler as IntentHandler
+from api.shortlist import handler as ShortlistHandler
 
 ROOT = Path(__file__).resolve().parent
 
@@ -29,7 +30,7 @@ class RenderHandler(SimpleHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path == "/api/watch":
             return WatchHandler.do_OPTIONS(self)
-        if path in {"/api/catalog", "/api/search", "/api/intent"}:
+        if path in {"/api/catalog", "/api/search", "/api/intent", "/api/shortlist"}:
             return SearchHandler.do_OPTIONS(self)
         self.send_response(204)
         self.end_headers()
@@ -62,7 +63,7 @@ class RenderHandler(SimpleHTTPRequestHandler):
             return
         if path == "/":
             self.path = "/index.html"
-        elif path != "/index.html":
+        elif path not in {"/index.html", "/buyer_state.js"}:
             return self.send_error(404, "Not found")
         return super().do_GET()
 
@@ -70,6 +71,8 @@ class RenderHandler(SimpleHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path == '/api/intent':
             return IntentHandler.do_POST(self)
+        if path == '/api/shortlist':
+            return ShortlistHandler.do_POST(self)
         if path == "/api/search":
             return SearchHandler.do_POST(self)
         if path == "/api/watch":

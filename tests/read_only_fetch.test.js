@@ -19,7 +19,7 @@ function setup(responses, onFetch = () => {}) {
 }
 
 test('catalogue and read-only search recover from admission overload', async () => {
-  for (const [url, options] of [['/api/catalog?brand=Honda', {}], ['/api/search', { method: 'POST', body: '{}' }]]) {
+  for (const [url, options] of [['/api/catalog?brand=Honda', {}], ['/api/search', { method: 'POST', body: '{}' }], ['/api/shortlist', { method: 'POST', body: '{}' }]]) {
     const fixture = setup([[503, '1'], [200, null]]);
     assert.equal((await fixture.run(url, options)).status, 200);
     assert.equal(fixture.calls(), 2);

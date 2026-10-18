@@ -120,7 +120,7 @@ def _application(environ, start_response):
             adapter.wfile.write(json.dumps({'ok': ready, 'database': 'ready' if ready else 'unavailable'}).encode())
         elif method == 'HEAD':
             # HEAD shares only the static/liveness/version routes, not API work.
-            if path not in {'/', '/index.html', '/health', '/api/version', '/favicon.ico'}:
+            if path not in {'/', '/index.html', '/buyer_state.js', '/health', '/api/version', '/favicon.ico'}:
                 adapter.send_error(405)
             else:
                 adapter.do_GET()
