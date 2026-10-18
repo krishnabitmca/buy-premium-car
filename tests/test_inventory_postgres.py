@@ -126,6 +126,42 @@ def ingest(db,**kwargs):
     return v
 
 
+def test_partial_and_conflicting_identifiers_remain_separate_source_offers(db):
+    from src.canonical_identity import candidate_identity
+    add_source(db)
+    add_source(db,'Other Dealer')
+    first=vehicle(vin='PARTIAL1234',url='https://fixture.invalid/partial/1')
+    second=replace(first,source_name='Other Dealer',url='https://fixture.invalid/partial/2')
+    assert ingest_vehicles([first,second])['observations']==2
+    rows=db.execute("select identity_state,identity_confidence from vehicles").fetchall()
+    assert len(rows)==2
+    assert all(row['identity_state']=='provisional' and row['identity_confidence']==0 for row in rows)
+    assert db.execute('select max(identity_confidence) as n from vehicle_observations').fetchone()['n']==0
+    # Renewing one source preserves its offer identity rather than multiplying it.
+    ingest_vehicles([replace(first,price_lakh=29)])
+    assert db.execute('select count(*) as n from listings').fetchone()['n']==2
+    assert search_inventory(return_count=True)[2]==2
+    conflict=vehicle(url='https://fixture.invalid/conflict/1',
+                     chassis_number='WBA12345678901235')
+    assert candidate_identity(conflict)[2]['mode']=='conflict'
+    ingest_vehicles([conflict])
+    assert db.execute("select count(*) as n from vehicles where identity_state='confirmed'").fetchone()['n']==0
+
+
+def test_identity_audit_reports_legacy_groups_without_rewriting_history(db):
+    from src.identity_audit import audit_identities
+    ingest(db)
+    assert audit_identities()['review_required']==0
+    db.execute("update vehicles set identity_key='vin:partial1234',identity_evidence=%s::jsonb",
+               (json.dumps({'mode':'vin'}),));db.commit()
+    report=audit_identities()
+    assert report['read_only'] and not report['truncated']
+    assert report['invalid_full_vin']==1 and report['review_required']==1
+    assert 'partial1234' not in json.dumps(report)
+    assert db.execute('select identity_key from vehicles').fetchone()['identity_key']=='vin:partial1234'
+    assert db.execute('select count(*) as n from vehicle_observations').fetchone()['n']==1
+
+
 @pytest.mark.parametrize('initial,current,filters',[(30,45,{'budget_max':40}),(45,30,{'budget_min':40})])
 def test_budget_cannot_select_an_older_qualifying_price(db,initial,current,filters):
     v=ingest(db,price_lakh=initial)
