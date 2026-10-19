@@ -63,3 +63,18 @@ remain required; a different model is not evidence of successful service.
 References:
 - https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite
 - https://ai.google.dev/gemini-api/docs/pricing#gemini-3.1-flash-lite
+
+The deployed lightweight model successfully selected cited price/mileage facts.
+An unsupported accident/warranty question completed generation but failed local
+selection validation. Supply a provider JSON schema with exact evidence-ID and
+unknown-category enums, required bounded arrays and no extra properties, including
+an explicit empty-facts abstention path. Retain all local validation: schema
+validity does not prove semantic relevance or physical facts. Never accept or
+silently remap an invented evidence/category ID merely to make generation succeed.
+Reference: https://ai.google.dev/gemini-api/docs/generate-content/structured-output
+
+Use `responseMimeType` plus `responseJsonSchema` on the current generateContent
+request. A counted Gemini 3.1 Flash-Lite request with this schema returned empty
+fact IDs and inspection/warranty unknown codes for a synthetic unsupported
+accident-free/manufacturer-warranty question. This is a narrow provider check,
+not a representative factuality or relevance benchmark.

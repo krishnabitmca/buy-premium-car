@@ -1,5 +1,15 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Constrain evidence-generation output with exact supplied ID/category enums,
+  bounded required arrays, no extra fields and an explicit abstention path after
+  a real unsupported-evidence question failed local validation. Keep local checks
+  and citation rendering; schema conformance is not semantic/physical verification.
+
+- Honor documented Retry-After overload responses for the read-only search POST
+  in production smoke, as the browser already does. Keep a bounded attempt/time
+  budget and all success/partial-coverage assertions; never replay watches/AI or
+  suppress persistent failures and 503 responses without the retry contract.
+
 - Separate the lightweight evidence-selection model from intent interpretation.
   Default the guide to free-tier Gemini 3.1 Flash-Lite/minimal thinking after
   deployed Gemini 3.8 requests still timed out. Keep the existing intent model,

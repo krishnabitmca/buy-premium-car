@@ -57,12 +57,8 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
-          import json, urllib.request
-          url = "https://buy-premium-car1.onrender.com/api/search"
-          req = urllib.request.Request(url, data=json.dumps({"query":"BMW","condition":"both","page_size":10}).encode(), headers={"Cache-Control": "no-cache", "Content-Type":"application/json"})
-          with urllib.request.urlopen(req, timeout=60) as r:
-              assert r.status == 200, r.status
-              p = json.load(r)
+          from scripts.catalog_smoke import post_search
+          p = post_search("https://buy-premium-car1.onrender.com",{"query":"BMW","condition":"both","page_size":10})
           assert p.get("ok") is True, p
           assert p.get("mode") in ("inventory", "inventory_partial"), p.get("mode")
           assert isinstance(p.get("sources"), list), p
