@@ -13,7 +13,11 @@ task on the external executor. Cached public model names remain a bounded 64-bra
 LRU and never establish inventory availability.
 
 Publish observed names before attempting external enrichment. Retain known names
-during errors and use 30-second negative/error backoff. External submission or
+during errors. Use 30-second backoff for a successful empty observed lookup, but
+only one second after a failed database lookup; a timeout does not prove an empty
+catalogue. External empty/error responses must preserve the existing retry deadline
+and known names rather than extending failed observed lookups to 30 seconds.
+External submission or
 fetch failure must release its own pending slot; observed lookup always releases
 its slot even when enrichment cannot be submitted. Keep existing bounded database
 budgets and retryable HTTP warming status. No source activation, inventory write,
@@ -21,5 +25,7 @@ paid resource or thread-count change in Gunicorn.
 
 Tests hold the external queue unexecuted/full and prove Honda/BMW observed metadata
 can still load, alongside single-flight, expiry, failure and HTTP retry checks.
+Additional regressions simulate a failed first observed lookup and require Q5
+to become selectable after one second even if external enrichment is empty/fails.
 This addresses metadata dependency isolation; a provider/database outage can still
 make unseen models unavailable, and no national latency SLA is established.

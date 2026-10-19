@@ -107,6 +107,28 @@ def test_full_external_backlog_does_not_block_observed_model_metadata(monkeypatc
     assert len(catalog._enrichment_pending)==16
 
 
+@pytest.mark.parametrize('external_failure',[False,True])
+def test_transient_observed_lookup_retries_without_thirty_second_empty_cache(monkeypatch,external_failure):
+    clock=[100];calls=[]
+    monkeypatch.setattr(catalog.time,'monotonic',lambda:clock[0])
+    def observed(_):
+        calls.append(1)
+        if len(calls)==1:raise catalog.ObservedCatalogUnavailable()
+        return [{'name':'Q5','catalog_verified':'observed_inventory'}]
+    def external(_):
+        if external_failure:raise RuntimeError('External outage must not extend fast retry')
+        return []
+    monkeypatch.setattr(catalog,'observed_models',observed)
+    monkeypatch.setattr(catalog,'live_models',external)
+    with pytest.raises(catalog.CatalogPending):catalog.catalog_models('Audi')
+    clock[0]=100.5
+    with pytest.raises(catalog.CatalogPending):catalog.catalog_models('Audi')
+    assert len(calls)==1
+    clock[0]=101.1
+    assert catalog.catalog_models('Audi')[0]['name']=='Q5'
+    assert len(calls)==2 and not catalog._model_pending
+
+
 def test_observed_variant_names_also_expose_existing_base_family_normalization():
     rows=catalog._observed_model_names('Mercedes-Benz',[
         {'name':'E Class E 220d'},{'name':'E-Class E 200 Exclusive'}])

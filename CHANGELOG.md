@@ -1,5 +1,10 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Distinguish a failed observed-model lookup from a valid empty catalogue. Retry
+  transient database metadata failures after one second; external enrichment
+  errors/empty responses cannot stretch that into a 30-second empty cache.
+  Keep metadata work asynchronous and bound pending jobs/executors as before.
+
 - Record allowlisted AI evidence failure stages/status categories without prompts,
   provider bodies or credentials, so live provider/selection failures can be
   diagnosed independently of fixture tests.

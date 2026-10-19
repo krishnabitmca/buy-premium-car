@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import logging
 import re
 import threading
 import time
@@ -29,6 +30,10 @@ _brand_refresh_pending=False
 
 
 class CatalogPending(Exception):
+    pass
+
+
+class ObservedCatalogUnavailable(Exception):
     pass
 
 
@@ -76,8 +81,9 @@ def observed_models(brand):
                 order by v.model limit 500""",(brand,))
             rows=[{'name':row['name'],'catalog_verified':'observed_inventory'} for row in cur.fetchall()]
         return _observed_model_names(brand,rows)
-    except Exception:
-        return []
+    except Exception as exc:
+        logging.getLogger(__name__).warning('observed_catalog_failed type=%s',type(exc).__name__)
+        raise ObservedCatalogUnavailable() from None
 
 
 def _observed_model_names(brand,rows):
@@ -110,10 +116,12 @@ def _refresh_models(key,brand,observed):
         if observed:_cache_models(key,observed)
         models=_sanitize_models([*live_models(brand),*observed])
         if models:_cache_models(key,models)
-        else:_cache_models(key,[],ttl=30)
+        else:
+            with _model_cache_lock:previous=_model_cache.get(key)
+            if previous is None:_cache_models(key,[],ttl=30)
     except Exception:
         with _model_cache_lock:previous=_model_cache.get(key)
-        _cache_models(key,previous[1] if previous else [],ttl=30)
+        if previous is None:_cache_models(key,[],ttl=30)
     finally:
         with _model_cache_lock:_enrichment_pending.discard(key)
 
@@ -121,10 +129,11 @@ def _refresh_models(key,brand,observed):
 def _load_observed_models(key,brand):
     # Never queue fast database metadata behind external catalogue transports.
     try:
+        failed=False
         try:observed=_sanitize_models(observed_models(brand))
-        except Exception:observed=[]
+        except Exception:observed=[];failed=True
         with _model_cache_lock:previous=_model_cache.get(key)
-        _cache_models(key,observed or (previous[1] if previous else []),ttl=900 if observed else 30)
+        _cache_models(key,observed or (previous[1] if previous else []),ttl=900 if observed else (1 if failed else 30))
         with _model_cache_lock:
             enrich=key not in _enrichment_pending and len(_enrichment_pending)<16
             if enrich:_enrichment_pending.add(key)
