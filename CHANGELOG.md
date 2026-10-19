@@ -1,5 +1,9 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Serve cheap asynchronous catalogue GETs through the thread reserved outside
+  expensive API admission. Three active searches must not block already-cached
+  brand/model metadata behind repeated Service busy responses.
+
 - Merge external model enrichment atomically into the latest cache. A slow
   completion cannot overwrite newer observed model families/canonical spelling;
   preserve the observed E-Class name over equivalent external E Class metadata.

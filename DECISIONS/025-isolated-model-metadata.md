@@ -30,5 +30,10 @@ to become selectable after one second even if external enrichment is empty/fails
 External completion merges atomically with the latest cached models, preserving
 newer observed family names and their canonical spelling. It must not republish
 the observed snapshot captured when a slow external job was first scheduled.
+Since catalogue GETs perform no synchronous database/provider work, exempt them
+from expensive API admission so the reserved HTTP thread can serve cached names
+and warming responses while three searches are active. Background queue bounds
+still apply. A concurrent regression holds all search slots and checks both brand
+and model catalogue responses without weakening search overload rejection.
 This addresses metadata dependency isolation; a provider/database outage can still
 make unseen models unavailable, and no national latency SLA is established.

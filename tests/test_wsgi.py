@@ -119,6 +119,8 @@ def test_concurrent_api_overload_is_immediate_and_preserves_health(monkeypatch):
         assert release.wait(timeout=5)
         handler.wfile.write(b'ok')
     monkeypatch.setattr('render_server.SearchHandler.do_POST', slow)
+    monkeypatch.setattr('api.catalog.catalog_brands',lambda:[{'name':'Volvo'}])
+    monkeypatch.setattr('api.catalog.catalog_models',lambda _: [{'name':'XC60','slug':'xc60'}])
     class Unreadable:
         def read(self, *_):
             raise AssertionError('Overloaded requests must not read their bodies')
@@ -133,6 +135,9 @@ def test_concurrent_api_overload_is_immediate_and_preserves_health(monkeypatch):
             assert request('/health')['status'] == 200
             assert request('/')['status'] == 200
             assert request('/api/version')['status'] == 200
+            assert request('/api/catalog')['status'] == 200
+            models=request('/api/catalog',QUERY_STRING='brand=Volvo')
+            assert models['status']==200 and b'XC60' in models['body']
             assert request('/api/watch', 'OPTIONS')['status'] == 204
         finally:
             release.set()
