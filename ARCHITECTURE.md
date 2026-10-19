@@ -1,5 +1,18 @@
 # CarScanner Architecture
 
+## Current Phase 1 direction
+
+[ADR 028](DECISIONS/028-phase1-scan-evidence.md) and the
+[Phase 1 plan](docs/PHASE1_EXECUTION.md) supersede historical live-search descriptions
+below. Configured production search reads canonical indexed inventory; legacy live
+paths remain opt-in diagnostics or unconfigured local mode. Ordinary summary
+requests currently use PostgreSQL, bypassing the Elasticsearch trial. Incremental
+publishing and independent serving parity remain open.
+
+Source presence is not complete coverage. Versioned traversal evidence separates
+batch success from exhausted/unverified scope. No current adapter authorizes
+absence reconciliation; durable scan membership and replay remain next work.
+
 ## Saved buyer choices
 
 [ADR 024](DECISIONS/024-device-saved-buyer-journeys.md) adds explicitly device-local

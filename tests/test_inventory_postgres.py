@@ -329,7 +329,9 @@ def test_real_database_rows_reach_http_client_with_multiple_offers(db,monkeypatc
     db.execute('update public.listings set last_verified_at=%s where source_id=(select source_id from public.sources where name=%s)',(old,'Fixture Dealer'))
     db.commit()
     payload=post_search(monkeypatch,{'query':'BMW X1','condition':condition,'budget_max':40,'destination':'Bengaluru'},['Fixture Dealer','Second Dealer'])
-    assert payload['ok'] and payload['mode']=='inventory'
+    assert payload['ok'] and payload['mode']=='inventory_partial'
+    assert payload['coverage']['source_presence_complete']
+    assert not payload['coverage']['completeness_verified']
     assert payload['total_results']==1
     row=payload['results'][0]
     assert isinstance(row['vehicle_id'],str) and isinstance(row['price_lakh'],float)
@@ -359,7 +361,7 @@ def test_scheduler_claim_worker_ingestion_and_http_boundary(db,monkeypatch):
     assert db.execute('select status from public.inventory_refresh_queue').fetchone()['status']=='completed'
     db.commit()
     payload=post_search(monkeypatch,{'query':'BMW X1','condition':'used'},['Fixture Dealer'])
-    assert len(payload['results'])==1 and payload['mode']=='inventory'
+    assert len(payload['results'])==1 and payload['mode']=='inventory_partial'
 
 
 def test_baseline_refresh_covers_non_example_brands_and_all_marketplaces(db,monkeypatch):

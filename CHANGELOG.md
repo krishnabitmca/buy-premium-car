@@ -1,3 +1,12 @@
+## 2026-10-19 — Phase 1 scope and scan evidence
+
+- Reconcile all-brand Phase 1 with the owner’s multidisciplinary mandate; record
+  independent architecture/product/QA findings, dependencies and release gates.
+- Carry versioned traversal generations across checkpoints; restart on scoped
+  parser/config changes. Explicitly deny completeness and absence authority.
+- Separate source presence from coverage: one matching offer per planned source
+  cannot remove partial-coverage disclosure or imply exhaustive inventory.
+
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
 - Constrain evidence-generation output with exact supplied ID/category enums,

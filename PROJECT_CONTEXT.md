@@ -1,11 +1,14 @@
 # CarScanner — Project Context
 
 ## Purpose
-CarScanner is an India-wide automotive search aggregator that helps a buyer discover, compare, and evaluate premium used and demonstrator cars across cities and states.
+CarScanner is an India-wide automotive search aggregator for used and demonstrator cars across brands, models, cities and states. Premium cars are included, not the boundary of supported brands.
 
 It is not a marketplace. CarScanner does not own inventory or replace the original seller. It aggregates evidence and sends the buyer to the original listing/source.
 
 ## Current product direction
+
+The owner’s 19 October mandate makes acquisition, freshness and operations Phase 1
+prerequisites. Follow docs/PHASE1_EXECUTION.md and ADR 028; no new-car search yet.
 The core customer journey is intentionally simple:
 1. What are you looking for? Used / Demonstrator.
 2. Brand.

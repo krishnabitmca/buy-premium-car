@@ -1,81 +1,33 @@
-# CarScanner Roadmap
+# CarScanner roadmap
 
-## Current milestone
+The owner’s 19 October 2026 mandate supersedes the earlier feature sequence.
+Inventory coverage and operational reliability are Phase 1 prerequisites.
+See [Phase 1 execution](docs/PHASE1_EXECUTION.md) for dependencies and acceptance.
 
-Execution order and acceptance gates are tracked in
-[implementation delivery plan](docs/IMPLEMENTATION_DELIVERY_PLAN.md). Existing
-foundation features are not evidence that all launch requirements are complete.
+## Phase 1 — Reliable all-brand used and demo search
 
-### Phase 1 — Simple India-wide search experience
-Status: In progress
+In progress; controlled testing, not national launch acceptance.
 
-Focus:
-- simple first search
-- India-wide inventory scope
-- destination as context, not boundary
-- useful result cards
-- source attribution
-- original listing links
-- evidence-oriented result explanation
+1. Truthful scan/coverage evidence and explicit failure states.
+2. Durable scan membership, parser replay and safe listing lifecycle.
+3. Broader reviewed marketplace/dealer/OEM/demo acquisition driven by measured gaps.
+4. Conservative identity, normalized attributes and condition evidence.
+5. Whole-result filters/counts, consistent projection and stable pagination.
+6. Measured freshness/capacity, recovery, security and observability.
+7. Mobile-first journeys, original seller handoff and independent QA.
 
-## Phase 2 — Inventory coverage
-Goals:
-- expand source adapters
-- improve city/state coverage
-- improve listing freshness
-- normalize seller/source metadata
-- canonical vehicle identity
-- cross-source deduplication
-- coverage dashboard
+Existing saved choices, PWA and constrained AI remain; they do not close inventory
+or operations gates. No new-car acquisition or advanced scoring in this phase.
 
-Success condition: users can search common premium brands/models across materially more of India without the UI needing source-specific logic.
+## Phase 2 — Advanced comparison and price intelligence
 
-## Phase 3 — Vehicle intelligence
-Goals:
-- stronger comparable-market calculations
-- price history
-- trim/variant normalization
-- ownership/mileage/age signals
-- confidence scoring
-- evidence completeness
-- deal explanation
+Evaluated deal scoring, richer comparison and price history after Phase 1 gates.
 
-The system should clearly distinguish observed data from derived conclusions.
+## Phase 3 — New-car discovery
 
-## Phase 4 — Buyer/interstate intelligence
-Goals:
-- destination-aware purchase context
-- estimated travel/logistics effort
-- interstate buying considerations
-- registration/transfer guidance where reliable
-- landed-cost estimation
-- financing/insurance integrations only where they improve the buyer journey
+Dealer inventory, new-car pricing and offers; outside current implementation scope.
 
-## Phase 5 — Personalized monitoring
-Goals:
-- customer Deal Intent
-- saved searches
-- alerts
-- price/listing changes
-- newly discovered matches
-- source freshness monitoring
+## Phase 4 — Sustainable growth
 
-## Phase 6 — PAN-India operational scale
-Goals:
-- broad source coverage
-- reliable scheduled crawling
-- durable inventory storage
-- scalable search
-- monitoring and source health
-- measurable coverage and freshness SLAs
-
-## Prioritization rule
-Prefer work that improves:
-1. Search usefulness
-2. Inventory coverage
-3. Evidence quality
-4. Deal intelligence
-5. Buyer decision support
-6. Operational scale
-
-Avoid adding features simply because they are technically interesting.
+Partnerships, monetization, personalization and scaling informed by demand and
+approved operating costs.
