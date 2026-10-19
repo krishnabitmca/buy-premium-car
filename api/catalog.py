@@ -104,8 +104,13 @@ def _observed_model_names(brand,rows):
     return _sanitize_models([*derived,*rows])
 
 
-def _cache_models(key,models,ttl=900):
+def _cache_models(key,models,ttl=900,*,merge=False):
     with _model_cache_lock:
+        if merge:
+            previous=_model_cache.get(key)
+            # A slow external response must not replace a newer observed lookup
+            # or its canonical family spelling with captured older metadata.
+            models=_sanitize_models([*(previous[1] if previous else []),*models])
         _model_cache[key]=(time.monotonic()+ttl,models)
         _model_cache.move_to_end(key)
         while len(_model_cache)>64:_model_cache.popitem(last=False)
@@ -113,9 +118,8 @@ def _cache_models(key,models,ttl=900):
 
 def _refresh_models(key,brand,observed):
     try:
-        if observed:_cache_models(key,observed)
         models=_sanitize_models([*live_models(brand),*observed])
-        if models:_cache_models(key,models)
+        if models:_cache_models(key,models,merge=True)
         else:
             with _model_cache_lock:previous=_model_cache.get(key)
             if previous is None:_cache_models(key,[],ttl=30)

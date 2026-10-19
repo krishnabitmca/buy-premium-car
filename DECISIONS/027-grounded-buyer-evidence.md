@@ -31,3 +31,20 @@ Real held-out intent/question relevance, multilingual quality and buyer evaluati
 remain open acceptance gates; schema validity alone cannot establish relevance.
 
 Provider reference: https://ai.google.dev/gemini-api/docs/structured-output
+
+Production diagnosis recorded a provider transport TimeoutError at eight seconds.
+For evidence selection on Gemini 3 models, explicitly request supported `low`
+thinking, allow up to 1,500 output tokens and a 15-second transport timeout. The
+browser guide allows 30 seconds for database plus provider work. These are bounded
+configuration budgets, not end-to-end latency guarantees. Intent interpretation
+retains its existing transport settings.
+
+Share one nonblocking optional-AI slot per HTTP worker between interpretation and
+the guide. Reject excess AI requests before database/quota/provider work, release
+the slot on every exit, and retain ordinary search/typed validation capacity.
+The durable 30/day quota still applies across workers and failures. Never retry
+an AI request automatically. Low reasoning is explicitly supported by the current
+Gemini 3.8 model; do not use its unsupported `minimal` setting.
+
+Provider control reference:
+https://ai.google.dev/gemini-api/docs/generate-content/thinking

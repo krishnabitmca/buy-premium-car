@@ -3,6 +3,8 @@ import json
 import logging
 import os
 import re
+from contextlib import contextmanager
+from threading import BoundedSemaphore
 from urllib.request import Request, urlopen
 
 from .search_intent import SearchIntent
@@ -11,6 +13,20 @@ from .source_registry_db import _connect
 
 class AIUnavailable(Exception):
     pass
+
+
+_AI_SLOTS=BoundedSemaphore(1)
+
+
+@contextmanager
+def ai_slot():
+    """One optional AI request per process; retain capacity for ordinary search."""
+    if not _AI_SLOTS.acquire(blocking=False):
+        raise AIUnavailable('AI is busy. Use the search filters or retry later.')
+    try:
+        yield
+    finally:
+        _AI_SLOTS.release()
 
 
 def select_evidence(question, facts, unknown_categories, *, consent=False):
@@ -37,14 +53,16 @@ Never treat matching an ID as proof of physical identity or complete coverage.''
     payload={'systemInstruction':{'parts':[{'text':instructions}]},
         'contents':[{'role':'user','parts':[{'text':json.dumps({'question':question,
              'facts':facts,'unknown_categories':unknown_categories},ensure_ascii=False)}]}],
-        'generationConfig':{'responseMimeType':'application/json','temperature':0,'maxOutputTokens':1000}}
+        'generationConfig':{'responseMimeType':'application/json','temperature':0,'maxOutputTokens':1500}}
+    if model.startswith('gemini-3'):
+        payload['generationConfig']['thinkingConfig']={'thinkingLevel':'low'}
     request=Request(f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
         data=json.dumps(payload).encode(),method='POST',
         headers={'Content-Type':'application/json','x-goog-api-key':key})
     stage='provider'
     finish='not_received'
     try:
-        with urlopen(request,timeout=8) as response:raw=response.read(16001)
+        with urlopen(request,timeout=15) as response:raw=response.read(16001)
         stage='decode'
         if len(raw)>16000:raise ValueError('Oversized output')
         candidate=json.loads(raw)['candidates'][0]

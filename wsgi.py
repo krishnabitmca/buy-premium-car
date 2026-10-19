@@ -80,8 +80,11 @@ class RequestAdapter(RenderHandler):
 
 def application(environ, start_response):
     path = request_path(environ)
-    # OPTIONS and the cheap release endpoint must remain available during overload.
-    guarded = path.startswith('/api/') and path != '/api/version' and environ.get('REQUEST_METHOD') != 'OPTIONS'
+    # Catalogue HTTP only reads bounded metadata/schedules background work.
+    # It must use the spare thread even when expensive searches fill admission.
+    method=environ.get('REQUEST_METHOD')
+    cheap=path=='/api/version' or (path=='/api/catalog' and method=='GET')
+    guarded = path.startswith('/api/') and not cheap and method != 'OPTIONS'
     admitted = not guarded or API_SLOTS.acquire(blocking=False)
     if not admitted:
         payload = b'{"ok":false,"error":"Service busy; please retry"}'

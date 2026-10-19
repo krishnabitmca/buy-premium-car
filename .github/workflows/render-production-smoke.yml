@@ -24,15 +24,12 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
-          import json, urllib.request
+          from scripts.catalog_smoke import get_catalog
 
           base = "https://buy-premium-car1.onrender.com"
 
           def get(path):
-              req = urllib.request.Request(base + path, headers={"Cache-Control": "no-cache"})
-              with urllib.request.urlopen(req, timeout=30) as r:
-                  assert r.status == 200, (path, r.status)
-                  return json.load(r)
+              return get_catalog(base,path)
 
           catalog = get("/api/catalog")
           assert catalog.get("ok") is True

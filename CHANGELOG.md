@@ -1,5 +1,26 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Serve cheap asynchronous catalogue GETs through the thread reserved outside
+  expensive API admission. Three active searches must not block already-cached
+  brand/model metadata behind repeated Service busy responses.
+
+- Merge external model enrichment atomically into the latest cache. A slow
+  completion cannot overwrite newer observed model families/canonical spelling;
+  preserve the observed E-Class name over equivalent external E Class metadata.
+
+- Expand browser QA with Honda City, Hyundai Creta, Mahindra XUV700 and Skoda
+  Octavia across used/demo/both conditions. Record real result counts and preserve
+  partial-coverage disclosure; no assertion invents current demo stock.
+
+- Diagnose live guide failures as eight-second provider transport timeouts. Use
+  supported low reasoning for Gemini 3 evidence selection, a 15-second transport
+  budget and a 30-second browser budget. Share one optional AI slot per worker
+  across interpretation/guide so AI cannot consume all ordinary search slots.
+  Keep durable daily limits and no automatic AI replay.
+- Align production catalogue smoke with the documented 503/Retry-After warming
+  contract. Require eventual HTTP 200 and unchanged model/navigation assertions;
+  fail sustained warming, unsupported retry headers and other failures.
+
 - Distinguish a failed observed-model lookup from a valid empty catalogue. Retry
   transient database metadata failures after one second; external enrichment
   errors/empty responses cannot stretch that into a 30-second empty cache.

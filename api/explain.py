@@ -2,7 +2,7 @@
 from http.server import BaseHTTPRequestHandler
 import logging
 from api.search import _read_json,_response
-from src.buyer_ai import AIUnavailable
+from src.buyer_ai import AIUnavailable,ai_slot
 from src.buyer_evidence import explain_vehicle
 
 
@@ -11,7 +11,8 @@ class handler(BaseHTTPRequestHandler):
         try:
             body=_read_json(self)
             if not isinstance(body,dict):raise ValueError('Expected a JSON object')
-            result=explain_vehicle(body.get('vehicle_id'),body.get('price_basis'),body.get('question'),consent=body.get('consent'))
+            with ai_slot():
+                result=explain_vehicle(body.get('vehicle_id'),body.get('price_basis'),body.get('question'),consent=body.get('consent'))
             return _response(self,200,{'ok':True,**result})
         except ValueError as exc:
             return _response(self,400,{'ok':False,'error':str(exc)})
