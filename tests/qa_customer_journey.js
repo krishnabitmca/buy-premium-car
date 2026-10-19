@@ -11,7 +11,9 @@ const journeys = [
   ["BMW","X5"], ["BMW","3 Series"],
   ["Mercedes-Benz","E-Class"], ["Audi","Q5"],
   ["Volvo","XC60"], ["Porsche","Cayenne"],
-  ["Jaguar","F-Pace"], ["Land Rover","Range Rover"]
+  ["Jaguar","F-Pace"], ["Land Rover","Range Rover"],
+  ["Honda","City"], ["Hyundai","Creta"],
+  ["Mahindra","XUV700"], ["Skoda","Octavia"]
 ];
 const conditions = ["both","used","demo"];
 const budgets = [

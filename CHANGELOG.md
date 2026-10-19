@@ -1,5 +1,9 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Expand browser QA with Honda City, Hyundai Creta, Mahindra XUV700 and Skoda
+  Octavia across used/demo/both conditions. Record real result counts and preserve
+  partial-coverage disclosure; no assertion invents current demo stock.
+
 - Diagnose live guide failures as eight-second provider transport timeouts. Use
   supported low reasoning for Gemini 3 evidence selection, a 15-second transport
   budget and a 30-second browser budget. Share one optional AI slot per worker
