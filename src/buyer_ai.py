@@ -1,5 +1,6 @@
 """Opt-in Gemini interpretation. This service never supplies inventory facts."""
 import json
+import logging
 import os
 import re
 from urllib.request import Request, urlopen
@@ -40,12 +41,17 @@ Never treat matching an ID as proof of physical identity or complete coverage.''
     request=Request(f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
         data=json.dumps(payload).encode(),method='POST',
         headers={'Content-Type':'application/json','x-goog-api-key':key})
+    stage='provider'
+    finish='not_received'
     try:
         with urlopen(request,timeout=8) as response:raw=response.read(16001)
+        stage='decode'
         if len(raw)>16000:raise ValueError('Oversized output')
         candidate=json.loads(raw)['candidates'][0]
+        finish=candidate.get('finishReason') if candidate.get('finishReason') in {'STOP','MAX_TOKENS','SAFETY','RECITATION','OTHER'} else 'other'
         if candidate.get('finishReason')!='STOP':raise ValueError('Incomplete output')
         result=json.loads(''.join(part.get('text','') for part in candidate['content']['parts'] if not part.get('thought')))
+        stage='selection'
         if not isinstance(result,dict) or set(result)!={'fact_ids','unknowns'}:
             raise ValueError('Unexpected output fields')
         for field,allowed in [('fact_ids',{fact['id'] for fact in facts}),('unknowns',set(unknown_categories))]:
@@ -54,7 +60,11 @@ Never treat matching an ID as proof of physical identity or complete coverage.''
                 raise ValueError('Unsupported evidence')
             if len(values)!=len(set(values)):raise ValueError('Duplicate evidence')
         return result
-    except Exception:
+    except Exception as exc:
+        # Allowlisted categories only: never provider bodies, prompts or keys.
+        status=getattr(exc,'code',None)
+        logging.getLogger(__name__).warning('buyer_evidence_selection_failed stage=%s type=%s http_status=%s finish=%s',
+            stage,type(exc).__name__,status if isinstance(status,int) else None,finish)
         raise AIUnavailable('Gemini could not select supported evidence. Read the original offers or retry later.') from None
 
 
