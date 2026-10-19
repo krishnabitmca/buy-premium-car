@@ -1,5 +1,9 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Merge external model enrichment atomically into the latest cache. A slow
+  completion cannot overwrite newer observed model families/canonical spelling;
+  preserve the observed E-Class name over equivalent external E Class metadata.
+
 - Expand browser QA with Honda City, Hyundai Creta, Mahindra XUV700 and Skoda
   Octavia across used/demo/both conditions. Record real result counts and preserve
   partial-coverage disclosure; no assertion invents current demo stock.

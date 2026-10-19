@@ -129,6 +129,20 @@ def test_transient_observed_lookup_retries_without_thirty_second_empty_cache(mon
     assert len(calls)==2 and not catalog._model_pending
 
 
+def test_slow_external_completion_cannot_overwrite_newer_observed_family_names(monkeypatch):
+    key='mercedes-benz'
+    catalog._cache_models(key,[],ttl=1)
+    def delayed_external(_):
+        # A newer fast DB lookup finishes while the external request is running.
+        catalog._cache_models(key,[{'name':'E-Class','catalog_verified':'observed_inventory'}])
+        return [{'name':'E Class'},{'name':'C-Class'}]
+    monkeypatch.setattr(catalog,'live_models',delayed_external)
+    catalog._refresh_models(key,'Mercedes-Benz',[])
+    models=catalog.catalog_models('Mercedes-Benz')
+    assert [row['name'] for row in models]==['C-Class','E-Class']
+    assert next(row for row in models if row['name']=='E-Class')['catalog_verified']=='observed_inventory'
+
+
 def test_observed_variant_names_also_expose_existing_base_family_normalization():
     rows=catalog._observed_model_names('Mercedes-Benz',[
         {'name':'E Class E 220d'},{'name':'E-Class E 200 Exclusive'}])

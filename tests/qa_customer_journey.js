@@ -77,10 +77,15 @@ async function waitSearch(page){
 
 async function selectBrandModel(page,brand,model){
   await page.selectOption("#brand",{label:brand});
-  await page.waitForFunction(({model})=>{
-    const el=document.querySelector("#model");
-    return el&&!el.disabled&&[...el.options].some(o=>o.textContent.trim().toLowerCase()===model.toLowerCase());
-  },{model},{timeout:30000});
+  try{
+    await page.waitForFunction(({model})=>{
+      const el=document.querySelector("#model");
+      return el&&!el.disabled&&[...el.options].some(o=>o.textContent.trim().toLowerCase()===model.toLowerCase());
+    },{model},{timeout:30000});
+  }catch(error){
+    const options=await page.locator('#model option').allTextContents();
+    throw new Error('Model not selectable: '+brand+' / '+model+'; displayed options='+JSON.stringify(options.slice(0,80))+'; '+errText(error));
+  }
   await page.selectOption("#model",{label:model});
 }
 
