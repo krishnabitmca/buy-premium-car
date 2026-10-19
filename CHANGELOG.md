@@ -1,5 +1,11 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Separate the lightweight evidence-selection model from intent interpretation.
+  Default the guide to free-tier Gemini 3.1 Flash-Lite/minimal thinking after
+  deployed Gemini 3.8 requests still timed out. Keep the existing intent model,
+  consent/quota/citation controls and fifteen-second transport limit. Record
+  header-wait versus body-read failure categories without buyer/provider content.
+
 - Serve cheap asynchronous catalogue GETs through the thread reserved outside
   expensive API admission. Three active searches must not block already-cached
   brand/model metadata behind repeated Service busy responses.

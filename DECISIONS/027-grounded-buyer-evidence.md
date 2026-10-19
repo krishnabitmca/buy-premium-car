@@ -48,3 +48,18 @@ Gemini 3.8 model; do not use its unsupported `minimal` setting.
 
 Provider control reference:
 https://ai.google.dev/gemini-api/docs/generate-content/thinking
+
+The live Render request still timed out after explicit low thinking and fifteen
+seconds. Give the simpler evidence-ID selection task its own model setting,
+`CARSCANNER_GEMINI_EVIDENCE_MODEL`, defaulting to Gemini 3.1 Flash-Lite with its
+supported minimal thinking. Retain the existing Gemini 3.8 intent pilot setting.
+Google's current model/pricing documentation identifies Flash-Lite as suitable for
+lightweight, low-latency tasks and offers a free API tier. Reuse the approved free
+project/key and durable cap; do not enable billing or automatic paid fallback.
+Transport remains fifteen seconds. Distinguish response-header wait from body
+read in redacted diagnostics. Real deployed validation and relevance evaluation
+remain required; a different model is not evidence of successful service.
+
+References:
+- https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite
+- https://ai.google.dev/gemini-api/docs/pricing#gemini-3.1-flash-lite
