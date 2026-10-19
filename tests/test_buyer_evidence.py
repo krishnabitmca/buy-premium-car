@@ -70,10 +70,12 @@ def test_unsafe_or_credential_bearing_links_never_enter_registry(link):
 
 def configured(monkeypatch,output):
     monkeypatch.setenv('CARSCANNER_AI_ENABLED','true');monkeypatch.setenv('GEMINI_API_KEY','synthetic-not-secret')
+    monkeypatch.delenv('CARSCANNER_GEMINI_EVIDENCE_MODEL',raising=False)
     calls=[];monkeypatch.setattr(buyer_ai,'reserve_call',lambda:calls.append('quota'))
     def provider(req,timeout):
         assert timeout==15 and 'key=' not in req.full_url
-        assert json.loads(req.data)['generationConfig']['thinkingConfig']=={'thinkingLevel':'low'}
+        assert '/gemini-3.1-flash-lite:generateContent' in req.full_url
+        assert json.loads(req.data)['generationConfig']['thinkingConfig']=={'thinkingLevel':'minimal'}
         assert req.get_header('X-goog-api-key')=='synthetic-not-secret'
         assert calls==['quota']
         return io.BytesIO(json.dumps({'candidates':[{'finishReason':'STOP','content':{
@@ -143,3 +145,18 @@ def test_busy_optional_ai_rejects_before_database_or_quota_and_releases_after_er
     with pytest.raises(RuntimeError):
         with buyer_ai.ai_slot():raise RuntimeError('release this slot')
     with buyer_ai.ai_slot():pass
+
+
+def test_evidence_model_setting_does_not_change_intent_model_and_respects_supported_thinking(monkeypatch):
+    monkeypatch.setenv('CARSCANNER_AI_ENABLED','true');monkeypatch.setenv('GEMINI_API_KEY','synthetic-not-secret')
+    monkeypatch.setenv('CARSCANNER_GEMINI_MODEL','gemini-3.8-flash')
+    monkeypatch.setenv('CARSCANNER_GEMINI_EVIDENCE_MODEL','gemini-3.8-flash')
+    monkeypatch.setattr(buyer_ai,'reserve_call',lambda:None)
+    def provider(req,timeout):
+        assert '/gemini-3.8-flash:generateContent' in req.full_url
+        assert json.loads(req.data)['generationConfig']['thinkingConfig']=={'thinkingLevel':'low'}
+        return io.BytesIO(json.dumps({'candidates':[{'finishReason':'STOP','content':{
+            'parts':[{'text':'{"fact_ids":["s1.price"],"unknowns":[]}'}]}}]}).encode())
+    monkeypatch.setattr(buyer_ai,'urlopen',provider)
+    result=buyer_ai.select_evidence('Price?',[{'id':'s1.price','text':'37'}],list(evidence.UNKNOWNS),consent=True)
+    assert result['fact_ids']==['s1.price']

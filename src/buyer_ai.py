@@ -36,7 +36,7 @@ def select_evidence(question, facts, unknown_categories, *, consent=False):
     if os.getenv('CARSCANNER_AI_ENABLED','false').lower() != 'true':
         raise AIUnavailable('AI testing is not enabled. Read the recorded offers instead.')
     key=os.getenv('GEMINI_API_KEY','')
-    model=os.getenv('CARSCANNER_GEMINI_MODEL','gemini-3.8-flash')
+    model=os.getenv('CARSCANNER_GEMINI_EVIDENCE_MODEL','gemini-3.1-flash-lite')
     if not key or not re.fullmatch(r'gemini-[a-z0-9.-]+',model):
         raise AIUnavailable('AI configuration is unavailable. Read the recorded offers instead.')
     reserve_call()
@@ -55,14 +55,17 @@ Never treat matching an ID as proof of physical identity or complete coverage.''
              'facts':facts,'unknown_categories':unknown_categories},ensure_ascii=False)}]}],
         'generationConfig':{'responseMimeType':'application/json','temperature':0,'maxOutputTokens':1500}}
     if model.startswith('gemini-3'):
-        payload['generationConfig']['thinkingConfig']={'thinkingLevel':'low'}
+        payload['generationConfig']['thinkingConfig']={'thinkingLevel':
+            'minimal' if model=='gemini-3.1-flash-lite' else 'low'}
     request=Request(f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
         data=json.dumps(payload).encode(),method='POST',
         headers={'Content-Type':'application/json','x-goog-api-key':key})
-    stage='provider'
+    stage='headers'
     finish='not_received'
     try:
-        with urlopen(request,timeout=15) as response:raw=response.read(16001)
+        with urlopen(request,timeout=15) as response:
+            stage='body'
+            raw=response.read(16001)
         stage='decode'
         if len(raw)>16000:raise ValueError('Oversized output')
         candidate=json.loads(raw)['candidates'][0]
