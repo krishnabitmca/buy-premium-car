@@ -4,11 +4,30 @@ Updated 19 October 2026, Asia/Kolkata. Read AGENTS.md and CARSCANNER_PROFILE.md 
 
 ## Current task
 
-Save owner-requested team/product/state memory and configure same-chat recurring
-continuation. Documentation branch: docs/carscanner-team-memory, based on verified
-application main 5921c87f616eeb705dde9b0b01a5d397856aa6ae. These memory documents
-are not themselves a new application release. Check git status/current branch
-and remote PR state rather than assuming a clean main checkout.
+Team/product/state memory is now merged through PR 72, documentation commit
+1f92638659c962506b67bd1fed4be1e05757aa9a, with all branch CI checks passing.
+Application runtime remains the last verified 5921c87 release; documentation
+merge explicitly skips Render. Local main/origin-main synchronized to 1f926386.
+
+P1-02 backend and independent QA design review completed on 19 October, 15:30 IST.
+Reviewed implementation LLD and adversarial acceptance are saved in
+../../outputs/P1_02_SCAN_LEDGER_LLD_2026-10-19.md. No schema or app implementation
+has been made. Exact next action: prepare the CLI-generated additive migration
+and transaction-local accepted-observation collector according to that design.
+Membership must use IDs actually persisted by ingestion, never raw parser rows.
+Current local WORK_CHECKPOINT.md update is an intentional agent-owned operational
+note after the memory merge; preserve it when creating the P1-02 feature branch.
+
+19 October continuation: branch feat/accepted-observation-membership now implements
+the optional accepted-observation collector prerequisite in inventory_ingestion.py
+and inventory_lifecycle.py. Actual RETURNING IDs only, staged publication, default
+count API preserved. Independent backend/QA diff review approved this limited
+scope; QA independently ran five ingestion unit tests. Coordinator focused tests:
+13 passed. Six real PostgreSQL acceptance tests were added; verification is underway.
+docs/SCAN_MEMBERSHIP.md describes the boundary. No ledger/migration/worker activation
+or parser replay exists yet; P1-02 remains open. Publish/reconcile this branch's
+PR/CI before adding schema work. Supabase CLI not on PATH; migration tooling needs
+resolution before generating filenames. No production schema or credentials changed.
 
 Active same-chat continuation: continue-carscanner-phase-1, hourly. It was created
 successfully in the app on 19 October 2026. Reuse/update it instead of duplicating.

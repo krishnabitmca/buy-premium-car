@@ -11,8 +11,12 @@ from . import crawl_leases
 from .listing_evidence import fetch_listing,structured_evidence
 
 
-def retire_catalogue_evidence(evidence,source_name,observed_at,conn):
+def retire_catalogue_evidence(evidence,source_name,observed_at,conn,*,_accepted_observations=None):
+    """Stage exact negative-write identities; caller discards them on rollback."""
+    from .inventory_ingestion import AcceptedObservation
     retired=0
+    accepted=[]
+    returning = ' returning observation_id' if _accepted_observations is not None else ''
     with conn.cursor() as cur:
         for item in evidence:
             cur.execute("""update listings l set status=%s,last_seen_at=now()
@@ -22,9 +26,14 @@ def retire_catalogue_evidence(evidence,source_name,observed_at,conn):
                 ('sold' if item['reason'].startswith('sold') else 'removed',source_name,item['url'],observed_at))
             for row in cur.fetchall():
                 cur.execute("""insert into vehicle_observations(vehicle_id,listing_id,source_id,observed_at,
-                    live_verified,data_consistent,sold_signal,snapshot) values(%s,%s,%s,now(),false,true,true,%s::jsonb)""",
+                    live_verified,data_consistent,sold_signal,snapshot) values(%s,%s,%s,now(),false,true,true,%s::jsonb)""" + returning,
                     (row['vehicle_id'],row['listing_id'],row['source_id'],json.dumps(item)))
+                if _accepted_observations is not None:
+                    accepted.append(AcceptedObservation(row['source_id'],row['listing_id'],
+                        cur.fetchone()['observation_id'],'explicit_negative'))
                 retired+=1
+    if _accepted_observations is not None:
+        _accepted_observations.extend(accepted)
     return retired
 
 

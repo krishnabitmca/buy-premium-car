@@ -5,9 +5,21 @@ from __future__ import annotations
 import hashlib
 import json
 from contextlib import nullcontext
+from dataclasses import dataclass
+from typing import Literal
+from uuid import UUID
 from .models import Vehicle
 from .source_registry_db import _connect, enabled
 from .canonical_identity import candidate_identity
+
+
+@dataclass(frozen=True)
+class AcceptedObservation:
+    """A persisted write identity, not proof of customer eligibility or availability."""
+    source_id: UUID
+    listing_id: UUID
+    observation_id: int
+    evidence_kind: Literal['positive', 'explicit_negative']
 
 
 def _listing_key(v: Vehicle) -> str:
@@ -18,10 +30,19 @@ def _listing_key(v: Vehicle) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def ingest_vehicles(vehicles: list[Vehicle], *, _connection=None) -> dict[str,int]:
+def ingest_vehicles(vehicles: list[Vehicle], *, _connection=None,
+                    _accepted_observations: list[AcceptedObservation] | None = None) -> dict[str,int]:
+    """Optionally collect exact inserted identities for a caller-owned transaction.
+
+    Records are staged until this function succeeds (and commits if it owns the
+    connection). With a supplied connection, callers must discard the collector
+    if their enclosing transaction rolls back; never publish it before commit.
+    """
     if not enabled() or not vehicles:
         return {"vehicles":0,"listings":0,"observations":0}
     counts={"vehicles":0,"listings":0,"observations":0}
+    accepted=[]
+    returning = ' returning observation_id' if _accepted_observations is not None else ''
     with (nullcontext(_connection) if _connection is not None else _connect()) as conn,conn.cursor() as cur:
         for v in vehicles:
             # Explicit negative evidence updates an existing offer, even if its
@@ -44,11 +65,14 @@ def ingest_vehicles(vehicles: list[Vehicle], *, _connection=None) -> dict[str,in
                         """insert into public.vehicle_observations
                            (vehicle_id,listing_id,source_id,observed_at,price_lakh,
                             live_verified,data_consistent,sold_signal,snapshot)
-                           values (%s,%s,%s,now(),%s,false,%s,true,%s)""",
+                           values (%s,%s,%s,now(),%s,false,%s,true,%s)""" + returning,
                         (listing["vehicle_id"],listing["listing_id"],listing["source_id"],v.price_lakh,
                          bool(v.data_consistent),json.dumps({"url":v.url,"final_url":v.final_url,
                                                             "verification_notes":v.verification_notes})),
                     )
+                    if _accepted_observations is not None:
+                        accepted.append(AcceptedObservation(listing['source_id'], listing['listing_id'],
+                            cur.fetchone()['observation_id'], 'explicit_negative'))
                     counts["listings"]+=1; counts["observations"]+=1
                 continue
             if not v.live_verified or v.price_lakh is None or not v.brand or not v.model:
@@ -129,13 +153,18 @@ def ingest_vehicles(vehicles: list[Vehicle], *, _connection=None) -> dict[str,in
                    (vehicle_id,listing_id,source_id,observed_at,price_lakh,mileage_km,owner_count,
                     manufacture_year,registration_year,seller_city,seller_state,registration_state,
                     live_verified,data_consistent,sold_signal,identity_confidence,snapshot)
-                   values (%s,%s,%s,now(),%s,%s,%s,%s,%s,%s,%s,%s,true,%s,false,%s,%s)""",
+                   values (%s,%s,%s,now(),%s,%s,%s,%s,%s,%s,%s,%s,true,%s,false,%s,%s)""" + returning,
                 (vehicle_id,listing_id,source_id,v.price_lakh,v.mileage_km,v.owner_count,
                  v.year_manufacture,v.year_registration,v.seller_city,v.seller_state,v.registration_state,
                  bool(v.data_consistent),identity_confidence,
                  json.dumps({"url":v.url,"final_url":v.final_url,"title":v.title,"source":v.source_name,
                   "condition":v.condition_signal,"identity_evidence":evidence,"vin":v.vin,"chassis_number":v.chassis_number,
                   "source_listing_id":v.source_listing_id,"price_basis":v.price_basis,"body_type":v.body_type})))
+            if _accepted_observations is not None:
+                accepted.append(AcceptedObservation(source_id, listing_id,
+                    cur.fetchone()['observation_id'], 'positive'))
             counts["observations"]+=1
         if _connection is None:conn.commit()
+    if _accepted_observations is not None:
+        _accepted_observations.extend(accepted)
     return counts

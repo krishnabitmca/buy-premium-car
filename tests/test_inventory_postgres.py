@@ -126,6 +126,92 @@ def ingest(db,**kwargs):
     return v
 
 
+def test_accepted_observations_are_actual_inserted_ids_not_parser_membership(db):
+    add_source(db)
+    accepted=[]
+    row=vehicle()
+    counts=ingest_vehicles([row,replace(row,live_verified=False),
+        replace(row,source_name='Unknown Source'),replace(row,price_lakh=None),
+        replace(row,brand=None),replace(row,data_consistent=False)],_accepted_observations=accepted)
+    assert counts=={'vehicles':2,'listings':2,'observations':2}
+    assert len(accepted)==2
+    assert accepted[0].listing_id==accepted[1].listing_id
+    assert accepted[0].observation_id!=accepted[1].observation_id
+    for record in accepted:
+        persisted=db.execute('select source_id,listing_id from vehicle_observations where observation_id=%s',
+            (record.observation_id,)).fetchone()
+        assert persisted=={'source_id':record.source_id,'listing_id':record.listing_id}
+        assert record.evidence_kind=='positive'
+
+
+def test_accepted_identity_survives_stock_id_adoption_and_tracks_negatives(db):
+    add_source(db)
+    accepted=[];row=vehicle()
+    ingest_vehicles([row],_accepted_observations=accepted)
+    ingest_vehicles([replace(row,source_listing_id='stable-id',price_lakh=31)],_accepted_observations=accepted)
+    assert len(accepted)==2 and accepted[0].listing_id==accepted[1].listing_id
+    sold=replace(row,source_listing_id='stable-id',sold_signal=True,live_verified=False,price_lakh=None)
+    assert ingest_vehicles([sold],_accepted_observations=accepted)['observations']==1
+    assert accepted[-1].evidence_kind=='explicit_negative'
+    assert db.execute('select sold_signal from vehicle_observations where observation_id=%s',
+        (accepted[-1].observation_id,)).fetchone()['sold_signal']
+    before=list(accepted)
+    assert ingest_vehicles([replace(sold,source_listing_id='missing')],_accepted_observations=accepted)['observations']==0
+    assert accepted==before
+
+
+def test_ingestion_failure_rolls_back_writes_and_publishes_no_partial_collector(db):
+    add_source(db);accepted=[];row=vehicle()
+    # The first observation is written before the second row's payload fails.
+    with pytest.raises(TypeError):
+        ingest_vehicles([row,replace(row,url='https://fixture.invalid/car/2',verification_notes=object())],
+                        _accepted_observations=accepted)
+    assert accepted==[]
+    assert db.execute('select count(*) as n from vehicle_observations').fetchone()['n']==0
+
+
+def test_caller_owned_collector_is_provisional_until_transaction_commit(db):
+    add_source(db);accepted=[]
+    ingest_vehicles([vehicle()],_connection=db,_accepted_observations=accepted)
+    assert len(accepted)==1
+    db.rollback()
+    assert db.execute('select count(*) as n from vehicle_observations').fetchone()['n']==0
+    # A caller must discard provisional identities after rolling back.
+    accepted.clear()
+
+
+def test_catalogue_negative_collector_obeys_freshness_fence(db):
+    from src.inventory_lifecycle import retire_catalogue_evidence
+    row=ingest(db);accepted=[]
+    evidence=[{'url':row.url,'reason':'sold_on_card'}]
+    assert retire_catalogue_evidence(evidence,row.source_name,datetime.now(timezone.utc)-timedelta(days=1),
+                                    db,_accepted_observations=accepted)==0
+    assert accepted==[]
+    assert retire_catalogue_evidence(evidence,row.source_name,datetime.now(timezone.utc),
+                                    db,_accepted_observations=accepted)==1
+    db.commit()
+    assert len(accepted)==1 and accepted[0].evidence_kind=='explicit_negative'
+    assert db.execute('select listing_id,source_id from vehicle_observations where observation_id=%s',
+        (accepted[0].observation_id,)).fetchone()=={
+            'listing_id':accepted[0].listing_id,'source_id':accepted[0].source_id}
+
+
+def test_catalogue_failure_preserves_collector_and_rollback_restores_offers(db):
+    from src.inventory_lifecycle import retire_catalogue_evidence
+    add_source(db);accepted=[];first=vehicle();second=replace(first,url='https://fixture.invalid/car/2')
+    ingest_vehicles([first,second],_accepted_observations=accepted)
+    before=list(accepted)
+    evidence=[{'url':first.url,'reason':'sold_on_card'},
+              {'url':second.url,'reason':'sold_on_card','unsupported':object()}]
+    with pytest.raises(TypeError):
+        retire_catalogue_evidence(evidence,first.source_name,datetime.now(timezone.utc),
+                                  db,_accepted_observations=accepted)
+    assert accepted==before
+    db.rollback()
+    assert db.execute('select count(*) as n from vehicle_observations').fetchone()['n']==2
+    assert {row['status'] for row in db.execute('select status from listings').fetchall()}=={'active'}
+
+
 def test_partial_and_conflicting_identifiers_remain_separate_source_offers(db):
     from src.canonical_identity import candidate_identity
     add_source(db)
