@@ -45,6 +45,12 @@ Detailed evidence: docs/PHASE1_EXECUTION.md; sibling workspace report
 
 ## Open gates and next dependency
 
+P1-02 collector prerequisite is under implementation/review on
+feat/accepted-observation-membership: exact inserted observation IDs can be
+collected privately without changing existing count-only callers. No current
+worker consumes this seam; no ledger tables, replay capture or production
+activation have been delivered. See WORK_CHECKPOINT.md for current validation.
+
 P1-01 initial evidence contract delivered; complete feature remains broader.
 Next P1-02: durable scan generations/membership and bounded parser replay evidence.
 Then P1-03 reviewed source-specific enumeration. P1-04 source breadth/demo feeds

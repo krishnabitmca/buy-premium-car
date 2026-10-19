@@ -1,3 +1,13 @@
+## 2026-10-19 — Accepted observation identities for future scan membership
+
+- Add optional transaction-local collection of actual source/listing/observation
+  IDs from accepted positive and explicit negative writes, without changing the
+  default count API. Stage results until successful completion; caller-owned
+  transaction records remain provisional and must be discarded on rollback.
+- Verify rejection, repeated observations, stock-ID adoption, sold/freshness fences
+  and failed-write/commit behavior. No ledger table, parser replay capture,
+  worker activation, completeness authority or inventory expansion is delivered.
+
 ## 2026-10-19 — Phase 1 scope and scan evidence
 
 - Reconcile all-brand Phase 1 with the owner’s multidisciplinary mandate; record
