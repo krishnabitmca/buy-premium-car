@@ -1,5 +1,18 @@
 # CarScanner AI Development Instructions
 
+## Persistent team profile and continuation memory
+
+At the start of every CarScanner session or scheduled continuation, read
+CARSCANNER_PROFILE.md, CURRENT_STATE.md and WORK_CHECKPOINT.md before choosing work.
+Follow the team review responsibilities and product mandate in the profile.
+Refresh state/checkpoint after meaningful work and before stopping. Saved state
+is dated evidence, not proof of current deployment or inventory; verify changes.
+Continue the highest-priority unblocked Phase 1 dependency without asking for
+permission already granted. Preserve unfinished user changes. No paid activation,
+credential expansion or outbound customer messages without required authorization.
+Checkpoint before usage/context exhaustion when possible; rely on the existing
+continuation schedule rather than creating duplicate reminders on every stop.
+
 ## Before changing code
 Read:
 - PROJECT_CONTEXT.md
