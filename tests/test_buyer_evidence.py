@@ -72,7 +72,8 @@ def configured(monkeypatch,output):
     monkeypatch.setenv('CARSCANNER_AI_ENABLED','true');monkeypatch.setenv('GEMINI_API_KEY','synthetic-not-secret')
     calls=[];monkeypatch.setattr(buyer_ai,'reserve_call',lambda:calls.append('quota'))
     def provider(req,timeout):
-        assert timeout==8 and 'key=' not in req.full_url
+        assert timeout==15 and 'key=' not in req.full_url
+        assert json.loads(req.data)['generationConfig']['thinkingConfig']=={'thinkingLevel':'low'}
         assert req.get_header('X-goog-api-key')=='synthetic-not-secret'
         assert calls==['quota']
         return io.BytesIO(json.dumps({'candidates':[{'finishReason':'STOP','content':{
@@ -127,3 +128,18 @@ def test_provider_diagnostics_never_log_prompt_key_or_raw_output(monkeypatch,cap
     assert 'stage=selection' in caplog.text and 'finish=STOP' in caplog.text
     for private in ['synthetic-not-secret','private question text','invented-private-value']:
         assert private not in caplog.text
+
+
+def test_busy_optional_ai_rejects_before_database_or_quota_and_releases_after_errors(monkeypatch):
+    monkeypatch.setattr(evidence,'search_inventory',lambda **k:pytest.fail('Busy AI must not read database'))
+    with buyer_ai.ai_slot():
+        response=request('/api/explain','POST',json.dumps({'vehicle_id':IDENTIFIER,'price_basis':'asking','question':'Price?','consent':True}).encode())
+        assert response['status']==503 and b'AI is busy' in response['body']
+        response=request('/api/intent','POST',json.dumps({'prompt':'BMW under 40 lakh','consent':True}).encode())
+        assert response['status']==503 and b'AI is busy' in response['body']
+        # Typed filter validation and regular routes remain independent of AI.
+        response=request('/api/intent','POST',b'{"validate_only":true,"query":"BMW"}')
+        assert response['status']==200 and request('/health')['status']==200
+    with pytest.raises(RuntimeError):
+        with buyer_ai.ai_slot():raise RuntimeError('release this slot')
+    with buyer_ai.ai_slot():pass

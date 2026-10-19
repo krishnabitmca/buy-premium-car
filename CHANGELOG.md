@@ -1,5 +1,14 @@
 ## 2026-10-18 — Continuous discovery, renewal and expiry lifecycle
 
+- Diagnose live guide failures as eight-second provider transport timeouts. Use
+  supported low reasoning for Gemini 3 evidence selection, a 15-second transport
+  budget and a 30-second browser budget. Share one optional AI slot per worker
+  across interpretation/guide so AI cannot consume all ordinary search slots.
+  Keep durable daily limits and no automatic AI replay.
+- Align production catalogue smoke with the documented 503/Retry-After warming
+  contract. Require eventual HTTP 200 and unchanged model/navigation assertions;
+  fail sustained warming, unsupported retry headers and other failures.
+
 - Distinguish a failed observed-model lookup from a valid empty catalogue. Retry
   transient database metadata failures after one second; external enrichment
   errors/empty responses cannot stretch that into a 30-second empty cache.

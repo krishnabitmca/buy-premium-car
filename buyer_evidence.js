@@ -20,7 +20,7 @@
       try{
         const response=await fetch('/api/explain',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({vehicle_id:car.vehicle_id,price_basis:car.price_basis||'unspecified',question:question.value,consent:true}),
-          signal:AbortSignal.timeout(12000)});
+          signal:AbortSignal.timeout(30000)});
         const data=await response.json();
         if(!response.ok||!data.ok)throw Error(data.error||'AI evidence is unavailable. Read the original offers.');
         if(!section.isConnected)return;
