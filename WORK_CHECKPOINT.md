@@ -1,72 +1,85 @@
 # CarScanner continuation checkpoint
 
-Updated 19 October 2026, Asia/Kolkata. Read AGENTS.md and CARSCANNER_PROFILE.md first.
+Updated 19 October 2026, evening IST. Read AGENTS.md, CARSCANNER_PROFILE.md,
+CURRENT_STATE.md and required product/architecture/decision documents first.
 
-## Current task
+## Actual repository and application state
 
-Team/product/state memory is now merged through PR 72, documentation commit
-1f92638659c962506b67bd1fed4be1e05757aa9a, with all branch CI checks passing.
-Application runtime remains the last verified 5921c87 release; documentation
-merge explicitly skips Render. Local main/origin-main synchronized to 1f926386.
+Main and origin/main synchronized to c51e6174aca2139671238200af370931dc485d66.
+PR 72 saved the team/product/state memory. PR 73 delivered the optional private
+accepted-observation collector prerequisite for P1-02. No worker uses it yet;
+no durable membership tables, parser replay capture or absence authority exists.
 
-P1-02 backend and independent QA design review completed on 19 October, 15:30 IST.
-Reviewed implementation LLD and adversarial acceptance are saved in
-../../outputs/P1_02_SCAN_LEDGER_LLD_2026-10-19.md. No schema or app implementation
-has been made. Exact next action: prepare the CLI-generated additive migration
-and transaction-local accepted-observation collector according to that design.
-Membership must use IDs actually persisted by ingestion, never raw parser rows.
-Current local WORK_CHECKPOINT.md update is an intentional agent-owned operational
-note after the memory merge; preserve it when creating the P1-02 feature branch.
+Render dep-dbb2ih1srm7s73b1kmdg became live 19 October 20:00:15 IST on c51e617.
+Production smoke run 39269400141 and deployed QA run 39269400218 passed.
+QA: 61/61, no browser errors, job 118117421792. Main Tests and Verification passed.
+Exact PR branch CI: 1,242 unit, 78 integration and 15 browser tests passed.
+Independent backend/QA reviews approved; PM accepted this prerequisite scope only.
+PM requested consolidating this checkpoint; obsolete stage claims are now removed.
 
-19 October continuation: branch feat/accepted-observation-membership now implements
-the optional accepted-observation collector prerequisite in inventory_ingestion.py
-and inventory_lifecycle.py. Actual RETURNING IDs only, staged publication, default
-count API preserved. Independent backend/QA diff review approved this limited
-scope; QA independently ran five ingestion unit tests. Coordinator focused tests:
-13 passed. Six real PostgreSQL acceptance tests were added; verification is underway.
-docs/SCAN_MEMBERSHIP.md describes the boundary. No ledger/migration/worker activation
-or parser replay exists yet; P1-02 remains open. Publish/reconcile this branch's
-PR/CI before adding schema work. Supabase CLI not on PATH; migration tooling needs
-resolution before generating filenames. No production schema or credentials changed.
+Local focused tests: 13 passed; independent ingestion unit checks: five passed.
+Local PostgreSQL tests were blocked by WinError 10013 and are not counted passing.
+Dedicated initdb completed; pg_ctl cleanup found no live server process. Preserve
+../postgres-membership-test for inspection, rather than deleting it.
 
-Active same-chat continuation: continue-carscanner-phase-1, hourly. It was created
-successfully in the app on 19 October 2026. Reuse/update it instead of duplicating.
-It retries at its schedule when execution is available, not an exact quota-reset
-event. Local work requires the computer on, the app running and repository access.
+Only this checkpoint and CURRENT_STATE.md may have intentional uncommitted agent
+operational updates after the merge. Inspect actual git status; preserve user edits.
+No schema, credentials, paid services or customer notifications changed.
 
-## Resume engineering at P1-02
+## Exact next task — P1-02 durable ledger
 
-1. Inspect current branch/diff, latest main, docs/PHASE1_EXECUTION.md, ADR 028,
-   src/scan_contract.py, src/source_adapters.py and src/inventory_refresh_worker.py.
-2. Define the small schema/LLD for durable scan generations and listing membership,
-   bounded retained parser evidence and versioned replay. Reuse fenced canonical
-   ingestion/checkpoint transactions; do not hold transactions during network I/O.
-3. Test crash/retry/late claims/config changes and overlapping scopes. No partial,
-   failed or exhausted-unverified scan may remove stock or imply sold/completeness.
-4. Obtain independent backend/QA review, focused PR and actual runtime verification.
-   Keep PostgreSQL serving safety; do not add paid services or enable blanket absence.
-5. Update CURRENT_STATE.md and this checkpoint with exact changes, evidence and
-   unresolved work before moving to P1-03/P1-04.
+1. Create a focused feature branch from current main, preserving operational notes.
+2. Read docs/SCAN_MEMBERSHIP.md, src/scan_contract.py, inventory_ingestion.py,
+   inventory_lifecycle.py and inventory_refresh_worker.py. The reviewed LLD and
+   adversarial matrix are in ../../outputs/P1_02_SCAN_LEDGER_LLD_2026-10-19.md.
+3. Use the verified cached Supabase CLI 2.81.3:
+   ../npm-cache/_npx/5472f65ac9020734/node_modules/supabase/bin/supabase.exe
+   Its --version and migration new --help passed. Generate the additive migration
+   with this CLI; never invent filenames. The newer cached CLI fails creating
+   a user-profile config directory; no HOME override or permission expansion needed.
+4. Implement private source-consistent generation, stable claim/batch and accepted
+   observation membership records, using actual IDs from the new collector.
+   Wire inside the existing post-HTTP claimed transaction with canonical writes
+   and checkpoint. Keep provisional IDs transaction-local and discard on rollback.
+5. Test atomic rollback, late/superseded claims, commit replay, overlapping scopes,
+   config/version restart, legacy partial history, repeated observations and source
+   mismatch. Exhausted/partial/failed scans never authorize omission-as-sold.
+6. Add bounded retained sanitized parser evidence/offline replay for one reviewed
+   strategy, explicit unsupported/truncated states and safe retention. No raw
+   session/bootstrap/credential capture and no historical re-ingestion as live.
+7. Run real disposable PostgreSQL checks (CI works), security review/advisors and
+   independent backend/QA review. Deploy schema before enabling worker use, verify
+   actual operation separately, then update this checkpoint and application state.
 
-P1-02 has not been implemented yet. Do not claim saved metadata is durable membership.
-Use relevant Supabase/Postgres skills before schema work; CLI-generated migration
-names and review/security checks are required by applicable skill instructions.
+P1-02 remains incomplete. Do not repeat the collector implementation or claim it
+is the ledger. P1-03 enumeration and P1-04 measured source expansion remain next.
 
-## Local execution references
+## Runtime and continuation references
 
-Repo: work/buy-premium-car under this chat workspace. Local Python test runtime:
-../test-env/Scripts/python.exe -X utf8. Set TEMP and TMP to ../test-temp.
-No local Playwright installed in this runtime; Linux CI runs browser and disposable
-PostgreSQL integration checks. Existing ignored .env may hold approved credentials;
-never print, copy into memory, or commit it. Local DB/preview health needs rechecking.
-GitHub connector is available for publishing; do not assume shell network permission.
+Local Python: ../test-env/Scripts/python.exe -X utf8; TEMP/TMP: ../test-temp.
+Local preview/DB health must be checked; open tabs do not prove working services.
+Linux CI runs disposable PostgreSQL/Redis and browser checks. Existing ignored
+.env contains approved secrets; never print or commit it. GitHub connector works.
 
-## Stop/resume rules
+Active same-chat hourly continuation: continue-carscanner-phase-1. Reuse it; do
+not create duplicates. Scheduled retries require available execution, computer on,
+app running and repository access; no exact quota-reset restart guarantee.
+Keep infrastructure free and alerts dry-run. Save exact branch/files/test/CI/deploy
+state after meaningful work and before stopping when possible. Respect owner
+pause/cancel; do not overlap writers or bypass approval/usage limits. Stay quiet
+on unchanged non-actionable state and report meaningful changes or needed input.
 
-Save checkpoint while tools still work, including branch/commit, changed files,
-tests passed/failed/not run, pending CI/deploy IDs, next action and exact blocker.
-Do not make duplicate continuation automations. If usage is unavailable, retry on
-the existing schedule; do not bypass limits, spend credits or activate paid plans.
-If the owner pauses/cancels, stop continuation and reflect it here. No overlapping
-writers, unsafe publishing or incomplete work reported as done. Keep unchanged
-non-actionable states quiet. External access/labels/devices may need owner input.
+## In-flight next increment — durable ledger
+
+Branch feat/durable-scan-ledger adds private generation/batch/observation membership
+schema (CLI-generated 20261019145430_inventory_scan_ledger.sql), validated helper
+and gated worker integration. CARSCANNER_SCAN_LEDGER_ENABLED remains false by
+ default; no production migration or activation has occurred. Independent backend
+review approved schema/worker boundaries. QA added 18 database cases, including
+worker rollback/retry, two-batch continuation and actual browser-role denial.
+Local focused checks: 31 passed; dedicated ledger suite: 18 unit passed and
+18 DB skipped (not accepted as DB passes). CI PostgreSQL verification is next.
+Existing production security-advisor baseline returned no lints; this does not
+validate the new unapplied schema. See ADR 029 and docs/SCAN_LEDGER.md. Replay,
+retention and controlled production activation remain open. Do not confuse the
+new feature branch with live runtime c51e617 or reimplement prior collector code.

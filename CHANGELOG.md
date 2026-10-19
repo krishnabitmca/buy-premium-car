@@ -1,3 +1,15 @@
+## 2026-10-19 — Gated transactional scan-write ledger
+
+- Add private source-consistent generation, stable claim-batch and exact accepted
+  observation membership tables, with RLS, browser privilege revocation and hard
+  false completeness/absence flags. Migration generated using Supabase CLI.
+- Wire optional ledger writes after the existing worker claim fence, in the same
+  transaction as ingestion, explicit negatives and queue completion. Gate remains
+  off by default pending separately verified schema and controlled activation.
+- Add malformed-contract, duplicate-claim, rollback, source/listing mismatch,
+  successive-batch, superseded-worker and actual browser-role denial tests.
+- Parser replay, retention and sustained production collection remain open.
+
 ## 2026-10-19 — Accepted observation identities for future scan membership
 
 - Add optional transaction-local collection of actual source/listing/observation

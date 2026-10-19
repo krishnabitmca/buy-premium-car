@@ -9,6 +9,7 @@ Queue claims are source-isolated and retries are bounded.
 import argparse
 import logging
 import json
+import os
 from contextlib import nullcontext
 from datetime import datetime, timezone
 from typing import Any
@@ -194,10 +195,22 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
                 and status='running' and attempt_count=%s and started_at=%s for update""",
                 (job['refresh_id'],job['attempt_count'],job['started_at']))
             if not cur.fetchone():return {'superseded':1}
-            ingested=ingest_vehicles(normalized,_connection=conn)
+            ledger_batch=None
+            accepted=None
+            if os.getenv('CARSCANNER_SCAN_LEDGER_ENABLED','false').lower()=='true':
+                from .scan_ledger import prepare_batch
+                ledger_batch=prepare_batch(job,source['source_id'],result.scan_evidence,conn)
+                if ledger_batch['already_committed']:
+                    return {'superseded':1}
+                accepted=[]
+            kwargs={} if accepted is None else {'_accepted_observations':accepted}
+            ingested=ingest_vehicles(normalized,_connection=conn,**kwargs)
             if result.tombstones:
                 from .inventory_lifecycle import retire_catalogue_evidence
-                ingested['retired']=retire_catalogue_evidence(result.tombstones,source_name,job['started_at'],conn)
+                ingested['retired']=retire_catalogue_evidence(result.tombstones,source_name,job['started_at'],conn,**kwargs)
+            if ledger_batch is not None:
+                from .scan_ledger import finish_batch
+                finish_batch(ledger_batch,accepted,result.scan_evidence,result.continuation,conn)
             complete_job(int(job["refresh_id"]), success=True, attempt_count=job.get("attempt_count"),
                 continuation=result.continuation,pages_fetched=result.pages_fetched,scan_evidence=result.scan_evidence,_connection=conn)
             conn.commit()
