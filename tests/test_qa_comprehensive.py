@@ -485,7 +485,7 @@ class TestHTTPContracts(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertIn("Minimum budget", body["error"])
 
-    def test_inventory_complete_source_coverage_is_customer_search_path(self):
+    def test_each_source_present_does_not_prove_complete_coverage(self):
         inventory_rows = [
             {"brand":"BMW","model":"X5","price_lakh":49.5,"source":"Source A","condition":"used",
              "live_verified":True,"data_consistent":True},
@@ -506,9 +506,24 @@ class TestHTTPContracts(unittest.TestCase):
             status, body = self.request("POST","/api/search",{"query":"BMW X5","condition":"used"})
 
         self.assertEqual(status,200)
-        self.assertEqual(body["mode"],"inventory")
+        self.assertEqual(body["mode"],"inventory_partial")
+        self.assertTrue(body['coverage']['source_presence_complete'])
+        self.assertFalse(body['coverage']['completeness_verified'])
+        self.assertEqual(body['coverage']['state'], 'unverified')
+        self.assertTrue(body['availability_warning'])
         self.assertEqual(body["inventory_total"],2)
         self.assertEqual(body["total_results"],2)
+
+    def test_empty_indexed_matches_do_not_claim_source_outage(self):
+        with patch.object(search_api,"inventory_enabled",return_value=True), \
+             patch.object(search_api,"search_inventory",return_value=([], [{'name':'Source A','status':'inventory'}], 0)), \
+             patch.object(search_api,"plan_sources",return_value=[{'name':'Source A','adapter_status':'live'}]), \
+             patch.object(search_api,"live_inventory",side_effect=AssertionError('no request crawl')):
+            status, body = self.request('POST','/api/search',{'query':'Honda City','condition':'used'})
+        self.assertEqual(status,200)
+        self.assertEqual(body['search_diagnostics']['zero_result_reason'], 'partial_coverage')
+        self.assertIn('no live query',body['availability_warning'])
+        self.assertNotIn('responded',body['availability_warning'])
 
     def test_inventory_partial_source_coverage_falls_back_to_live_sources(self):
         # Legacy diagnostic mode is opt-in, never the default indexed path.

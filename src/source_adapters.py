@@ -116,6 +116,13 @@ class BuiltinMarketplaceAdapter:
                 previous_roots is None and progress.get('visited_urls') and not set(roots).issubset(legacy_pages)):
             progress={}
             urls=list(roots)
+        from .scan_contract import can_resume, scan_scope, generation, outcome
+        scope, fingerprint = scan_scope(self.source, request, roots)
+        previous_scan = progress.get('scan_generation') or {}
+        if 'scan_generation' in progress and not can_resume(previous_scan, fingerprint):
+            progress = {}
+            urls = list(roots)
+        scan_generation = generation(progress, fingerprint)
         url = urls[0] if urls else ""
         if not adapter_execution_allowed(self.source_name):
             return AdapterResult(
@@ -354,10 +361,13 @@ class BuiltinMarketplaceAdapter:
                     'pending_page_count':sum(page not in seen_pages for page in urls),
                     'listings_this_batch':len(filtered),'pages_this_batch':fetched_this_batch,
                     'catalog_scopes':list(catalog_scopes.values()),
-                    'advertised_counts':advertised_counts,'coverage_state':'partial_traversal' if any(page not in seen_pages for page in urls) else 'traversal_exhausted_unverified'},
+                    'advertised_counts':advertised_counts, 'scope':scope,
+                    **outcome(scan_generation, pending=any(page not in seen_pages for page in urls),
+                              background=request.continuation is not None)},
             )
             if result.continuation is not None:
-                result.continuation.update(catalog_scopes=catalog_scopes,advertised_counts=advertised_counts)
+                result.continuation.update(catalog_scopes=catalog_scopes,advertised_counts=advertised_counts,
+                                           scan_generation=scan_generation)
             record_adapter_execution(
                 self.source_name,
                 success=True,

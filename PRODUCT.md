@@ -18,7 +18,11 @@ The product-wide acceptance standard is [AI search acceptance](docs/AI_SEARCH_AC
 
 ## Vision
 
-Help an Indian car buyer find the right premium used or demonstrator car wherever the deal is, with the strongest available price intelligence across marketplaces and clear understanding of the trade-offs of buying from another city.
+Help an Indian car buyer find the right used or demonstrator car across brands and models wherever the deal is, with the strongest available price intelligence across marketplaces and clear understanding of the trade-offs of buying from another city.
+
+The owner’s 19 October mandate makes source breadth, continuous freshness and
+operational readiness Phase 1 prerequisites. See [execution plan](docs/PHASE1_EXECUTION.md).
+Advanced scoring, new-car search and monetization are later phases.
 
 ## Product category
 

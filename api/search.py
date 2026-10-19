@@ -184,6 +184,7 @@ class handler(BaseHTTPRequestHandler):
             search_mode = "live"
             inventory_total = None
             search_summary = None
+            coverage = None
             if inventory_enabled():
                 inventory_result = measure_call('inventory', search_inventory,
                     engine=preferred_engine,
@@ -210,16 +211,21 @@ class handler(BaseHTTPRequestHandler):
                     for s in sources
                     if s.get("name") or s.get("source")
                 }
-                coverage_complete = bool(expected_live_sources) and expected_live_sources.issubset(inventory_sources)
-
-                if vehicles and coverage_complete:
-                    search_mode = "inventory"
-                else:
-                    # During inventory warm-up, do not silently present a partial
-                    # snapshot as the whole market. If one or more applicable live
-                    # sources are missing from inventory, query the live source set.
-                    # Once background refresh establishes complete source coverage,
-                    # customer traffic becomes inventory-only again.
+                sources_represented = bool(expected_live_sources) and expected_live_sources.issubset(inventory_sources)
+                coverage = {
+                    "state": "unverified",
+                    "scope": "configured_sources_not_entire_market",
+                    "source_presence_complete": sources_represented,
+                    "missing_planned_sources": sorted(expected_live_sources - inventory_sources),
+                    "completeness_verified": False,
+                }
+                # Source presence proves neither exhaustive traversal nor recall.
+                # Until reviewed scan proof exists, keep indexed results explicitly
+                # partial even when each planned source contributes an offer.
+                search_mode = "inventory_partial"
+                if not vehicles or not sources_represented:
+                    # Preserve the explicit legacy diagnostic opt-in. Coverage
+                    # uncertainty alone never introduces new request-time crawling.
                     allow_coverage_fallback = os.getenv(
                         "CARSCANNER_ALLOW_LIVE_COVERAGE_FALLBACK", "false"
                     ).lower() not in {"0", "false", "no"}
@@ -249,8 +255,8 @@ class handler(BaseHTTPRequestHandler):
                 )
             availability_warning = None
             if search_mode == "inventory_partial":
-                availability_warning = "Showing available verified database observations; source coverage is incomplete and no live query was made."
-            if not vehicles and sources and _planned_live_sources_unavailable(source_plan, sources):
+                availability_warning = "Showing indexed observations within freshness policy; source coverage is unverified and may be incomplete; no live query was made."
+            if not search_mode.startswith('inventory') and not vehicles and sources and _planned_live_sources_unavailable(source_plan, sources):
                 availability_warning = "No configured live source responded for this search; zero results are not an inventory guarantee."
             results=[]
             for v in vehicles:
@@ -311,6 +317,7 @@ class handler(BaseHTTPRequestHandler):
                 "ok":True,
                 "intent":intent.public(),
                 "search_summary":search_summary,
+                "coverage":coverage,
                 "search_scope":"india",
                 "destination":destination or None,
                 "destination_state":infer_state(destination,destination) if destination else None,

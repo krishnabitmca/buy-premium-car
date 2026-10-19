@@ -1,5 +1,10 @@
 # Implementation delivery plan
 
+The owner’s 19 October mandate and [Phase 1 contract](PHASE1_EXECUTION.md)
+supersede the feature order below. Acquisition/scan truth, source breadth and
+operations precede optional AI and advanced comparison. Retain this older table
+as historical scope; see ADR 028 for the initial contract increment.
+
 Agreed order, 18 October 2026. Each increment needs code, acceptance evidence and
 an independently verified deployment before it is described as live.
 
