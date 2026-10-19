@@ -76,6 +76,10 @@ def configured(monkeypatch,output):
         assert timeout==15 and 'key=' not in req.full_url
         assert '/gemini-3.1-flash-lite:generateContent' in req.full_url
         assert json.loads(req.data)['generationConfig']['thinkingConfig']=={'thinkingLevel':'minimal'}
+        schema=json.loads(req.data)['generationConfig']['responseJsonSchema']
+        assert schema['additionalProperties'] is False and set(schema['required'])=={'fact_ids','unknowns'}
+        assert schema['properties']['fact_ids']['items']['enum']==['s1.price']
+        assert schema['properties']['unknowns']['items']['enum']==list(evidence.UNKNOWNS)
         assert req.get_header('X-goog-api-key')=='synthetic-not-secret'
         assert calls==['quota']
         return io.BytesIO(json.dumps({'candidates':[{'finishReason':'STOP','content':{
@@ -160,3 +164,10 @@ def test_evidence_model_setting_does_not_change_intent_model_and_respects_suppor
     monkeypatch.setattr(buyer_ai,'urlopen',provider)
     result=buyer_ai.select_evidence('Price?',[{'id':'s1.price','text':'37'}],list(evidence.UNKNOWNS),consent=True)
     assert result['fact_ids']==['s1.price']
+
+
+def test_schema_allows_abstention_with_only_supplied_unknown_categories(monkeypatch):
+    configured(monkeypatch,{'fact_ids':[],'unknowns':['inspection','warranty']})
+    result=buyer_ai.select_evidence('Does this prove accident-free and warranty?',
+        [{'id':'s1.price','text':'Recorded asking price 37 lakh'}],list(evidence.UNKNOWNS),consent=True)
+    assert result=={'fact_ids':[],'unknowns':['inspection','warranty']}
