@@ -1,3 +1,12 @@
+## 2026-10-19 — Controlled scan ledger verification
+
+- Add a main-only manual workflow using the existing approved test database secret.
+- Claim one existing verified-source job with page budget one; prove its exact
+  committed batch, positive membership and matching count without granting
+  completeness or absence authority. Deferrals and empty/negative-only batches fail.
+- Add adversarial unit and real database verification coverage. Sustained collection,
+  retention and parser replay remain separate unfinished gates.
+
 ## 2026-10-19 — Gated transactional scan-write ledger
 
 - Add private source-consistent generation, stable claim-batch and exact accepted
