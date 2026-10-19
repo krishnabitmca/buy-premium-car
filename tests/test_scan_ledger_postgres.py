@@ -304,3 +304,28 @@ def test_successive_worker_batches_keep_generation_and_exact_membership(db, monk
     assert len(members) == 2
     assert len({row['listing_id'] for row in members}) == 1
     assert len({row['observation_id'] for row in members}) == 2
+
+
+def test_controlled_verification_uses_real_worker_role_and_committed_membership(db, monkeypatch):
+    from scripts.verify_scan_ledger import verify
+    source_id, job, evidence = setup_claim(db)
+    role = db.execute('select current_user as role').fetchone()['role']
+    # The operator helper claims queued work itself; setup_claim only supplies
+    # genuine source/claim identity and deterministic synthetic parser evidence.
+    db.execute("update inventory_refresh_queue set status='queued' where refresh_id=%s", (job['refresh_id'],))
+    db.commit()
+    monkeypatch.setenv('CARSCANNER_SCAN_LEDGER_ENABLED', 'true')
+    monkeypatch.setattr('src.inventory_refresh_worker.BuiltinMarketplaceAdapter.fetch',
+                        lambda *_: worker_result(evidence))
+    result = verify('Fixture Dealer')
+    assert result['ok'] and result['worker_role'] == role
+    assert result['accepted_observations'] == result['memberships'] == 1
+    assert result['positive_observations'] == 1
+    assert result['maximum_jobs'] == result['page_budget'] == 1
+    assert not result['completeness_verified'] and not result['absence_reconciliation_permitted']
+    stored = db.execute('select batch_id,source_id,accepted_count,completed_at '
+                         'from inventory_scan_batches').fetchall()
+    assert len(stored) == 1
+    assert stored[0]['batch_id'] == UUID(result['batch_id'])
+    assert stored[0]['source_id'] == source_id
+    assert stored[0]['accepted_count'] == 1 and stored[0]['completed_at']

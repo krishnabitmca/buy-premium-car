@@ -56,3 +56,21 @@ Rollback: disable the gate; old count-only ingestion remains supported. Additive
 tables may stay private while fixes are prepared. No destructive down migration.
 P1-02 closure still needs replay, retention and operational acceptance. The ledger
 does not increase source breadth, independently validate cars or accelerate search.
+
+## Manual verification command
+
+After schema inspection, the manual Controlled Scan Ledger Verification workflow
+runs only on main with the existing encrypted test database credential. It shares
+the acquisition scheduler concurrency group, but attributes its proof to the exact
+claimed refresh ID, attempt and claim timestamp rather than a time window.
+`python -m scripts.verify_scan_ledger --source "Existing source" --brand "Make"`
+requires explicit process-local opt-in. It claims one existing queued job and sets
+page budget one (not a universal HTTP-request count). Deferred/superseded work,
+missing batches and negative-only observations fail verification. Output contains
+role, batch ID and counts; no credentials or listing payloads. It does not enable
+the global gate or schedule sustained writes. A successful positive write is not
+proof of physical availability, source breadth or completeness.
+
+Private tables intentionally have no RLS browser policies. The Supabase advisor's
+[INFO no-policy finding](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)
+is expected; adding public policies to silence it would weaken the boundary.

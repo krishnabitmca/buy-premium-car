@@ -1,0 +1,41 @@
+name: Controlled Scan Ledger Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_name:
+        description: Existing enabled verified source name
+        required: true
+        type: string
+      brand:
+        description: Optional existing queued make scope
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: carscanner-inventory-refresh
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Verify one accepted acquisition batch
+        env:
+          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.CARSCANNER_FREE_TEST_DATABASE_URL }}
+          CARSCANNER_SCAN_LEDGER_ENABLED: 'true'
+          CARSCANNER_MAX_PAGES_PER_SOURCE: '1'
+          CARSCANNER_QUERY_DISCOVERY: 'false'
+          SOURCE_NAME: ${{ inputs.source_name }}
+          BRAND: ${{ inputs.brand }}
+        run: python -m scripts.verify_scan_ledger --source "$SOURCE_NAME" --brand "$BRAND"

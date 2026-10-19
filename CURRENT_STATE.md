@@ -7,9 +7,9 @@ snapshot establishes current health, current inventory or a freshness SLA.
 
 - Repository: https://github.com/krishnabitmca/buy-premium-car
 - Hosted application: https://buy-premium-car1.onrender.com/
-- Last verified live application commit: c51e6174aca2139671238200af370931dc485d66.
-- Latest code PR 73: https://github.com/krishnabitmca/buy-premium-car/pull/73
-- Render deploy: dep-dbb2ih1srm7s73b1kmdg; live 19 October 20:00:15 IST.
+- Last verified live application commit: 2a85af02b376ce6aaec107fbec80feb328d1cef7.
+- Latest code PR 74: https://github.com/krishnabitmca/buy-premium-car/pull/74
+- Render deploy: dep-dbb358flk1mc73dfikd0; live 19 October 20:40:01 IST.
 - Local preview URL: http://127.0.0.1:8000/; not reverified in this memory-saving
   task. An open browser tab is not evidence that the local server is healthy.
 
@@ -45,11 +45,17 @@ Detailed evidence: docs/PHASE1_EXECUTION.md; sibling workspace report
 
 ## Open gates and next dependency
 
-PR 73 delivered the P1-02 collector prerequisite: exact inserted observation IDs can be
-collected privately without changing existing count-only callers. No current
-worker consumes this seam; no ledger tables, replay capture or production
-worker use have been delivered. The collector code is deployed but unused by
-existing callers. See WORK_CHECKPOINT.md for current validation and next task.
+PR 74 delivered private transactional generation/batch/observation membership,
+using the PR 73 accepted-ID collector. The additive migration is applied; all three
+tables have RLS and no browser privileges. Global worker gate remains off. A
+manual, one-job controlled verification is being prepared on
+feat/controlled-ledger-verification. No live ledger batch is verified yet.
+
+PR 74 branch CI: 1,260 unit, 96 integration, 15 browser tests passed; 61/61 QA.
+Main Tests 39275425220, Verification 39275425177, E2E 39275425251 and production
+smoke 39275425271 all passed. This does not establish live ledger operation.
+Security advisors show three expected INFO no-policy notices for deny-all private
+tables, no WARN/ERROR. Parser replay and bounded retention remain open.
 
 P1-01 initial evidence contract delivered; complete feature remains broader.
 Next P1-02: durable scan generations/membership and bounded parser replay evidence.
