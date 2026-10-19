@@ -7,9 +7,9 @@ snapshot establishes current health, current inventory or a freshness SLA.
 
 - Repository: https://github.com/krishnabitmca/buy-premium-car
 - Hosted application: https://buy-premium-car1.onrender.com/
-- Last verified live application commit: 5921c87f616eeb705dde9b0b01a5d397856aa6ae.
-- PR 71: https://github.com/krishnabitmca/buy-premium-car/pull/71
-- Render deploy: dep-dbapregae00c73a1dbe0; live 19 October 10:04:48 IST.
+- Last verified live application commit: c51e6174aca2139671238200af370931dc485d66.
+- Latest code PR 73: https://github.com/krishnabitmca/buy-premium-car/pull/73
+- Render deploy: dep-dbb2ih1srm7s73b1kmdg; live 19 October 20:00:15 IST.
 - Local preview URL: http://127.0.0.1:8000/; not reverified in this memory-saving
   task. An open browser tab is not evidence that the local server is healthy.
 
@@ -28,9 +28,9 @@ add sources or inventory, durable scan membership or authoritative completeness.
 
 ## Recorded validation and supply evidence
 
-- PR 71 exact branch: 1,240 unit, 72 integration, 15 browser tests passed.
-- Deployed QA: 61/61, no browser errors; scheduled run 39200187091.
-- Production smoke: passed, run 39200115721. These are dated functional checks,
+- PR 73 exact branch: 1,242 unit, 78 integration, 15 browser tests passed.
+- Deployed QA: 61/61, no browser errors; run 39269400218, job 118117421792.
+- Production smoke: passed, run 39269400141. These are dated functional checks,
   not national recall, long-running freshness or load measurements.
 - Manual deployed Honda City Used-only: 47 observations/three sources with partial
   coverage disclosure and original seller links; some photos unavailable.
@@ -45,11 +45,11 @@ Detailed evidence: docs/PHASE1_EXECUTION.md; sibling workspace report
 
 ## Open gates and next dependency
 
-P1-02 collector prerequisite is under implementation/review on
-feat/accepted-observation-membership: exact inserted observation IDs can be
+PR 73 delivered the P1-02 collector prerequisite: exact inserted observation IDs can be
 collected privately without changing existing count-only callers. No current
 worker consumes this seam; no ledger tables, replay capture or production
-activation have been delivered. See WORK_CHECKPOINT.md for current validation.
+worker use have been delivered. The collector code is deployed but unused by
+existing callers. See WORK_CHECKPOINT.md for current validation and next task.
 
 P1-01 initial evidence contract delivered; complete feature remains broader.
 Next P1-02: durable scan generations/membership and bounded parser replay evidence.
