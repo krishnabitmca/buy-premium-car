@@ -122,7 +122,7 @@ def complete_job(refresh_id: int, *, success: bool, error: str | None = None,
         if _connection is None:conn.commit()
 
 
-def process_job(job: dict[str, Any]) -> dict[str, int]:
+def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
     from .live_marketplaces import _query_parts
     brand=job.get('brand') or ''
     query_brand=_query_parts(brand)[0] or brand
@@ -157,7 +157,7 @@ def process_job(job: dict[str, Any]) -> dict[str, int]:
                 condition=job.get("condition") or "both",
                 destination=job.get("destination_state") or "",
                 continuation=(job.get("metadata") or {}).get("continuation") or {},
-            )
+            ), **({'_capture':_capture} if _capture is not None else {})
         )
         if result.status != "live":
             raise RuntimeError(result.error or f"adapter status: {result.status}")

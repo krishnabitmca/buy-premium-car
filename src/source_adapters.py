@@ -125,7 +125,7 @@ class BuiltinMarketplaceAdapter:
         return urls[:12]
 
     @live_marketplaces.with_brand_identity
-    def fetch(self, request: AdapterRequest) -> AdapterResult:
+    def fetch(self, request: AdapterRequest, *, _capture=None) -> AdapterResult:
         started = time.monotonic()
         roots = self._urls(request)
         progress = request.continuation or {}
@@ -254,6 +254,10 @@ class BuiltinMarketplaceAdapter:
                     )
                 elif parser_strategy == 'fusion_cards':
                     from .reviewed_inventory import parse_reviewed_cards
+                    if (_capture is not None and request.continuation is not None
+                            and os.getenv('CARSCANNER_PARSER_CAPTURE_ENABLED','false').lower()=='true'):
+                        _capture.capture(html,source_url=endpoint_url,
+                                         scan_generation=scan_generation['generation_id'])
                     parsed=parse_reviewed_cards(html,self.source_name,endpoint_url,parser_strategy,request.query)
                 elif parser_strategy in {"bbt_cards", "autobest_cards", "luxuryride_cards", "ninthgear_cards"}:
                     from .dealer_inventory import parse_dealer_cards

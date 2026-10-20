@@ -1,4 +1,12 @@
-## 2026-10-20 — Local sanitized Fusion parser replay (pending review)
+## 2026-10-20 — Gated controlled parser capture (not activated)
+
+- Stage bounded sanitized Fusion samples from existing acquisition responses only
+  when explicitly requested by the controlled verifier and process gate.
+- Export after exact committed-batch verification; preserve ingestion success on
+  diagnostic failure. Add short-lived selected-file Actions artifact retention.
+- No new source, credential, DB access, continuous capture or availability claim.
+
+## 2026-10-20 — Local sanitized Fusion parser replay
 
 - Add bounded operator-only historical sample capture and offline replay using
   existing Fusion parsers, preserving explicit sold evidence and denying scan

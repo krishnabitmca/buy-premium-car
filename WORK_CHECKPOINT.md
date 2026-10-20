@@ -235,3 +235,37 @@ No new stock/source activation in this increment. Resume sanitized Fusion replay
 without repeating unchanged Sundaram403. Main/origin/main0acd915; only two memory
 files intentionally dirty with final operational evidence. Existing automation
 remains active; Phase1 acceptance not reached.
+
+
+## Controlled parser capture implementation — 20 October 2026
+
+Branch `feat/bounded-parser-capture` is based on `origin/main`
+`9ff570bee029a8c980588d4c45f48c13e13c74c0` (merged PR82). This increment
+adds an explicitly gated, Fusion-only in-memory capture hook to the existing
+one-job controlled ledger verifier. It reuses the fetched response, accepts at
+most two sanitized samples, validates replay and source/generation identity,
+and exports fixed files plus a receipt only after the exact committed claim is
+read back. Raw HTML is never written. Capture/export failure does not retry or
+mark committed inventory failed. No database/schema/role/credential/source or
+continuous-collection change is included.
+
+Changed files: `.github/workflows/scan-ledger-verification.yml`,
+`src/parser_capture.py`, `src/source_adapters.py`,
+`src/inventory_refresh_worker.py`, `scripts/verify_scan_ledger.py`,
+`tests/test_parser_capture.py`, `tests/test_parser_capture_wiring.py`,
+`DECISIONS/031-controlled-parser-capture.md`,
+`docs/CONTROLLED_PARSER_CAPTURE.md`, `CHANGELOG.md`.
+
+Validation: focused 47 passed, 1 Windows symlink-privilege skip. Full local
+regression 1,433 passed, 129 skipped, 39 pre-existing utcnow warnings in
+123.51s; compileall and diff-check passed. Local skips are not CI/database/
+browser passes. Independent QA agent attempted review but hit its own usage
+limit; do not claim independent acceptance.
+
+Next: publish focused draft PR, inspect GitHub CI including disposable Postgres
+and browser checks, merge only if green, verify Render deployment, then dispatch
+exactly one existing eligible Fusion queued job with `capture_sample=true`.
+Inspect the seven-day artifact receipt/hash/replay without exposing sample
+content. If no eligible queued job exists, report the operational blocker; do
+not synthesize inventory or broaden access. Global ledger/capture gates remain
+off and P1-02 remains open until this controlled operational proof is complete.
