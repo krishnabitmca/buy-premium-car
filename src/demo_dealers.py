@@ -1,5 +1,6 @@
 """Current dealer demo stock; no inferred demos or catalogue prices."""
 import json
+import math
 import re
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urljoin, urlsplit
@@ -68,12 +69,20 @@ def parse_gurudev(body, source, api_url):
     data = json.loads(body)
     if not isinstance(data, dict) or not isinstance(data.get('items'), list):
         raise ValueError('Unexpected Gurudev public stock response')
+    # The public feed currently has no stable item IDs or individual URLs.
+    # Never let multiple catalogue entries overwrite one persisted URL identity.
+    if len(data['items']) > 1:
+        raise ValueError('Public demo feed requires distinct offer identifiers for multiple items')
     rows = []
     page = 'https://gurudevtata.in/demo-cars.html'
     for item in data['items']:
+        if not isinstance(item, dict):
+            continue
         model, variant = item.get('model'), item.get('variant')
         price = item.get('on_road_price')
-        if not model or not variant or not isinstance(price, (int, float)) or price <= 0:
+        if (not isinstance(model, str) or not model.strip()
+                or not isinstance(variant, str) or not variant.strip()
+                or type(price) not in (int, float) or not math.isfinite(price) or price <= 0):
             continue
         rows.append({'brand': 'Tata', 'model': model, 'variant': variant,
                      'listing_name': f'Tata {model} {variant}', 'price_lakh': price / 100000,

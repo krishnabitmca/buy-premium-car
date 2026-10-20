@@ -56,3 +56,39 @@ real disposable PostgreSQL. Existing ignored .env secrets must never be printed.
 Reuse continue-carscanner-phase-1 heartbeat; no duplicate reminder or exact reset
 restart claim. Free testing, alerts dry-run; no paid activation/customer messages.
 Save exact branch/files/CI/deploy/blocker before stopping; preserve user edits.
+
+## Latest documentation and next design anchor
+
+PR77 merged as142ec976531bdad3292469c6e59c5ccfb51b8f49; local main/origin/main
+synchronized. This checkpoint may contain intentional uncommitted operational
+notes after that merge. PR77 branch checks all passed; verify its final deploy
+and main runs before claiming that documentation release live.
+PR76 production smoke39350134392 and main Tests/Verification/E2E passed.
+Next reviewed design: ../../outputs/P1_02_FUSION_REPLAY_LLD_2026-10-20.md.
+Independent backend recommends Fusion fusion_cards, existing parser/tombstone
+functions, sanitized allowlisted sample and taxonomy ContextVar for offline replay.
+No implementation started. Re-read actual code and privacy constraints first.
+
+Final deploy verification: docs release142ec976531bdad3292469c6e59c5ccfb51b8f49
+is live on Render dep-dbbbo5g473hc73ddmfi0,20October06:26:22IST.
+Production smoke39350535857 passed. Main Tests39350535954,
+Verification39350535829 and E2E39350535867 were still running at checkpoint;
+branch checks for the same documentation content already passed. Check final
+main outcomes on resume. Only CURRENT_STATE.md and this checkpoint intentionally dirty with final
+operational evidence; no code edits.
+
+## Owner demo-search incident takes priority over replay
+
+Branch fix/global-demo-acquisition-routes based main142ec9. Preserve existing
+memory edits. Actual production All brands/Demo returns results but all eligible
+supply is Mercedes; BMW returns0. Rootcause: emptyquery bypasses configured BMW
+condition route, queue continuation holds genericusedroot. Adapterfix plus real
+resolver/checkpointtests, Gurudev feed numeric/type/collision guards implemented.
+Focused60tests passed. Independent QA review pending; no runtime rollout yet.
+Next publish PR/CI then merge/deploy; controlled BMW demo job must use newroute
+and original perlistingdemo evidence. Gurudev source absent from registry despite
+existingcode/YAML; publicAPI verifiedonepricedAltroz. Register only that reviewed
+source afterQA/codeCI and runonebounded acquisition, verifyactualTataDemoUI.
+Do not globally seed/override registry, infer usedasdemo or extend freshness to
+hide supply failures. Sundaram previously403 requires verification, not activation
+by configuration alone. Return to parserreplay after incident checkpoint.

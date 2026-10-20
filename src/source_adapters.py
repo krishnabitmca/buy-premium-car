@@ -75,6 +75,29 @@ class BuiltinMarketplaceAdapter:
         )
         urls=[]
         primary=targeted.get(self.source_name) or str(self.source.get("url") or "")
+        condition_catalogue = False
+        # Global background jobs have no brand, so the brand/query resolver
+        # cannot supply a route. Reuse only explicit, literal condition routes;
+        # never invent slugs or infer a listing's condition from this URL.
+        condition = normalize_condition(request.condition)
+        if not request.query.strip() and condition in {'used', 'demo'}:
+            metadata = self.source.get('metadata') or {}
+            origin = urlsplit(str(self.source.get('url') or ''))
+            for key in (f'{condition}_catalog_url', f'brand_{condition}_query_url_template',
+                        f'{condition}_query_url_template'):
+                route = str(self.source.get(key) or metadata.get(key) or '').strip()
+                try:
+                    parts = urlsplit(route)
+                except ValueError:
+                    continue
+                if (route and len(route) <= 2048 and not any(c.isspace() for c in route)
+                        and '{' not in route and '}' not in route
+                        and parts.scheme in {'http', 'https'} and parts.scheme == origin.scheme
+                        and parts.netloc == origin.netloc and not parts.username
+                        and not parts.password and not parts.fragment):
+                    primary = route
+                    condition_catalogue = True
+                    break
         if primary:
             urls.append(primary)
         # Validated discovered endpoints are first-class inventory surfaces.
@@ -85,6 +108,10 @@ class BuiltinMarketplaceAdapter:
             if endpoint.get("is_active", True) is False:
                 continue
             url=str(endpoint.get("url") or "").strip()
+            if (condition_catalogue and primary.rstrip('/') != str(self.source.get('url') or '').rstrip('/')
+                    and url.rstrip('/') == str(self.source.get('url') or '').rstrip('/')):
+                # The explicit condition catalogue replaces its unfiltered root.
+                continue
             strategy=self.source.get('parser_strategy') or (self.source.get('metadata') or {}).get('parser_strategy')
             if (request.query and strategy in {'cardekho_cards','carwale_cards','cartrade_cards','cars24_cards'}
                     and primary.rstrip('/')!=str(self.source.get('url') or '').rstrip('/')

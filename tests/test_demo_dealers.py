@@ -1,3 +1,4 @@
+import pytest
 from pathlib import Path
 import json
 from src.demo_dealers import parse_sundaram, parse_gurudev, fetch_sundaram
@@ -81,3 +82,21 @@ def test_bbt_product_id_deduplicates_alternate_endpoint_links(monkeypatch):
     source = {'name': 'BBT', 'url': 'https://www.bigboytoyz.com/brand', 'parser_strategy': 'bbt_cards', 'endpoints': [{'url': 'https://www.bigboytoyz.com/demo'}]}
     result = BuiltinMarketplaceAdapter(source).fetch(AdapterRequest(condition='both'))
     assert result.status == 'live' and len(result.listings) == 2
+
+
+@pytest.mark.parametrize('price',[True,False,float('nan'),float('inf'),-1,0])
+def test_gurudev_rejects_invalid_numeric_prices(price):
+    body=json.dumps({'items':[dict(model='Altroz',variant='Test',on_road_price=price)]})
+    assert not parse_gurudev(body,'Gurudev','api')
+
+
+@pytest.mark.parametrize('item',[None,[],{'model':123,'variant':'Test','on_road_price':800000},
+                                {'model':'Altroz','variant':{},'on_road_price':800000}])
+def test_gurudev_rejects_malformed_stock_item(item):
+    assert not parse_gurudev(json.dumps({'items':[item]}),'Gurudev','api')
+
+
+def test_gurudev_multiple_unidentified_offers_fail_before_url_identity_collision():
+    item=dict(model='Altroz',variant='Test',on_road_price=800000)
+    with pytest.raises(ValueError,match='distinct offer identifiers'):
+        parse_gurudev(json.dumps({'items':[item,{**item,'model':'Nexon'}]}),'Gurudev','api')
