@@ -32,7 +32,8 @@ enqueue outside this fence is not part of the guarantee.
 - Legacy resumed generations may predate ledger capture. Earlier membership is
   unknown; no current-inventory backfill invents its history.
 - No raw HTTP response, session token, price payload or buyer data is retained here.
-  Parser replay samples and privacy-aware bounded retention are not implemented.
+  Parser replay samples and their bounded retention remain unimplemented. Ledger
+  retention is implemented below but not activated or operationally verified.
 
 ## Controlled rollout
 
@@ -95,5 +96,15 @@ PostgreSQL storage reclamation depends on vacuum and is separately unmeasured.
 Apply is explicit and requires an owner-authorized maintenance connection. The
 runtime-access proposal grants only SELECT/INSERT/UPDATE and command-specific RLS
 policies to the existing private worker role; no DELETE/TRUNCATE, browser grant,
-credential or bypass. It is prepared but not applied remotely, pending owner
-approval. Retention apply is not enabled by that access proposal.
+credential or bypass. Owner approved and the exact migration was applied on 20 October. RLS remains
+enabled; browser access and worker DELETE remain denied. Security advisors
+returned no findings. Retention apply is not enabled by that access grant.
+
+## Controlled operation evidence, 20 October 2026
+
+GitHub run39277563309 attempt2/job118392295466 succeeded using the actual private
+runtime role. Supabase independently confirmed batch53377108-7ad5-5e82-8584-
+7f0aad9d9944 with30 accepted observations and30 positive memberships, both
+completeness/absence flags false. This one-batch write proof does not establish
+freshness, physical availability or source coverage. Global collection stays off;
+retention remains unscheduled and parser replay remains open.

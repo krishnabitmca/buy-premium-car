@@ -1,15 +1,15 @@
 # CarScanner current state — dated evidence
 
-Saved 19 October 2026, Asia/Kolkata. Revalidate on resume; do not assume this
+Saved 20 October 2026, Asia/Kolkata. Revalidate on resume; do not assume this
 snapshot establishes current health, current inventory or a freshness SLA.
 
 ## Last verified application release
 
 - Repository: https://github.com/krishnabitmca/buy-premium-car
 - Hosted application: https://buy-premium-car1.onrender.com/
-- Last verified live application commit: 25c4a5c37afe02eba721be1d5541acd925b55a25.
-- Latest code PR 75: https://github.com/krishnabitmca/buy-premium-car/pull/75
-- Render deploy: dep-dbb3bp5g1s2s73buh7mg; live 19 October 20:53:41 IST.
+- Last verified live application commit: a79771107185628bae251ab6746a4c3dc7d76f1c.
+- Latest code PR 76: https://github.com/krishnabitmca/buy-premium-car/pull/76
+- Render deploy: dep-dbbbm7mk1f9s73bmaqk0; live 20 October 06:22:28 IST.
 - Local preview URL: http://127.0.0.1:8000/; not reverified in this memory-saving
   task. An open browser tab is not evidence that the local server is healthy.
 
@@ -45,20 +45,21 @@ Detailed evidence: docs/PHASE1_EXECUTION.md; sibling workspace report
 
 ## Open gates and next dependency
 
-PR 74 delivered private transactional generation/batch/observation membership,
-using the PR 73 accepted-ID collector. The additive migration is applied; all three
-tables have RLS and no browser privileges. Global worker gate remains off. A
-manual, one-job controlled verification (PR75) failed before acquisition because
-the existing private runtime role lacks ledger access. Run39277563309. A narrow
-server-role grant is prepared but NOT applied; owner approval is pending.
-No live ledger batch is verified yet. Retention code is in progress on
-feat/bounded-ledger-retention, dry-run default and not scheduled.
+PR 74 delivered private transactional generation/batch/observation membership.
+PR 75 added exact-claim controlled verification. Its first live attempt failed
+before acquisition because the existing runtime role lacked ledger access.
+Owner approved the narrow SELECT/INSERT/UPDATE plus role-specific RLS migration;
+it is applied, with no browser/delete privilege or new credentials. Security
+advisors now return no findings. Controlled run39277563309 attempt2 succeeded; Supabase independently confirms
+batch53377108-7ad5-5e82-8584-7f0aad9d9944:30 accepted observations,30 positive
+memberships, false completeness/absence flags. Global gate is off. This proves
+one controlled write batch, not sustained acquisition or current availability.
 
-PR 74 branch CI: 1,260 unit, 96 integration, 15 browser tests passed; 61/61 QA.
-Main Tests 39275425220, Verification 39275425177, E2E 39275425251 and production
-smoke 39275425271 all passed. This does not establish live ledger operation.
-Security advisors show three expected INFO no-policy notices for deny-all private
-tables, no WARN/ERROR. Parser replay and bounded retention remain open.
+PR 76 adds bounded whole-generation ledger retention, default dry-run, unscheduled.
+Canonical inventory is preserved. Candidate index applied. Code passed 1,290 unit,
+125 integration, 15 browser tests; independent QA found/fixed membership growth
+race and PM accepted this bounded scope. Production cleanup has not run. Bounded
+parser evidence/replay and operational retention acceptance remain open.
 
 P1-01 initial evidence contract delivered; complete feature remains broader.
 Next P1-02: durable scan generations/membership and bounded parser replay evidence.
