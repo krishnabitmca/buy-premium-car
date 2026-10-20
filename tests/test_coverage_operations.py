@@ -159,3 +159,29 @@ def test_disabled_source_queue_remains_visible_without_inventing_stuck_status():
     assert priority['oldest_queued_hours']==12 and priority['oldest_running_hours']==2
     assert priority['actions'][0]=='operator_disabled_do_not_schedule'
     assert 'do not by themselves prove a stuck worker' in markdown_report(report)
+
+
+def test_source_concentration_uses_eligible_offers_not_all_observations():
+    a=source()
+    b={**source(), 'source':'B', 'url':'https://other.invalid/catalog'}
+    rows=[fact(1),fact(2),fact(3,eligible=False),
+          fact(4,source='B',url='https://other.invalid/car/4')]
+    report=summarize(rows,[a,b],[],[],now=NOW)
+    concentration=report['source_concentration']
+    assert concentration['eligible_offers']==3
+    assert concentration['contributing_sources']==2
+    assert concentration['top_three_share_percent']==100
+    assert concentration['top_sources'][0]['source']=='A'
+    assert concentration['top_sources'][0]['share_percent']==66.67
+    assert concentration['market_coverage_percent'] is None
+    assert 'not national market recall' in markdown_report(report)
+
+
+def test_source_concentration_without_eligible_offers_is_unknown_not_zero_recall():
+    report=summarize([fact(eligible=False)],[source()],[],[],now=NOW)
+    concentration=report['source_concentration']
+    assert concentration['eligible_offers']==0
+    assert concentration['contributing_sources']==0
+    assert concentration['top_three_share_percent'] is None
+    assert concentration['top_sources']==[]
+    assert 'Unknown (no eligible offers)' in markdown_report(report)
