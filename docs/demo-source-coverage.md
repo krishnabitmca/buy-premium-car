@@ -15,3 +15,22 @@
 | Group Landmark | https://www.grouplandmark.in/ | Dealer lead; demo articles are not current individual inventory. |
 
 Existing OEM Mercedes-Benz, BMW and Motozite feeds remain aggregated. Coverage is incremental, not a claim to have exhaustively searched every Indian dealer. Dealer website observation is not independent confirmation that a vehicle remains unsold. Live API reports each source's status and match count.
+
+## 20 October 2026 investigation
+
+Production All brands / Demo only returned cards; BMW Demo returned zero. At the
+checked snapshot, 72 eligible source offers were all Mercedes-Benz (60 OEM and
+12 Motozite), not evidence of all-brand supply or unique physical cars. BMW's
+brandless demo queue used its generic used-stock root because query routing
+required a brand. The adapter now selects only explicitly configured literal
+condition routes and restarts old-root generations. It never relabels unknown
+or ordinary used offers as demos.
+
+Sundaram and Gurudev Tata exist in YAML/code but were absent from the live source
+registry. Sundaram's current public page advertises explicit Mercedes demo cards;
+its previously recorded deployment 403 still requires worker verification.
+Gurudev's public demo-stock endpoint currently exposes one priced Altroz offer.
+Its parser rejects malformed/invalid prices and fails closed if multiple items
+lack individual offer identity. Review actual ingestion before claiming rollout.
+No indexed-result absence establishes no demos in the market. Wider OEM/dealer
+feeds and sustained acquisition remain open; this is a bounded defect fix.

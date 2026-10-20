@@ -1,3 +1,13 @@
+## 2026-10-20 — Correct global demo acquisition routing
+
+- Empty-query background demo/used jobs now use explicit literal condition
+  catalogue routes when configured, with same-origin validation. Old generic-root
+  continuations restart; listing-level demo evidence remains mandatory.
+- Guard the existing Tata public-feed parser against invalid prices/malformed
+  items and multiple entries sharing one unidentified catalogue offer URL.
+- Add real route-resolution/checkpoint and feed-boundary regressions. These fixes
+  do not establish all-brand demo coverage; reviewed source rollout is separate.
+
 ## 2026-10-20 — Bounded audit-ledger retention (not activated)
 
 - Add dry-run-default, whole-generation retention with age/row limits, queue-first

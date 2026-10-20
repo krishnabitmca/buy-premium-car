@@ -7,9 +7,9 @@ snapshot establishes current health, current inventory or a freshness SLA.
 
 - Repository: https://github.com/krishnabitmca/buy-premium-car
 - Hosted application: https://buy-premium-car1.onrender.com/
-- Last verified live application commit: a79771107185628bae251ab6746a4c3dc7d76f1c.
-- Latest code PR 76: https://github.com/krishnabitmca/buy-premium-car/pull/76
-- Render deploy: dep-dbbbm7mk1f9s73bmaqk0; live 20 October 06:22:28 IST.
+- Last verified live application commit: 142ec976531bdad3292469c6e59c5ccfb51b8f49.
+- Latest documentation PR 77: https://github.com/krishnabitmca/buy-premium-car/pull/77
+- Render deploy: dep-dbbbo5g473hc73ddmfi0; live 20 October 06:26:22 IST.
 - Local preview URL: http://127.0.0.1:8000/; not reverified in this memory-saving
   task. An open browser tab is not evidence that the local server is healthy.
 
