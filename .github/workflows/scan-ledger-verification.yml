@@ -11,6 +11,11 @@ on:
         description: Optional existing queued make scope
         required: false
         type: string
+      capture_sample:
+        description: Capture bounded historical samples (reviewed Fusion only)
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -38,4 +43,23 @@ jobs:
           CARSCANNER_QUERY_DISCOVERY: 'false'
           SOURCE_NAME: ${{ inputs.source_name }}
           BRAND: ${{ inputs.brand }}
-        run: python -m scripts.verify_scan_ledger --source "$SOURCE_NAME" --brand "$BRAND"
+          CARSCANNER_PARSER_CAPTURE_ENABLED: ${{ inputs.capture_sample && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+          args=(--source "$SOURCE_NAME" --brand "$BRAND")
+          if [[ "$CARSCANNER_PARSER_CAPTURE_ENABLED" == "true" ]]; then
+            mkdir -p parser-evidence
+            args+=(--capture-directory parser-evidence/controlled-batch)
+          fi
+          python -m scripts.verify_scan_ledger "${args[@]}" | tee verification-status.json
+      - name: Retain bounded sanitized evidence
+        if: always() && inputs.capture_sample
+        uses: actions/upload-artifact@v4
+        with:
+          name: controlled-parser-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            parser-evidence/controlled-batch/sample-*.json
+            parser-evidence/controlled-batch/receipt.json
+            verification-status.json

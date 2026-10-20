@@ -123,3 +123,14 @@ Sundaram probe39404096044 returned HTTP403, no retry, no parsed/ingested rows.
 It remains outside live registry. This is a verified acquisition blocker, not
 zero market inventory. BranchCI1,331unit/125integration/15browser passed.
 Parser replay and wider accessible demo feeds remain open priorities.
+
+
+## Gated controlled parser capture — local evidence, 20 October 2026
+
+A focused implementation on `feat/bounded-parser-capture` now stages at most
+two sanitized Fusion samples from an already fetched background response and
+exports them only after exact committed-batch verification. It adds no HTTP
+request, inventory, source, credential, database access or continuous capture.
+Local regression: 1,433 passed, 129 skipped; external/CI and operational proof
+remain pending. These artifacts are historical parser diagnostics, never proof
+of current vehicle availability, complete traversal or absence authority.
