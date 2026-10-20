@@ -7,9 +7,9 @@ snapshot establishes current health, current inventory or a freshness SLA.
 
 - Repository: https://github.com/krishnabitmca/buy-premium-car
 - Hosted application: https://buy-premium-car1.onrender.com/
-- Last verified live application commit: 2a85af02b376ce6aaec107fbec80feb328d1cef7.
-- Latest code PR 74: https://github.com/krishnabitmca/buy-premium-car/pull/74
-- Render deploy: dep-dbb358flk1mc73dfikd0; live 19 October 20:40:01 IST.
+- Last verified live application commit: 25c4a5c37afe02eba721be1d5541acd925b55a25.
+- Latest code PR 75: https://github.com/krishnabitmca/buy-premium-car/pull/75
+- Render deploy: dep-dbb3bp5g1s2s73buh7mg; live 19 October 20:53:41 IST.
 - Local preview URL: http://127.0.0.1:8000/; not reverified in this memory-saving
   task. An open browser tab is not evidence that the local server is healthy.
 
@@ -48,8 +48,11 @@ Detailed evidence: docs/PHASE1_EXECUTION.md; sibling workspace report
 PR 74 delivered private transactional generation/batch/observation membership,
 using the PR 73 accepted-ID collector. The additive migration is applied; all three
 tables have RLS and no browser privileges. Global worker gate remains off. A
-manual, one-job controlled verification is being prepared on
-feat/controlled-ledger-verification. No live ledger batch is verified yet.
+manual, one-job controlled verification (PR75) failed before acquisition because
+the existing private runtime role lacks ledger access. Run39277563309. A narrow
+server-role grant is prepared but NOT applied; owner approval is pending.
+No live ledger batch is verified yet. Retention code is in progress on
+feat/bounded-ledger-retention, dry-run default and not scheduled.
 
 PR 74 branch CI: 1,260 unit, 96 integration, 15 browser tests passed; 61/61 QA.
 Main Tests 39275425220, Verification 39275425177, E2E 39275425251 and production

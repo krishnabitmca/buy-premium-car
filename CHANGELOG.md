@@ -1,3 +1,13 @@
+## 2026-10-20 — Bounded audit-ledger retention (not activated)
+
+- Add dry-run-default, whole-generation retention with age/row limits, queue-first
+  locking, active/checkpoint protection, child preflight and rollback. Preserve
+  canonical inventory and disclose skipped/oversized history.
+- Add retention candidate index and disposable-PostgreSQL adversarial coverage.
+- Prepare existing worker-role SELECT/INSERT/UPDATE and RLS policies after live
+  preflight found missing ledger access. Remote application awaits owner approval;
+  no browser access, deletion grant or continuous collection is enabled.
+
 ## 2026-10-19 — Controlled scan ledger verification
 
 - Add a main-only manual workflow using the existing approved test database secret.

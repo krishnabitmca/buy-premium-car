@@ -3,37 +3,43 @@
 Updated 19 October 2026, evening IST. Read AGENTS.md, CARSCANNER_PROFILE.md,
 CURRENT_STATE.md and required product/architecture/decision documents first.
 
-## Verified release and schema
+## Verified release and live blocker
 
-Main/origin/main: 2a85af02b376ce6aaec107fbec80feb328d1cef7, PR 74.
-Private ledger migration 20261019145430_inventory_scan_ledger.sql applied to the
-approved Supabase project. First attempt aborted on lock timeout; inspection and
-retry succeeded without weakening safeguards. Three tables have RLS, no browser
-privileges; three expected INFO no-policy advisor findings, no WARN/ERROR.
-Render dep-dbb358flk1mc73dfikd0 live 19 October 20:40:01 IST.
-Main Tests 39275425220, Verification 39275425177, E2E 39275425251 and production
-smoke 39275425271 passed. PR branch: 1,260 unit, 96 integration, 15 browser,
-61/61 QA. Local PostgreSQL remains socket-blocked; skips are not DB passes.
+Main/origin/main: 25c4a5c37afe02eba721be1d5541acd925b55a25, PR75 merged.
+Render dep-dbb3bp5g1s2s73buh7mg live 19 October 20:53:41 IST.
+PR75 CI: 1,269 unit, 97 integration, 15 browser, independent QA/architect reviewed.
+Main Tests39277478087, Verification39277478197, E2E39277478120 passed.
+Controlled live workflow39277563309/job118145782164 failed BEFORE acquisition:
+existing carscanner_free_test_runtime lacks ledger access. It has no BYPASSRLS.
+No actual ledger batch verified. Global gate remains off. Do not rerun until
+narrow role access is owner-approved/applied and reverified.
 
-Global CARSCANNER_SCAN_LEDGER_ENABLED stays false/default. No actual live ledger
-batch verified yet. No new sources, credentials, costs or notifications enabled.
+Private ledger schema migration20261019145430 is applied; RLS/browser denial
+verified. Proposed20261019152513 runtimeaccess migration is NOT remotely applied.
+It grants existingrole SELECT/INSERT/UPDATE plus command-specific policies only;
+noDELETE/TRUNCATE/browseraccess/credentials. Ownerapproval has NOT been received.
+No production retention deletion is authorized or performed.
 
-## In-flight increment: controlled ledger verification
+## In-flight bounded retention
 
-Branch feat/controlled-ledger-verification based on verified main. New manual-only
-workflow and scripts/verify_scan_ledger.py claim exactly one existing verified
-source job with page budget one. Verification requires the exact refresh/attempt/
-claim-time batch, positive membership, matching count and false authority flags.
-Independent architect review approved after correcting time-window attribution
-and negative-only acceptance. QA owns tests/test_scan_ledger_postgres.py and new
-unit tests/test_verify_scan_ledger.py; inspect actual status before editing.
+Currentbranch feat/bounded-ledger-retention based25c4a5c. New helper
+src/scan_ledger_retention.py defaults dry-run, minimum30days, whole generations,
+max10generations/100batches/1000members,50candidatewindow/hard200. Queue then
+generation locks, batch locks before counting memberships; protects activejobs,
+references/malformedcontinuations/recent/incomplete/oversized batches. Canonical
+inventory untouched. Caller transaction owns commit; timeouts restored on success.
+New unitfile21passed; retentionDB and runtimeaccessDB tests requireCI (26skips,
+notpasses). QA corrected age fixtures and reviews concurrency/RLS. New CLI-generated
+retention index migration20261020004623 also unapplied. CI integration filelist
+updated. Narrowruntimeaccess proposal is prepared alongside operational code;
+remote application requires ownerapproval separately from merging code.
 
-Next: finish local checks/review, publish focused PR, wait disposable PostgreSQL
-CI including controlled verifier test, merge only green. Then invoke manual main
-workflow through authenticated GitHub UI (connector has no dispatch capability),
-using an existing queued verified source/make. Confirm actual role and private
-rows via Supabase. Do not enable sustained collection. If UI requires sign-in,
-checkpoint exact dependency without claiming runtime proof.
+Next: finish independent QA, run focusedchecks, publish focusedPR, require real
+PostgreSQL CI and review beforemerge. Request ownerapproval of concrete tested
+runtimeaccess proposal; do not expandaccess automatically. Then controlledworkflow
+rerun ifapproved, verify exactbatch/role/membership with Supabase, globalgateoff.
+Retention apply remains off and unscheduled. Afterretention acceptance continue
+bounded sanitized parser evidence/offline replay. P1-02 incomplete.
 
 ## Following P1-02 dependencies
 
