@@ -1,3 +1,11 @@
+## 2026-10-20 — Bounded reviewed demo-source probe
+
+- Add a manual public-only probe for two configured dealer inventory surfaces,
+  with one request, no redirects/retries, response limits and existing parsers.
+- Keep database credentials, registration and ingestion out of the workflow.
+  Retain bounded sanitized status/count evidence; unavailable is not empty supply.
+- This does not activate Sundaram, increase inventory or establish full coverage.
+
 ## 2026-10-20 — Correct global demo acquisition routing
 
 - Empty-query background demo/used jobs now use explicit literal condition
