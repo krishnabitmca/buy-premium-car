@@ -157,3 +157,42 @@ def test_credential_or_contact_paths_are_not_retained(slug):
     artifact = sample(html)
     assert artifact['status'] == 'no_supported_cards'
     assert slug not in json.dumps(artifact)
+
+
+@pytest.mark.parametrize('stamp', ['', False, 0, None, [], {}])
+def test_artifact_timestamp_cannot_default_to_now(stamp):
+    artifact = sample()
+    artifact['captured_at'] = stamp
+    assert replay.replay_sample(artifact)['status'] == 'replay_unavailable'
+
+
+@pytest.mark.parametrize('stamp', ['', False, 0, [], {}])
+def test_capture_rejects_falsy_timestamps_other_than_none(stamp):
+    with pytest.raises(ValueError):
+        replay.capture_sample(HTML, source_url=BASE, captured_at=stamp)
+
+
+def test_total_extraction_loss_is_drift_for_a_valid_historical_sample(monkeypatch):
+    artifact = sample()
+    monkeypatch.setattr(replay, 'parse_reviewed_cards', lambda *args: [])
+    monkeypatch.setattr(replay, 'catalogue_tombstones', lambda *args: [])
+    result = replay.replay_sample(artifact)
+    assert result['status'] == 'drift'
+    assert result['positive_count'] == result['negative_count'] == 0
+    assert result['absence_reconciliation_permitted'] is False
+
+
+@pytest.mark.parametrize('error', [RuntimeError, IndexError])
+def test_unexpected_parser_errors_are_sanitized_and_restore_context(monkeypatch, error):
+    artifact = sample()
+    def fail(*args):
+        raise error('token=private-parser-error')
+    token = replay.lm._brand_identity_snapshot.set(('Previous Context',))
+    monkeypatch.setattr(replay, 'parse_reviewed_cards', fail)
+    try:
+        result = replay.replay_sample(artifact)
+        assert result['status'] == 'replay_unavailable'
+        assert 'private-parser-error' not in json.dumps(result)
+        assert replay.lm._brand_identity_snapshot.get() == ('Previous Context',)
+    finally:
+        replay.lm._brand_identity_snapshot.reset(token)

@@ -40,7 +40,8 @@ def main(argv=None):
     except FileExistsError:
         report={'status':'output_exists','historical_sample':True,'inventory_ingested':False}
         success=False
-    except (OSError,ValueError,TypeError,RecursionError):
+    except Exception:
+        # Local operator boundary must never expose parser error payloads.
         report={'status':'replay_unavailable','historical_sample':True,'inventory_ingested':False}
         success=False
     print(json.dumps(report,ensure_ascii=False,allow_nan=False))

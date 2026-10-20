@@ -125,6 +125,19 @@ def _extract(html,source_name,source_url,taxonomy):
     finally:lm._brand_identity_snapshot.reset(token)
 
 
+def _context(source_name,source_url,brand_names,scan_generation,captured_at):
+    _url(source_url,True)
+    if source_name not in ('Fusion Cars','Fusion','Fusion Cars India'):
+        raise ValueError('Unsupported source identity')
+    taxonomy=_taxonomy(brand_names)
+    if scan_generation is not None:scan_generation=str(UUID(str(scan_generation)))
+    stamp=datetime.now(timezone.utc) if captured_at is None else captured_at
+    if isinstance(stamp,str):stamp=datetime.fromisoformat(stamp.replace('Z','+00:00'))
+    if not isinstance(stamp,datetime) or stamp.tzinfo is None or stamp.utcoffset() is None:
+        raise ValueError('Capture timestamp requires timezone')
+    return taxonomy,scan_generation,stamp.astimezone(timezone.utc)
+
+
 def capture_sample(html,*,source_name='Fusion Cars',source_url,strategy='fusion_cards',
                    brand_names=None,scan_generation=None,captured_at=None):
     result={'status':'no_supported_cards','historical_sample':True,'sampled_only':True,
@@ -134,13 +147,7 @@ def capture_sample(html,*,source_name='Fusion Cars',source_url,strategy='fusion_
     raw=html if isinstance(html,bytes) else html.encode('utf-8')
     if len(raw)>MAX_INPUT_BYTES:return {**result,'status':'input_oversized'}
     if isinstance(html,bytes):html=html.decode('utf-8')
-    _url(source_url,True)
-    if source_name not in ('Fusion Cars','Fusion','Fusion Cars India'):raise ValueError('Unsupported source identity')
-    taxonomy=_taxonomy(brand_names)
-    if scan_generation is not None:scan_generation=str(UUID(str(scan_generation)))
-    stamp=captured_at or datetime.now(timezone.utc)
-    if isinstance(stamp,str):stamp=datetime.fromisoformat(stamp.replace('Z','+00:00'))
-    if not isinstance(stamp,datetime) or stamp.tzinfo is None or stamp.utcoffset() is None:raise ValueError('Capture timestamp requires timezone')
+    taxonomy,scan_generation,stamp=_context(source_name,source_url,brand_names,scan_generation,captured_at)
     clean,count,limited=_sanitize(html,source_url)
     if not count:return result
     expected=_extract(clean,source_name,source_url,taxonomy)
@@ -174,14 +181,20 @@ def replay_sample(artifact):
         if type(artifact['selection_limited']) is not bool or type(artifact['sample_count']) is not int or not 1<=artifact['sample_count']<=5:return unavailable
         if any(not isinstance(artifact[k],str) or not re.fullmatch('[0-9a-f]{64}',artifact[k]) for k in ('input_sha256','html_sha256','expected_sha256')):return unavailable
         if _hash(artifact['html'].encode())!=artifact['html_sha256'] or _hash(_encoded(artifact['expected']))!=artifact['expected_sha256']:return unavailable
-        regenerated=capture_sample(artifact['html'],source_name=artifact['source_name'],source_url=artifact['source_url'],
-            strategy=artifact['strategy'],brand_names=artifact['brand_names'],scan_generation=artifact['scan_generation'],captured_at=artifact['captured_at'])
-        if regenerated.get('status')!='captured_sample' or regenerated['html']!=artifact['html'] or regenerated['sample_count']!=artifact['sample_count']:return unavailable
+        if artifact['strategy']!='fusion_cards' or not isinstance(artifact['captured_at'],str):return unavailable
+        taxonomy,_,_=_context(artifact['source_name'],artifact['source_url'],artifact['brand_names'],
+                            artifact['scan_generation'],artifact['captured_at'])
+        clean,count,_=_sanitize(artifact['html'],artifact['source_url'])
+        if not count or clean!=artifact['html'] or count!=artifact['sample_count']:return unavailable
         # Never echo attacker-controlled expected values in the comparison report.
-        actual=regenerated['expected']
+        # A valid historical sample yielding zero rows is parser drift, not an
+        # invalid artifact. Capture's initial non-vacuity gate does not apply.
+        actual=_extract(clean,artifact['source_name'],artifact['source_url'],taxonomy)
         return {'status':'matched' if actual==artifact['expected'] else 'drift',
                 'historical_sample':True,'sampled_only':True,'sample_count':artifact['sample_count'],
                 'completeness_verified':False,'absence_reconciliation_permitted':False,
                 'positive_count':len(actual['positive']),'negative_count':len(actual['explicit_negative'])}
-    except (ValueError,TypeError,KeyError,AttributeError,OverflowError,RecursionError):
+    except Exception:
+        # Operator boundary: parser exceptions may contain private source text.
+        # Keep KeyboardInterrupt/SystemExit observable by excluding BaseException.
         return unavailable

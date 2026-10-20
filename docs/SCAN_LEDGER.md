@@ -32,7 +32,8 @@ enqueue outside this fence is not part of the guarantee.
 - Legacy resumed generations may predate ledger capture. Earlier membership is
   unknown; no current-inventory backfill invents its history.
 - No raw HTTP response, session token, price payload or buyer data is retained here.
-  Parser replay samples and their bounded retention remain unimplemented. Ledger
+  Operator-only local parser samples/replay are documented in PARSER_REPLAY.md;
+  automatic capture and bounded sample retention remain unimplemented. Ledger
   retention is implemented below but not activated or operationally verified.
 
 ## Controlled rollout
