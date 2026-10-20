@@ -269,3 +269,32 @@ Inspect the seven-day artifact receipt/hash/replay without exposing sample
 content. If no eligible queued job exists, report the operational blocker; do
 not synthesize inventory or broaden access. Global ledger/capture gates remain
 off and P1-02 remains open until this controlled operational proof is complete.
+
+
+## P1-03 discovery evidence increment — 20 October 2026
+
+PR83 merged as b3c2c75414d969edd02891b86fe337ad155d1056. Render auto
+webhook did not start, so after repeated absence the already-authorized deploy was
+triggered once through Render. Deployment dep-dbbo86k9v7es73fsj6f0 is live for
+b3c2c75; production homepage loaded successfully after refresh.
+
+Controlled Fusion capture remains naturally blocked. Read-only Supabase evidence
+shows one Fusion global/both job completed with last_success_at
+2026-10-20T14:36:48.492514Z, only 33 minutes old when checked, versus a 360-minute
+freshness target. Do not synthesize/requeue it early. Let the normal scheduler
+create eligible work, then run one capture and validate hashes/replay.
+
+Current eligible snapshot exposes demos only for Mercedes-Benz (72 offers/62
+vehicles) and Tata (1/1). Candidate review: Gurudev Skoda publicly shows five
+explicitly SOLD cars and no public asking prices; Porsche Finder is new/used,
+not demo; GetOnRoadPrice timed out; DiscountedCarsIndia was inaccessible;
+Motodeals exposed no parseable inventory. No source activated.
+
+Branch feat/demo-discovery-evidence starts from local b58089c, whose tree is the
+merged PR83 tree. Fixed discovery classification so query intent never becomes
+page condition evidence. Returned title/snippet/normalized URL path alone may
+classify demo/used; ambiguous dealer directories remain both. Added ADR032,
+changelog and tests/test_discovery_evidence.py. Validation: 23 focused passed;
+broader discovery/registry/control-plane/probe/adapter set 76 passed. Next:
+publish focused PR, run CI, merge/deploy, then measure subsequent discovery output
+and continue source-specific accessible feed acquisition. P1-03 remains open.

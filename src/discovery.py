@@ -84,8 +84,13 @@ def _segment_for_brand(brand: str) -> str:
     return "mass_market"
 
 
-def _classify(title: str, snippet: str, query: str, brand_hint: str | None) -> tuple[str, str, float]:
-    blob = f"{title} {snippet} {query}".lower()
+def _classify(title: str, snippet: str, query: str, brand_hint: str | None,
+              url: str = "") -> tuple[str, str, float]:
+    # The query is acquisition intent, never evidence about the returned page.
+    # Including it here used to label ordinary dealer directories and used-car
+    # catalogues as demo sources merely because a demo query found them.
+    evidence_path = re.sub(r"[^a-z0-9]+", " ", urlparse(url).path.lower())
+    blob = f"{title} {snippet} {evidence_path}".lower()
     if any(x in blob for x in ("demo car", "demo vehicle", "demonstrator", "demo cars")):
         condition = "demo"
     elif any(x in blob for x in ("used car", "second hand", "pre-owned", "pre owned", "certified used")):
@@ -291,7 +296,7 @@ def discover(settings, known_domains, demand=None, *, include_known_domain_urls=
                             None,
                         )
                         source_type, condition, confidence = _classify(
-                            title, snippet, query, brand_hint
+                            title, snippet, query, brand_hint, url
                         )
                         segment = _segment_for_brand(brand_hint) if brand_hint else (
                             "luxury" if "luxury" in f"{title} {snippet}".lower()

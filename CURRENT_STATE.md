@@ -134,3 +134,13 @@ request, inventory, source, credential, database access or continuous capture.
 Local regression: 1,433 passed, 129 skipped; external/CI and operational proof
 remain pending. These artifacts are historical parser diagnostics, never proof
 of current vehicle availability, complete traversal or absence authority.
+
+
+## Demo acquisition gap measurement — 20 October 2026
+
+After PR83 deployment, a read-only eligible inventory snapshot showed broad used
+inventory but demo inventory only for Mercedes-Benz (72 source offers) and Tata
+(1). Counts are observed eligible source offers, not unique national stock or
+coverage percentages. No reviewed candidate source was safe to activate. A local
+P1-03 increment now prevents demo query wording from falsely classifying ordinary
+dealer/used pages as demo sources; operational and CI evidence remain pending.

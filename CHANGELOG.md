@@ -1,3 +1,12 @@
+## 2026-10-20 — Evidence-bound demo source discovery
+
+- Stop treating demo search-query wording as evidence that a returned source
+  actually publishes demo inventory. Classify condition only from the returned
+  title, snippet and normalized URL path.
+- Preserve explicit demo and used catalogue evidence while leaving dealer
+  directories and ambiguous pages unclassified. Existing candidates are corrected
+  when rediscovered; no source is activated or inventory inferred by this change.
+
 ## 2026-10-20 — Gated controlled parser capture (not activated)
 
 - Stage bounded sanitized Fusion samples from existing acquisition responses only
