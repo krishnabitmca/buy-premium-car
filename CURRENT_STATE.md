@@ -1,5 +1,30 @@
 # CarScanner current state — dated evidence
 
+## Local replay increment — 20 October 2026
+
+Owner research/profile committed7c75abf; operator-only sanitized Fusion capture
+and offline replay committed386700c on feat/sanitized-parser-replay. 84 focused
+tests passed; historical samples cannot ingest, refresh or retire inventory.
+Independent review, final full regression and PR/CI are pending. P1-02 remains
+open. GitHub main is now6d93c9f after owner-merged PR79 source-concentration
+measurement; feature branch incorporates it. Its production deployment was not
+verified in this increment. Older release evidence below remains dated evidence.
+
+Final local regression now passed: 1389 tests, 3 skipped, 125 integration
+deselected; 84 focused and 20 HTTP tests passed separately. Independent review
+and GitHub CI remain pending; no production change is claimed.
+
+## Owner research memory update — 20 October 2026
+
+All four owner research sources read: two complete PDFs (24/30 pages) and two
+concept boards. Requirements synthesized in
+docs/OWNER_UX_BACKEND_RESEARCH_2026-10-20.md and linked from CARSCANNER_PROFILE.md
+and startup instructions. Source assets/hash manifest archived locally under
+../../outputs/owner-research-2026-10-20/; not published to GitHub. Research ingestion
+changes documentation only, not runtime behavior or production evidence. Evidence
+cards → comparison matrix → optional guidance is the recorded direction; immediate
+P1-02 acquisition/replay dependencies remain. No new tests/deployments in this slice.
+
 Saved 20 October 2026, Asia/Kolkata. Revalidate on resume; do not assume this
 snapshot establishes current health, current inventory or a freshness SLA.
 
@@ -7,9 +32,9 @@ snapshot establishes current health, current inventory or a freshness SLA.
 
 - Repository: https://github.com/krishnabitmca/buy-premium-car
 - Hosted application: https://buy-premium-car1.onrender.com/
-- Last verified live application commit: 49126d0641b13db7139eccc733b704d4546b9bf2.
-- Latest code PR 80: https://github.com/krishnabitmca/buy-premium-car/pull/80
-- Render deploy: dep-dbbio20473hc73dka7a0; live 20 October 14:24:05 IST.
+- Last verified live application commit: 0acd915ca1f50beeff2d771590e362673f2690de.
+- Latest code PR 81: https://github.com/krishnabitmca/buy-premium-car/pull/81
+- Render deploy: dep-dbbjkbmk1f9s73btvip0; live 20 October 15:24:22 IST.
 - Local preview URL: http://127.0.0.1:8000/; not reverified in this memory-saving
   task. An open browser tab is not evidence that the local server is healthy.
 
@@ -90,3 +115,11 @@ Controlled run39396781228 and independent canonical DB read confirmed ingestion.
 BMW configured OEMdemo page currently empty; broader demo coverage remains an
 active gap. No all-brand coverage claim, freshness relaxation or inferred demos.
 PR80 branch1,317unit/125integration/15browser passed; main smoke39396671396 passed.
+
+## Worker-environment source evidence
+
+PR81 adds manual bounded public diagnostics, no ingestion or DBcredentials.
+Sundaram probe39404096044 returned HTTP403, no retry, no parsed/ingested rows.
+It remains outside live registry. This is a verified acquisition blocker, not
+zero market inventory. BranchCI1,331unit/125integration/15browser passed.
+Parser replay and wider accessible demo feeds remain open priorities.

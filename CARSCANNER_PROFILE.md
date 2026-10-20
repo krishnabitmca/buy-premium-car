@@ -44,6 +44,35 @@ Detailed requirements remain authoritative in PRODUCT.md,
 docs/BUYER_EXPERIENCE_REQUIREMENTS.md, docs/AI_SEARCH_ACCEPTANCE.md and
 docs/PHASE1_EXECUTION.md. Acceptance targets are not achieved SLA claims.
 
+## Owner UX/backend research incorporated — 20 October 2026
+
+Read both complete reports (24 and 30 pages) and both concept boards. Persistent
+requirements, source hashes/local archive references, visual guidance, acceptance
+cases and interpretation limits are saved in
+[Owner UX/backend research](docs/OWNER_UX_BACKEND_RESEARCH_2026-10-20.md).
+Read that document before relevant UX, ranking, identity or buyer-evidence work.
+
+Adopt the staged direction: evidence cards first; a trust/evidence-based comparison
+matrix as the destination; optional guided buyer/AI only after reliable evidence.
+CarScanner helps buyers choose a vehicle AND an observed source offer. Clearly
+separate facts, calculations, interpretations and uncertainty. Surface conservative
+same-car grouping and per-offer provenance; never equate a fetched listing with an
+inspected vehicle. Prefer typed verification and explainable evidence tiers over
+generic Verified/Great Deal badges or unexplained numeric scores.
+
+Visual direction: mobile-first compact search, bottom-sheet filters, useful images,
+clear asking-price basis/freshness, contextual compare and accessible evidence
+drawers; desktop horizontal evidence rows and aligned comparison columns. Save
+car, save search and alert/watch are different actions. Destination stays context,
+not a hidden India-wide stock restriction. Keep all brands/models in scope.
+
+Research mock counts, prices, ratings and badges are illustrative. Performance,
+freshness and conversion targets are unverified proposals, not delivered results.
+This ingestion adds requirements; it implements no new runtime capability. Existing
+Phase 1 acquisition, durable scan membership and parser replay priorities remain;
+source breadth/freshness cannot be replaced by UI or AI work. Free testing,
+dry-run alerts and approval boundaries remain unchanged.
+
 ## Team personas and accountable workstreams
 
 Simulate experienced independent perspectives. Do not claim human staffing or

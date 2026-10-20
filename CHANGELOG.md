@@ -1,3 +1,14 @@
+## 2026-10-20 — Local sanitized Fusion parser replay (pending review)
+
+- Add bounded operator-only historical sample capture and offline replay using
+  existing Fusion parsers, preserving explicit sold evidence and denying scan
+  completeness/absence authority. Reject empty parser evidence and unsafe paths.
+- Add fidelity, drift, tamper, privacy, size-limit and no-side-effect checks.
+  Automatic capture, durable storage/retention and production acceptance remain
+  open. This adds no inventory or current-availability guarantee.
+- Save owner decision UX/backend research in the persistent repository profile;
+  evidence cards and comparison precede optional guidance/AI.
+
 ## 2026-10-20 — Bounded reviewed demo-source probe
 
 - Add a manual public-only probe for two configured dealer inventory surfaces,

@@ -5,6 +5,9 @@
 At the start of every CarScanner session or scheduled continuation, read
 CARSCANNER_PROFILE.md, CURRENT_STATE.md and WORK_CHECKPOINT.md before choosing work.
 Follow the team review responsibilities and product mandate in the profile.
+For UX, buyer evidence, ranking or identity work, also read
+docs/OWNER_UX_BACKEND_RESEARCH_2026-10-20.md, the owner research requirements
+linked from the profile. Research priorities do not displace Phase 1 dependencies.
 Refresh state/checkpoint after meaningful work and before stopping. Saved state
 is dated evidence, not proof of current deployment or inventory; verify changes.
 Continue the highest-priority unblocked Phase 1 dependency without asking for
