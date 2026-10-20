@@ -3,7 +3,9 @@
 The optional private `_accepted_observations` list in `ingest_vehicles` and
 `retire_catalogue_evidence` captures immutable source/listing/inserted-observation
 identities for later scan membership. Existing callers receive unchanged counters.
-No current worker activates collection or persists a ledger yet.
+PR 74 wires collection and a private ledger behind an off-by-default worker gate.
+See SCAN_LEDGER.md. The controlled live check currently fails its server-role
+access preflight; no live ledger operation or sustained collection is verified.
 
 Records use actual `INSERT ... RETURNING observation_id`, not parser rows, latest
 observation lookup, URL re-resolution or canonical vehicle identity. Rejected rows
@@ -18,13 +20,13 @@ the caller must scope and discard them after rollback. Do not emit events, write
 external files, or otherwise publish provisional IDs. Keep the collector inside
 the existing fenced transaction when wiring the ledger.
 
-## Next implementation
+## Implemented ledger and remaining work
 
-Add private generation/batch/observation membership tables using CLI-generated
-additive migrations, RLS and existing server access only. Write batch membership
-and canonical observations/checkpoint in the same claimed transaction. Enforce
+Private generation/batch/observation tables now exist through a CLI-generated
+additive migration with RLS and no browser grants. The gated worker writes batch
+membership and canonical observations/checkpoint in the same claim transaction. It enforces
 source and immutable generation consistency, stable batch identity, replay safety
-and distinct observations. Preserve partial legacy history and deny completeness/
+and distinct observations. It preserves partial legacy history and deny completeness/
 absence authority. No network work inside the transaction. Model-frontier enqueue
 currently sits outside this boundary; do not include it in atomicity claims.
 

@@ -74,3 +74,26 @@ proof of physical availability, source breadth or completeness.
 Private tables intentionally have no RLS browser policies. The Supabase advisor's
 [INFO no-policy finding](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)
 is expected; adding public policies to silence it would weaken the boundary.
+
+## Bounded whole-generation retention
+
+`retain_scan_ledger()` defaults to dry-run; no schedule invokes it. It inspects at
+most 50 candidates (hard max 200), and permits at most 10 generations, 100 batches
+and 1,000 memberships per call. Minimum age is 30 days. Both capture/latest-batch
+and all batch completion/claim times must be old. Oversized generations stay
+whole; reports disclose skipped reasons and cannot count rows hidden by locks.
+
+Queue rows are locked before generation rows with SKIP LOCKED, matching workers.
+Queued/running work, any current generation reference, malformed continuation,
+incomplete batches and recent evidence are preserved. Failures roll back the
+operation; caller-owned transactions retain commit control. Local lock/statement
+timeouts bound each SQL wait. Deletes cascade audit children only, never canonical
+vehicles/listings/observations, queue rows or availability. Expired audit history
+cannot prove an inventory gap. Exact reclaimed disk bytes are not reported;
+PostgreSQL storage reclamation depends on vacuum and is separately unmeasured.
+
+Apply is explicit and requires an owner-authorized maintenance connection. The
+runtime-access proposal grants only SELECT/INSERT/UPDATE and command-specific RLS
+policies to the existing private worker role; no DELETE/TRUNCATE, browser grant,
+credential or bypass. It is prepared but not applied remotely, pending owner
+approval. Retention apply is not enabled by that access proposal.
