@@ -7,9 +7,9 @@ snapshot establishes current health, current inventory or a freshness SLA.
 
 - Repository: https://github.com/krishnabitmca/buy-premium-car
 - Hosted application: https://buy-premium-car1.onrender.com/
-- Last verified live application commit: 142ec976531bdad3292469c6e59c5ccfb51b8f49.
-- Latest documentation PR 77: https://github.com/krishnabitmca/buy-premium-car/pull/77
-- Render deploy: dep-dbbbo5g473hc73ddmfi0; live 20 October 06:26:22 IST.
+- Last verified live application commit: 49126d0641b13db7139eccc733b704d4546b9bf2.
+- Latest code PR 80: https://github.com/krishnabitmca/buy-premium-car/pull/80
+- Render deploy: dep-dbbio20473hc73dka7a0; live 20 October 14:24:05 IST.
 - Local preview URL: http://127.0.0.1:8000/; not reverified in this memory-saving
   task. An open browser tab is not evidence that the local server is healthy.
 
@@ -77,3 +77,16 @@ national production-ready. The eight broad product groups and A01–A15 overlap.
 Rollback reference: application commit 57974754e6de28f2fed516660aa9e473d9588992,
 Render dep-dbape5flk1mc73d45p70. No rollback drill executed; check artifact
 availability, compatibility and auto-deploy settings before any rollback.
+
+## Demo search incident, 20 October
+
+Verified All brands/Demo search works but indexed eligible supply initially
+contained only Mercedes across2sources (72sourceoffers, not uniquephysicalcars).
+BMW Demo zero reproduced. PR80 fixes brandless jobs ignoring literal configured
+demo routes, resets old-root generations and preserves perlisting condition rules.
+Guarded Tata feed rollout now yields one buyer-visible Altroz demo at8.51lakh,
+explicit on-road basis, originaldealerlink, unknownmileage/no vehiclephoto.
+Controlled run39396781228 and independent canonical DB read confirmed ingestion.
+BMW configured OEMdemo page currently empty; broader demo coverage remains an
+active gap. No all-brand coverage claim, freshness relaxation or inferred demos.
+PR80 branch1,317unit/125integration/15browser passed; main smoke39396671396 passed.

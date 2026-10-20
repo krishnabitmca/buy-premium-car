@@ -34,3 +34,19 @@ Its parser rejects malformed/invalid prices and fails closed if multiple items
 lack individual offer identity. Review actual ingestion before claiming rollout.
 No indexed-result absence establishes no demos in the market. Wider OEM/dealer
 feeds and sustained acquisition remain open; this is a bounded defect fix.
+
+## Bounded verification before source activation
+
+The manual Reviewed Demo Source Probe workflow reads one of two explicitly reviewed
+public surfaces from versioned YAML: Sundaram or Gurudev Tata. It performs at most
+one HTTP request, follows no redirects/retries and caps the response before parsing.
+It uses existing parsers with a local brand snapshot and has no database credentials,
+registration, ingestion or customer notification path. Output retains only status,
+counts and at most five safe original URLs/prices/condition signals; never raw HTML,
+bootstrap/session material or exception response text.
+
+A successful request is a sample, not complete enumeration or a live inventory
+rollout. A 403/429, oversized response or parser error is recorded as unavailable;
+do not bypass it or seed cached fixture rows as inventory. Sundaram remains out
+of the live registry until actual worker evidence and bounded traversal are reviewed.
+Gurudev's separately verified one-offer ingestion is recorded in WORK_CHECKPOINT.md.

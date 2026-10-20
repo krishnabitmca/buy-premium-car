@@ -1,0 +1,46 @@
+name: Reviewed Demo Source Probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_name:
+        description: Reviewed public inventory surface (one request, no ingestion)
+        required: true
+        type: choice
+        options:
+          - Sundaram Motors Pre-Owned
+          - Gurudev Tata Demo
+
+permissions:
+  contents: read
+
+concurrency:
+  group: carscanner-demo-source-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Probe the reviewed public catalogue without database credentials
+        env:
+          SOURCE_NAME: ${{ inputs.source_name }}
+        run: |
+          mkdir -p coverage
+          python -m scripts.probe_demo_source --source "$SOURCE_NAME" > coverage/demo-source-probe.json
+          cat coverage/demo-source-probe.json
+      - name: Preserve bounded public evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-source-probe-${{ github.run_number }}
+          path: coverage/demo-source-probe.json
+          if-no-files-found: error
+          retention-days: 7

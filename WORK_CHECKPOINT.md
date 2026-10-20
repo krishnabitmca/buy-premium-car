@@ -92,3 +92,49 @@ source afterQA/codeCI and runonebounded acquisition, verifyactualTataDemoUI.
 Do not globally seed/override registry, infer usedasdemo or extend freshness to
 hide supply failures. Sundaram previously403 requires verification, not activation
 by configuration alone. Return to parserreplay after incident checkpoint.
+
+## Demo incident delivery — 20 October 2026, 14:30 IST
+
+PR80 merged and deployed as49126d0641b13db7139eccc733b704d4546b9bf2.
+Local main/origin/main synchronized. Render dep-dbbio20473hc73dka7a0 live
+14:24:05 IST. Main Tests39396671456, Verification39396671458, E2E39396671388
+and production smoke39396671396 passed. Branch373a973:1,317unit,
+125integration,15browser passed; independent QA approved. Broad live-catalogue
+matrix39396433303 was still running separately; do not claim its completion.
+Remote unrelated PR79 remains open; not merged or edited.
+
+Registered ONLY previously configured Gurudev Tata Demo after current public API
+review and parser guard tests. Newly created source/capabilities/verified adapter/
+endpoint/global-demo job in one transaction, preserving all existing registry
+state. Rollout SQL ../../outputs/gurudev-demo-reviewed-rollout.sql.
+Controlled acquisition39396781228/job118541365426 succeeded on the deployed code.
+Canonical latest row: Tata Altroz, demo,8.51lakh,on_road,live_verified,true;
+observed20October14:24:40IST, sold_signal false. Production browser
+Demo only/Tata returned1result with originaldealerlink and unknownmileage/photo.
+Proof ../../outputs/tata-demo-production-result.png. No inferred stock or expiry
+relaxation. Global ledger gate stays off outside bounded verification.
+
+BMW dedicated configured demo URL currently visibly returns No listings found;
+fixed brandless route selection cannot manufacture BMW supply. Sundaram source
+still not activated: prior worker403, publicpage has explicitdemo cards but needs
+actual bounded-worker validation. Wider all-brand demo acquisition remains OPEN.
+Next incident priority: source-specific current demo supply across missing brands,
+reviewed dealer/OEM/feed rollout and sampled buyer-visible checks. Add maintained
+empty/coverage diagnostics before calling this all-brand working. Keep parser
+replay LLD queued as following P1-02 work; owner demo incident takes priority.
+Only CURRENT_STATE.md/WORK_CHECKPOINT.md intentional operational dirty files.
+
+## In-flight source probe, 20 October heartbeat
+
+Current branch feat/bounded-demo-source-probe based49126d; remote main checked
+unchanged, unrelatedPR79 still open. Backend agent owns scripts/probe_demo_source.py
+and tests/test_probe_demo_source.py. Root owns manual workflow/demo-source-probe.yml
+and docs. QA read-only review. No overlapping writers or source activation.
+Probe is public-only, two reviewed YAML source choices, single bounded request,
+no redirects/retries, DB credentials or ingestion. Never bypass403. Output sanitized
+counts + max5publicoffer summaries, no rawHTML/session/bootstrap/contact payloads.
+After tests/review publish focusedPR and realGitHubprobe Sundaram beforeactivation.
+If403/oversized/parserfailure, preserve unavailable status; do not seed it live.
+Broad livecatalogmatrix39396433303 ended cancelled, not passed. Existingdemo
+incident rootfix andTata liveproof remain lastcompleted increment. Parserreplay
+stillopen afterfocused source investigation. Preserve operationaldirtymemoryfiles.
