@@ -179,6 +179,23 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
             priority['actions'].insert(0,'operator_disabled_do_not_schedule')
         priority['score']=priority['pending_pages']*2+priority['overdue_offers']+priority['detail_parser_gaps']*5
 
+    # Source concentration is measured from eligible offers, not unique cars or
+    # market-wide recall. Unknown condition remains a separate bucket.
+    eligible_by_source=sorted(
+        ((name,stat['eligible_offers']) for name,stat in source_stats.items() if stat['eligible_offers']),
+        key=lambda item:(-item[1],item[0]))
+    eligible_total=sum(count for _,count in eligible_by_source)
+    source_concentration=dict(
+        eligible_offers=eligible_total,
+        contributing_sources=len(eligible_by_source),
+        top_three_share_percent=(round(100*sum(count for _,count in eligible_by_source[:3])/eligible_total,2)
+                                 if eligible_total else None),
+        top_sources=[dict(source=name,eligible_offers=count,
+                          share_percent=round(100*count/eligible_total,2))
+                     for name,count in eligible_by_source[:10]],
+        denominator='eligible source offers; not distinct physical cars or national supply',
+        market_coverage_percent=None)
+
     capacity=[]
     for condition in ('used','demo'):
         demand=renewal[condition]
@@ -203,6 +220,7 @@ def summarize(facts,sources,jobs,runs,*,now=None,renewal_limit=10,interval_minut
             for key,cell in sorted(city_cells.items(),key=lambda pair:tuple(value or '' for value in pair[0]))],
         coverage_matrix=sorted(cells,key=lambda r:(r['source'],r['seller_location_label'] or '',r['brand'],r['model'],r['condition'])),
         declared_scopes=declared,source_priorities=sorted(priorities.values(),key=lambda r:(-r['score'],r['source'])),
+        source_concentration=source_concentration,
         acquisition_queue=dict(job_totals),capacity=dict(assumed_interval_minutes=interval_minutes,renewal_attempts_per_cycle=renewal_limit,
             conditions=capacity,recorded_runs_last24h=len(runs),completed_runs_last24h=completed,
             recorded_outcomes_last24h=dict(outcomes),mean_completed_run_seconds=round(duration/completed,2) if completed else None,
@@ -271,6 +289,16 @@ def markdown_report(report):
         '| --- | ---: | ---: | ---: | ---: |']
     for row in report['capacity']['conditions']:
         lines.append('| {condition} | {renewable_offers} | {overdue_offers} | {individual_check_demand_per_hour} | {reserved_attempt_capacity_per_hour} |'.format(**row))
+    concentration=report.get('source_concentration') or {}
+    lines+=['', '## Eligible-offer source concentration', '',
+        'Eligible source offers: '+str(concentration.get('eligible_offers',0)),
+        'Contributing sources: '+str(concentration.get('contributing_sources',0)),
+        'Top-three source share: '+(str(concentration['top_three_share_percent'])+'%' if concentration.get('top_three_share_percent') is not None else 'Unknown (no eligible offers)'),
+        'This is concentration within observed eligible source offers, not national market recall.', '',
+        '| Source | Eligible offers | Share of eligible offers |',
+        '| --- | ---: | ---: |']
+    for row in concentration.get('top_sources',[]):
+        lines.append('| '+row['source'].replace('|',' ').replace('\\n',' ')+' | '+str(row['eligible_offers'])+' | '+str(row['share_percent'])+'% |')
     lines+=['','These are individual-check scenarios, not worker purchase recommendations. Bulk catalogue refresh, parser yield, origin limits and actual scheduling determine real capacity.','',
         '| Source | Eligible offers | Pending pages | Overdue offers | Actions |','| --- | ---: | ---: | ---: | --- |']
     for row in report['source_priorities']:
