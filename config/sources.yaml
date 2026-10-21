@@ -484,6 +484,7 @@ known_sources:
 
 - name: AutoHangar Used Cars
   url: https://autohangar.net/usedcars/
+  parser_strategy: autohangar_cards
   tier: 2
   source_type: dealer_group
   adapter_status: live

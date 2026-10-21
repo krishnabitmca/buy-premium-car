@@ -1,5 +1,20 @@
 # CarScanner current state — dated evidence
 
+## Live-source contribution audit — 21 October 2026
+
+Read-only canonical database verification found only 10 of 28 enabled/live
+registry sources contributed eligible customer offers: 5,503 total, with 5,335
+(96.94%) from CarDekho, CarWale and CarTrade. Five sources held only expired
+historical listings and thirteen had never persisted a listing. Registry
+`live` therefore does not establish operational contribution. Detailed dated
+evidence is in docs/LIVE_SOURCE_CONTRIBUTION_AUDIT_2026-10-21.md.
+
+The first restoration increment adds an AutoHangar-specific reviewed parser.
+Its current public page parsed 16 distinct priced used offers across four brands
+through the full adapter path; 46 focused and 1,444 full-suite tests passed. No
+database strategy rollout, ingestion, deployment or buyer-visible inventory has
+occurred yet.
+
 ## Local replay increment — 20 October 2026
 
 Owner research/profile committed7c75abf; operator-only sanitized Fusion capture
@@ -144,3 +159,8 @@ inventory but demo inventory only for Mercedes-Benz (72 source offers) and Tata
 coverage percentages. No reviewed candidate source was safe to activate. A local
 P1-03 increment now prevents demo query wording from falsely classifying ordinary
 dealer/used pages as demo sources; operational and CI evidence remain pending.
+
+
+PR84 discovery-evidence release7dbcdfc is live on Render deployment
+dep-dbbob5ks728c73bnhbog. It prevents demo-query text from becoming source
+condition evidence. It adds no inventory; demo coverage remains partial.
