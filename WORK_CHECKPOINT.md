@@ -1,5 +1,13 @@
 # CarScanner continuation checkpoint
 
+## Owner execution-speed direction — 21 October 2026
+
+Do not repeat a full product/architecture/QA cycle for every small reversible
+change. Implement Phase 1 in larger source-restoration batches with focused tests
+while coding, then run one consolidated review at the phase/release checkpoint.
+Immediate full review remains appropriate for security, destructive data work,
+identity/lifecycle invariants and production rollout.
+
 ## Live-source contribution restoration — 21 October 2026
 
 Owner directed that approved live sources must actually build inventory before
