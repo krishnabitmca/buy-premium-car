@@ -1,5 +1,36 @@
 # CarScanner continuation checkpoint
 
+## Owner execution-speed direction — 21 October 2026
+
+Do not repeat a full product/architecture/QA cycle for every small reversible
+change. Implement Phase 1 in larger source-restoration batches with focused tests
+while coding, then run one consolidated review at the phase/release checkpoint.
+Immediate full review remains appropriate for security, destructive data work,
+identity/lifecycle invariants and production rollout.
+
+## Live-source contribution restoration — 21 October 2026
+
+Owner directed that approved live sources must actually build inventory before
+rejected discovery candidates are promoted. Read-only Supabase verification
+found 10/28 current contributors, five expired-only sources and thirteen with no
+persisted listing. Current eligible offers were 5,503 and the top three
+marketplaces supplied 96.94%. Evidence saved in
+docs/LIVE_SOURCE_CONTRIBUTION_AUDIT_2026-10-21.md.
+
+First focused increment: AutoHangar current public catalogue is accessible and
+contains vehicle-level priced evidence. Added `autohangar_cards` in
+src/reviewed_inventory.py, adapter dispatch, YAML strategy and adversarial tests.
+Current real-page/full-adapter validation parsed 16 distinct priced used offers,
+four brands, all with safe same-origin images, unknown location, and four
+Mercedes-Benz E-Class query matches; no database writes were made. Independent
+backend/product/QA review found and the implementation fixed mutable identity,
+false-brand, unsafe-image, model-family, unlabelled-year, explicit-sold and
+generic-fallback blockers. Focused regression: 46 passed, two existing datetime
+warnings. Final full local regression: 1,444 passed, 129 skipped, 39 existing
+datetime warnings. Remaining before rollout: branch commit/PR/CI, deploy, then update only
+AutoHangar's database parser strategy and run one bounded job. Verify canonical
+writes and customer-visible search before calling it a contributor.
+
 ## Resumed engineering increment — 20 October 2026
 
 Final local full regression after merging main6d93c9f: 1389 passed, 3 skipped,
@@ -298,3 +329,19 @@ changelog and tests/test_discovery_evidence.py. Validation: 23 focused passed;
 broader discovery/registry/control-plane/probe/adapter set 76 passed. Next:
 publish focused PR, run CI, merge/deploy, then measure subsequent discovery output
 and continue source-specific accessible feed acquisition. P1-03 remains open.
+
+
+## P1-03 discovery evidence released — 20 October 2026
+
+PR84 passed Tests39446509519, Verification39446509361 and E2E39446509532,
+then merged as7dbcdfcb0993f96e7ca6afa2a255a9a33a2b428e. Render automatic
+deployment recovered and dep-dbbob5ks728c73bnhbog became live at
+2026-10-20T15:16:17Z. Production homepage reloaded successfully. This release
+improves future candidate precision only; no source/inventory was activated.
+
+Next unblocked work: measure new evidence-bound discovery results and implement
+a source-specific parser/API only for an accessible candidate with current
+vehicle-level demo, price, availability and original-link evidence. Keep checking
+for naturally queued Fusion work after its 360-minute freshness target; then run
+the single controlled parser capture. Do not retry before eligibility or treat
+candidate/sold-only pages as stock.

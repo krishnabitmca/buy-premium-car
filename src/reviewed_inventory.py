@@ -1,6 +1,8 @@
 """Reviewed public dealer/OEM stock. No leads, account APIs or inferred demos."""
 import http.cookiejar
+import hashlib
 import json
+import math
 import re
 import urllib.parse
 import urllib.request
@@ -85,6 +87,96 @@ def parse_reviewed_cards(html,source,base,strategy,query=''):
             provenance=dict(source_url=base,original_url=url,extraction=strategy,
                 condition_evidence='Individual stock card on the source used-car catalogue; no demonstrator inference'))
         if not query or lm._identity_matches_query(row,query):rows[url]=row
+    return list(rows.values())
+
+
+def parse_autohangar_cards(html,source,base,query=''):
+    """Parse the public AutoHangar catalogue without treating lead forms as offers.
+
+    AutoHangar currently exposes one catalogue URL rather than per-vehicle links.
+    A stable source-local key keeps the independently priced cards distinct while
+    the buyer handoff remains the original public catalogue.
+    """
+    if urllib.parse.urlsplit(base).hostname not in {'autohangar.net','www.autohangar.net'}:
+        raise ValueError('Unreviewed AutoHangar host')
+    soup=BeautifulSoup(html,'html.parser');rows={}
+    cards=soup.select('.cars-box')
+    for card in cards:
+        text=_text(card)
+        sold=bool(re.search(r'\b(sold(?: out)?|booked|reserved|no longer available)\b',text,re.I))
+        title=_text(card.select_one('.carName'))
+        try:
+            price=_price(_text(card.select_one('.carPrice')))
+        except (OverflowError,ValueError):
+            price=None
+        if price is not None and (not math.isfinite(price) or not 0 < price <= 2000):
+            price=None
+        year=_text(card.select_one('.carYear'))
+        details=_text(card.select_one('.carDetails'))
+        if re.match(r'^Range Rover\b',title,re.I):
+            brand,model='Land Rover',title
+        else:
+            brand,model=lm._infer_brand_model(title,None,None)
+        brand=lm._canonical_brand(brand or '')
+        known={lm._canonical_brand(name).lower() for name in lm._known_brand_names()}
+        if brand.lower() not in known:
+            brand=model=''
+        elif brand and model:
+            model=_fusion_model(brand,brand,title)
+        if not (title and re.fullmatch(r'(?:19|20)\d{2}',year)):
+            continue
+        mileage=re.search(r'([\d,]+)\s*Kms?\b',details,re.I)
+        mileage_value=mileage[1].replace(',','') if mileage else ''
+        if not re.fullmatch(r'\d{1,9}',mileage_value):
+            mileage=None;mileage_value=''
+        fuel=next((name for name in ('Petrol','Diesel','CNG','Electric','Hybrid')
+                   if re.search(r'\b'+re.escape(name)+r'\b',details,re.I)),None)
+        image=card.select_one('img[src]')
+        # The catalogue exposes no durable stock ID or detail URL. Keep the
+        # identity conservative and stable across price, mileage and photo
+        # updates. Same-title/year collisions collapse rather than inventing
+        # distinct physical cars from mutable presentation fields.
+        fingerprint='|'.join((title.lower(),year))
+        stock_id='catalogue-'+hashlib.sha256(fingerprint.encode()).hexdigest()[:20]
+        if sold:
+            row=dict(source=source,source_listing_id=stock_id,listing_name=title,
+                brand=brand or None,model=model or None,url=base,price_lakh=price,
+                condition_signal='used',live_verified=False,sold_signal=True,
+                data_consistent=True,images=[],
+                metadata={'source_year':int(year),'source_year_semantics':'unclassified',
+                          'provenance':{'source_url':base,'original_url':base,
+                              'extraction':'autohangar_cards','offer_identity':'source catalogue card',
+                              'availability_evidence':'Explicit sold/booked/reserved text on the matching catalogue card'}},
+                provenance=dict(source_url=base,original_url=base,extraction='autohangar_cards',
+                    offer_identity='source catalogue card',
+                    availability_evidence='Explicit sold/booked/reserved text on the matching catalogue card'))
+            if not query or lm._identity_matches_query(row,query):
+                rows[stock_id]=row
+            continue
+        if not (price and brand and model):
+            continue
+        image_url=urllib.parse.urljoin(base,image['src']) if image and image.get('src') else ''
+        image_parts=urllib.parse.urlsplit(image_url)
+        base_host=urllib.parse.urlsplit(base).hostname
+        safe_images=[image_url] if image_parts.scheme in {'http','https'} and image_parts.hostname==base_host else []
+        row=dict(source=source,source_listing_id=stock_id,brand=brand,model=model,
+            listing_name=title,variant=model,url=base,price_lakh=price,
+            km=float(mileage_value) if mileage else None,
+            registration_year=None,
+            mfg_year=None,owners=None,fuel=fuel,transmission=None,location=None,
+            images=safe_images,
+            metadata={'source_year':int(year),'source_year_semantics':'unclassified',
+                      'provenance':{'source_url':base,'original_url':base,
+                          'extraction':'autohangar_cards','offer_identity':'source catalogue card',
+                          'condition_evidence':'Card published in the source pre-owned luxury-car catalogue'}},
+            condition_signal='used',live_verified=True,data_consistent=True,
+            provenance=dict(source_url=base,original_url=base,extraction='autohangar_cards',
+                offer_identity='source catalogue card',
+                condition_evidence='Card published in the source pre-owned luxury-car catalogue'))
+        if not query or lm._identity_matches_query(row,query):
+            rows[stock_id]=row
+    if cards and not rows:
+        raise ValueError('AutoHangar catalogue cards yielded no valid evidence')
     return list(rows.values())
 
 

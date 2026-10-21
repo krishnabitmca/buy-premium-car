@@ -102,6 +102,11 @@ database, browser, real-source, deployed, coverage and soak evidence.
 
 - Work persistently on the highest-priority unblocked dependency. Do not repeatedly
   ask to continue already authorized engineering work or implement symptom loops.
+- Move Phase 1 in meaningful batches. Use focused engineering checks during each
+  small reversible increment and consolidate product/architecture/adversarial QA
+  review at phase or release checkpoints. Reserve immediate full review for
+  security, destructive data operations, identity/lifecycle invariants and
+  production rollout; do not spend a full review cycle on every small parser edit.
 - Free testing is the current infrastructure choice. A $150/month planning budget
   did not authorize spending; the owner declined the $75 paid baseline activation.
 - Existing approved Supabase/Render/GitHub/Gemini integrations may be used within

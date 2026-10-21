@@ -1,3 +1,15 @@
+## 2026-10-21 — Live-source contribution audit and AutoHangar restoration
+
+- Measure every enabled/live registry source against the exact customer offer
+  eligibility contract. Only 10 of 28 contributed current offers; five held only
+  expired historical listings and thirteen had never produced a listing.
+- Add a reviewed AutoHangar catalogue-card parser with stable source-local offer
+  identities, public asking prices, mileage/year/fuel/images and conservative
+  used-only evidence. The shared source catalogue remains the original handoff
+  because the source publishes no per-vehicle links.
+- This code does not activate or ingest the source by itself. Database strategy
+  rollout, one bounded acquisition and buyer-visible verification remain required.
+
 ## 2026-10-20 — Evidence-bound demo source discovery
 
 - Stop treating demo search-query wording as evidence that a returned source
