@@ -345,3 +345,78 @@ vehicle-level demo, price, availability and original-link evidence. Keep checkin
 for naturally queued Fusion work after its 360-minute freshness target; then run
 the single controlled parser capture. Do not retry before eligibility or treat
 candidate/sold-only pages as stock.
+
+## PR85 released and verified — 21 October 2026
+
+PR85 (`Restore AutoHangar inventory ingestion`) merged to main as
+`abde9fc18eb58d337b99d408e6d2209025bf0787`. CI passed: Tests 39636717130,
+E2E 39636717044 and Verification 39636717060. Render auto-deploy
+`dep-dbcenbm1egvs739sahr0` is live on the exact merge commit.
+
+Production source registry now has only AutoHangar configured with
+`parser_strategy=autohangar_cards` and adapter parser version
+`autohangar-catalogue-v1`. A controlled local verifier used the existing private
+worker role, one queued job and one-page cap. It returned 16 accepted observations,
+16 memberships and 16 positive memberships in batch
+`6b514654-19c4-5e58-b206-87dc8111ee53`; completeness and absence reconciliation
+were false. Canonical DB read: 16 fresh/active listings (12 Mercedes-Benz, two
+BMW, one Jaguar, one Land Rover). Production `/api/search` on merge commit found
+one AutoHangar GLS600 Maybach result. Continuous collection was not enabled.
+
+Next task: restore OLX Cars first, then Quikr Cars, as the owner's highest-priority
+PAN-India all-brand classified sources. Start with permitted endpoint/interface
+discovery and capture exact 403 behavior. Do not bypass access controls, infer zero
+stock from 403, activate a source without vehicle-level price/link evidence, or
+claim national completeness. Use focused parser/contract tests per source and batch
+the full product/architecture/QA review at the Phase 1 release checkpoint.
+
+## Web-chat reconciliation — 22 October 2026
+
+The owner supplied the separate web-chat record. GitHub verification confirms
+issue 86 and draft PR 87, branch `feature/apify-olx-poc`, head
+`d7bba41ee5777a12195b380223aaf779a63510c4`. It adds only
+`scripts/apify_olx_poc.py` and `tests/test_apify_olx_poc.py`: a disabled-by-default,
+25-record maximum diagnostic using `fetch_cat/olx-india-listings-scraper` with
+fixture tests and aggregate output. It performs no database writes, scheduling,
+canonical ingestion or production activation. `apt_marble` is the fallback
+comparison candidate. Do not duplicate or replace this OLX path.
+
+The live OLX comparison remains blocked on a private `APIFY_TOKEN`, explicit
+`APIFY_OLX_POC_ENABLED=1`, source-use approval and bounded paid-run approval.
+Published OLX terms prohibit automated scraping/aggregation without permission;
+third-party execution does not remove that requirement. Continue independent
+Quikr parser work while OLX awaits those owner/business prerequisites.
+
+## Owner acquisition mandate — 22 October 2026
+
+Treat inventory acquisition and freshness as the product foundation. Execute the
+same pipeline for every source: discover/qualify source → select official API/feed
+or reviewed parser → retain source evidence → clean and normalize to CarScanner
+taxonomy → validate quality/identity/condition/provenance → promote eligible offers
+to canonical inventory/search → continuously refresh, age and expire conservatively.
+Adapters are replaceable inputs to one shared observation contract. Never let raw
+scraper/API output bypass normalization, validation, deduplication or lifecycle.
+
+Immediate sequence: finish focused Quikr parser tests and live-fixture validation;
+then prepare its bounded canonical-ingestion proof. In parallel, keep PR87 as the
+only OLX POC and wait for its token/source-use/bounded-cost prerequisites. Continue
+source discovery after these two, ranked by missing brand/model/city supply and
+measured usable inventory rather than configured-source count.
+
+## Quikr parser implementation — 22 October 2026
+
+Branch `feat/restore-quikr-inventory` starts from PR85 merge
+`abde9fc18eb58d337b99d408e6d2209025bf0787`. The configured Quikr URL is corrected
+to the server-rendered all-India used-car catalogue and `quikr_cards` is wired as a
+fail-closed source-specific strategy. It accepts only same-source numeric ad IDs and
+detail URLs, plausible asking prices, known brands and explicit used-catalogue cards;
+it records year, mileage, fuel, owner, location and HTTPS images from Quikr's
+first-party `kuikr.com` CDN. Generic fallback is disabled for this strategy.
+
+Focused validation: 25 passed. A current live catalogue probe parsed 24 unique,
+priced offers with images and locations on page 1 and another 24 on page 2; page
+links advanced deterministically to pages 2 and 3. This is read-only parser evidence,
+not canonical ingestion or completeness. Next: publish a focused PR, run CI, deploy,
+update only Quikr's registry URL/strategy/parser version, then run one one-page
+controlled ledger verification and confirm customer search. Do not activate OLX
+through this branch or run the paid Apify POC.

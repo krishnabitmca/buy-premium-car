@@ -164,3 +164,18 @@ dealer/used pages as demo sources; operational and CI evidence remain pending.
 PR84 discovery-evidence release7dbcdfc is live on Render deployment
 dep-dbbob5ks728c73bnhbog. It prevents demo-query text from becoming source
 condition evidence. It adds no inventory; demo coverage remains partial.
+
+## AutoHangar source restoration — 21 October 2026
+
+PR85 merged as `abde9fc18eb58d337b99d408e6d2209025bf0787`; Tests, E2E and
+Verification passed. Render deployment `dep-dbcenbm1egvs739sahr0` is live on
+that exact commit. The reviewed `autohangar_cards` strategy and
+`autohangar-catalogue-v1` parser version are active only for AutoHangar.
+
+One controlled job with a one-page budget accepted 16 observations and committed
+16 positive scan memberships in batch `6b514654-19c4-5e58-b206-87dc8111ee53`.
+Supabase showed 16 fresh active offers: 12 Mercedes-Benz, two BMW, one Jaguar and
+one Land Rover. Completeness and absence reconciliation remain false. Production
+search returned the AutoHangar Mercedes-Benz GLS600 Maybach offer through the
+customer API. This proves the bounded source path, not complete AutoHangar or
+national coverage. Next acquisition priority is OLX Cars, followed by Quikr Cars.
