@@ -262,6 +262,9 @@ class BuiltinMarketplaceAdapter:
                 elif parser_strategy == 'autohangar_cards':
                     from .reviewed_inventory import parse_autohangar_cards
                     parsed=parse_autohangar_cards(html,self.source_name,endpoint_url,request.query)
+                elif parser_strategy == 'quikr_cards':
+                    from .reviewed_inventory import parse_quikr_cards
+                    parsed=parse_quikr_cards(html,self.source_name,endpoint_url,request.query)
                 elif parser_strategy in {"bbt_cards", "autobest_cards", "luxuryride_cards", "ninthgear_cards"}:
                     from .dealer_inventory import parse_dealer_cards
                     parsed = parse_dealer_cards(html, self.source_name, endpoint_url, parser_strategy, request.query)
@@ -275,13 +278,13 @@ class BuiltinMarketplaceAdapter:
                     )
                 else:
                     parsed = parse_live_listings(html, self.source_name, endpoint_url)
-                if not parsed and parser_strategy != 'autohangar_cards':
+                if not parsed and parser_strategy not in {'autohangar_cards','quikr_cards'}:
                     parsed=parse_live_listings(html,self.source_name,endpoint_url)
-                if not parsed and parser_strategy != 'autohangar_cards':
+                if not parsed and parser_strategy not in {'autohangar_cards','quikr_cards'}:
                     parsed = parse_visible_listing_links(
                         html, self.source_name, endpoint_url, request.query
                     )
-                if not parsed and request.query and parser_strategy != 'autohangar_cards':
+                if not parsed and request.query and parser_strategy not in {'autohangar_cards','quikr_cards'}:
                     parsed = live_marketplaces.parse_generic_detail_page(
                         html, self.source_name, endpoint_url, request.query
                     )

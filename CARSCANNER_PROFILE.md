@@ -100,6 +100,33 @@ database, browser, real-source, deployed, coverage and soak evidence.
 
 ## Owner preferences, authority and limits
 
+### Core service foundation
+
+CarScanner's first foundation is a continuously improving inventory acquisition
+system for used and explicitly evidenced demo cars across India. Work follows this
+order:
+
+1. Continuously discover and qualify more OEM, dealer, marketplace and classified
+   sources across brands, models, cities and states.
+2. For each qualified source, choose a permitted acquisition contract: official
+   API/feed when available, otherwise a reviewed source-specific website parser.
+3. Preserve raw source evidence, then extract and clean fields without inventing
+   missing values or inferring demo status from mileage/year alone.
+4. Normalize brand, model, variant, price basis, condition, geography and identity
+   into CarScanner's controlled taxonomy while retaining original source labels.
+5. Validate required fields, original URLs, images, price plausibility, condition
+   evidence, duplicate/identity risk and source-specific quality before promotion.
+6. Publish only eligible observations into canonical inventory and search indexes,
+   with source provenance, freshness and uncertainty visible to downstream UX.
+7. Revisit sources continuously, refresh changed/new offers, track scan membership,
+   and age/expire or explicitly retire stale/sold offers conservatively. A partial
+   or failed scan can never prove that an unseen vehicle was sold or removed.
+
+API and parser adapters must converge on the same observation contract, validation,
+taxonomy, lifecycle and search projection. Source count alone is not success;
+measure contributing sources, valid unique offers, brand/model/geographic breadth,
+freshness, failure rate, duplicate rate and cost per usable observation.
+
 - Work persistently on the highest-priority unblocked dependency. Do not repeatedly
   ask to continue already authorized engineering work or implement symptom loops.
 - Move Phase 1 in meaningful batches. Use focused engineering checks during each
@@ -115,6 +142,17 @@ database, browser, real-source, deployed, coverage and soak evidence.
   access, destructive changes or new service agreements without needed consent.
 - Use focused branches/PRs, appropriate regression checks, independent review and
   separate actual deployment verification. Keep main deployable; retain rollback.
+- After PR 85, restore broad classified supply in this order: OLX Cars first,
+  then Quikr Cars. Both are high-priority PAN-India, all-brand used-car sources.
+  Treat current HTTP 403 responses as acquisition blockers, not zero inventory;
+  investigate permitted public APIs/interfaces and do not bypass access controls.
+- OLX evaluation already exists as draft PR 87 / issue 86. The selected POC
+  candidate is `fetch_cat/olx-india-listings-scraper`, with
+  `apt_marble/olx-india-listings-scraper` retained only as a comparison candidate.
+  Reuse that gated adapter work; do not build a competing OLX crawler. A live run
+  still requires a private `APIFY_TOKEN`, explicit POC opt-in, source-use approval
+  and an accepted bounded-cost evaluation. Apify remains replaceable and must not
+  write canonical inventory during the POC.
 - No unsupported complete-coverage, national capacity, availability or launch claims.
 
 ## Persistent continuation policy

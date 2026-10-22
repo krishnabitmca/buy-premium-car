@@ -1,3 +1,13 @@
+## 2026-10-22 — Reviewed Quikr used-car catalogue adapter
+
+- Replace Quikr's non-inventory landing URL with its public, server-rendered
+  all-India used-car catalogue and add a source-specific fail-closed parser.
+- Preserve numeric ad identity, original detail links, asking price, year,
+  mileage, fuel, owner count, location and allowlisted Quikr image evidence.
+- Disable generic parser fallbacks for this strategy. This code does not change
+  the production registry or ingest inventory until deployment and a bounded
+  controlled verification succeed.
+
 ## 2026-10-21 — Live-source contribution audit and AutoHangar restoration
 
 - Measure every enabled/live registry source against the exact customer offer

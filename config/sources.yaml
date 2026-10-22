@@ -436,7 +436,8 @@ known_sources:
   vehicle_link_pattern: /(?:cars|cars-vehicles)[^?#]*
 
 - name: Quikr Cars
-  url: https://www.quikr.com/cars/used-cars/all-india/
+  url: https://www.quikr.com/cars/used+cars+all-india+z1399
+  parser_strategy: quikr_cards
   tier: 2
   source_type: classifieds
   adapter_status: live
@@ -446,7 +447,7 @@ known_sources:
   brands: [all]
   priority: 65
   query_strategy: classifieds_brand_model
-  vehicle_link_pattern: /cars[^?#]*
+  vehicle_link_pattern: /cars/used-[^/]+/p/\d+
 
 - name: Big Boy Toyz
   url: https://www.bigboytoyz.com/

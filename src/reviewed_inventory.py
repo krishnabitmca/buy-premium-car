@@ -180,6 +180,71 @@ def parse_autohangar_cards(html,source,base,query=''):
     return list(rows.values())
 
 
+def parse_quikr_cards(html,source,base,query=''):
+    """Parse Quikr's public all-India used-car result cards.
+
+    Every accepted offer must carry Quikr's numeric ad id and original detail
+    URL. Catalogue counts and an exhausted page are never absence authority.
+    """
+    base_parts=urllib.parse.urlsplit(base)
+    if base_parts.scheme!='https' or base_parts.hostname not in {'www.quikr.com','secure.quikr.com'}:
+        raise ValueError('Unreviewed Quikr host')
+    soup=BeautifulSoup(html,'html.parser');rows={};cards=soup.select('a.qc-ads__card[href]')
+    known={lm._canonical_brand(name).lower() for name in lm._known_brand_names()}
+    for card in cards:
+        href=card.get('href','')
+        url=_listing_url(base,href,r'/cars/used-[^/]+/p/\d+')
+        body=card.select_one('.qc-ads__card--body[data-ad-object]')
+        if not (url and body):continue
+        try:ad_object=json.loads(body.get('data-ad-object') or '{}')
+        except (TypeError,ValueError,json.JSONDecodeError):continue
+        ad_id=str(ad_object.get('ad_id') or '')
+        if not ad_id.isdigit() or not url.endswith('/p/'+ad_id):continue
+        text=_text(card)
+        if re.search(r'\b(sold(?: out)?|booked|reserved|no longer available)\b',text,re.I):continue
+        title=_text(body.select_one('h2'))
+        match=re.fullmatch(r'(.+?)\s+-\s+((?:19|20)\d{2}|Before 1995)',title,re.I)
+        if not match:continue
+        vehicle_title,year_text=match.groups()
+        brand,model=lm._infer_brand_model(vehicle_title,None,None)
+        brand=lm._canonical_brand(brand or '')
+        if brand.lower() not in known or not model:continue
+        model=_fusion_model(brand,brand,vehicle_title)
+        try:price=_price(_text(body.select_one('.price')))
+        except (OverflowError,ValueError):price=None
+        if price is None or not math.isfinite(price) or not 0 < price <= 2000:continue
+        features=_text(body.select_one('.prime-features'))
+        mileage=re.search(r'([\d,]+)\s*kms?\b',features,re.I)
+        mileage_value=mileage[1].replace(',','') if mileage else ''
+        km=float(mileage_value) if re.fullmatch(r'\d{1,9}',mileage_value) else None
+        fuel=next((name for name in ('Petrol','Diesel','CNG','Electric','Hybrid','LPG')
+                   if re.search(r'\b'+re.escape(name)+r'\b',features,re.I)),None)
+        owner_match=re.search(r'\b(\d+)(?:st|nd|rd|th)\s+Owner\b',features,re.I)
+        owner=int(owner_match[1]) if owner_match and 1<=int(owner_match[1])<=20 else None
+        location=_text(card.select_one('.qc-ads__card--footer span')) or None
+        image=card.select_one('img[data-src],img[src]')
+        image_value=(image.get('data-src') or image.get('src') or '') if image else ''
+        image_url=urllib.parse.urljoin(base,image_value)
+        image_parts=urllib.parse.urlsplit(image_url)
+        # Quikr serves listing photos from its separately spelled first-party
+        # CDN domain (kuikr.com). Keep this allowlist explicit.
+        images=[image_url] if (image_parts.scheme=='https' and image_parts.hostname and
+            (image_parts.hostname=='kuikr.com' or image_parts.hostname.endswith('.kuikr.com'))) else []
+        manufacture_year=None if year_text.lower()=='before 1995' else int(year_text)
+        row=dict(source=source,source_listing_id=ad_id,brand=brand,model=model,
+            listing_name=title,variant=model,url=url,price_lakh=price,km=km,
+            registration_year=None,mfg_year=manufacture_year,owners=owner,fuel=fuel,
+            transmission=None,location=location,images=images,condition_signal='used',
+            live_verified=True,data_consistent=True,
+            provenance=dict(source_url=base,original_url=url,extraction='quikr_cards',
+                offer_identity='Quikr numeric ad id',
+                condition_evidence='Individual ad card on Quikr used-car catalogue'))
+        if not query or lm._identity_matches_query(row,query):rows[ad_id]=row
+    if cards and not rows:
+        raise ValueError('Quikr catalogue cards yielded no valid evidence')
+    return list(rows.values())
+
+
 def reviewed_detail_evidence(html,url,brand,model,condition='used'):
     """Renew only an identified individual page, never related cars or EMI."""
     soup=BeautifulSoup(html,'html.parser');parts=urllib.parse.urlsplit(url)
