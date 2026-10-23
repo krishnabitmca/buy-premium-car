@@ -433,4 +433,3 @@ def test_adapter_fans_out_over_validated_inventory_endpoints(monkeypatch):
     }
     assert len(result.listings)==2
     assert all(row["condition_signal"]=="demo" for row in result.listings)
-
