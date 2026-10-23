@@ -315,6 +315,55 @@ def test_motozite_demo_card_parser_supports_real_card_shape(monkeypatch):
     assert all(row["image"] for row in result.listings)
 
 
+def test_motozite_global_demo_scan_traverses_reviewed_brand_catalogues(monkeypatch):
+    root = "https://motozite.com/demo-cars"
+    brand_urls = [
+        "https://motozite.com/demo/audi/all",
+        "https://motozite.com/demo/bmw/all",
+        "https://motozite.com/demo/porsche/all",
+    ]
+    source = {
+        "name": "Motozite Demo",
+        "adapter_status": "live",
+        "url": root,
+        "parser_strategy": "motozite_cards",
+        "conditions": ["demo"],
+        "endpoints": [{"url": url, "condition": "demo"} for url in brand_urls],
+    }
+    adapter = BuiltinMarketplaceAdapter(source)
+    monkeypatch.setenv("CARSCANNER_MAX_PAGES_PER_SOURCE", "2")
+    monkeypatch.setattr("src.source_adapters.adapter_execution_allowed", lambda name: True)
+    monkeypatch.setattr("src.source_adapters.record_adapter_execution", lambda *args, **kwargs: None)
+    visited = []
+
+    def fetch(url):
+        visited.append(url)
+        return "<html>reviewed demo catalogue</html>"
+
+    monkeypatch.setattr("src.source_adapters.fetch_text", fetch)
+    monkeypatch.setattr(
+        "src.live_marketplaces.parse_motozite_cards",
+        lambda html, source, url, query, condition: [{
+            "brand": "Audi", "model": "Q5", "listing_name": url,
+            "price_lakh": 50, "url": url + "#car", "source": source,
+            "condition_signal": "demo", "live_verified": True,
+            "provenance": {"source_url": url},
+        }],
+    )
+
+    continuation = {}
+    results = []
+    while continuation is not None:
+        result = adapter.fetch(AdapterRequest(condition="demo", continuation=continuation))
+        results.append(result)
+        continuation = result.continuation
+
+    assert visited == [root, *brand_urls]
+    assert [result.pages_fetched for result in results] == [2, 2]
+    assert sum(len(result.listings) for result in results) == 4
+    assert all(result.status == "live" for result in results)
+
+
 def test_demo_route_condition_matrix_for_bmw_mercedes_and_audi(monkeypatch):
     cases = [
         ("BMW Premium Selection", "https://www.bmwusedcars.in/buy-used-cars?models=demo_dealer_cars", "BMW X5"),
@@ -384,3 +433,4 @@ def test_adapter_fans_out_over_validated_inventory_endpoints(monkeypatch):
     }
     assert len(result.listings)==2
     assert all(row["condition_signal"]=="demo" for row in result.listings)
+
