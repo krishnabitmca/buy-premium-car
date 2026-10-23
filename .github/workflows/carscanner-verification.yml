@@ -31,10 +31,22 @@ jobs:
         run: python tests/test_live_marketplaces.py
       - name: Comprehensive QA tests
         run: python -m unittest -v tests.test_qa_comprehensive
+      - name: Cache Playwright Chromium
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-chromium-1.55.0
       - name: Install Playwright
+        timeout-minutes: 8
+        env:
+          PIP_DISABLE_PIP_VERSION_CHECK: '1'
         run: |
-          python -m pip install playwright
-          python -m playwright install --with-deps chromium
+          python -m pip install --disable-pip-version-check 'playwright==1.55.0'
+          python -m playwright install-deps chromium
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" != "true" ]; then
+            python -m playwright install chromium
+          fi
       - name: Adversarial browser E2E test
         run: |
           python -m http.server 4173 --directory . >/tmp/carscanner-http.log 2>&1 &
