@@ -78,11 +78,22 @@ jobs:
           test -n "$SOURCE_INTELLIGENCE_DATABASE_URL"
           pip install -r requirements.txt
           gunicorn --config gunicorn.conf.py wsgi:application > /tmp/carscanner-preview.log 2>&1 &
+      - name: Cache QA Chromium
+        id: qa-browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-qa-chromium-playwright-1.55.0
       - name: Install browser test runtime
+        timeout-minutes: 8
         run: |
-          npm init -y >/dev/null 2>&1
-          npm install --no-save playwright >/dev/null 2>&1
-          npx playwright install --with-deps chromium >/dev/null 2>&1
+          set -euxo pipefail
+          npm init -y >/dev/null
+          npm install --no-save --no-audit --no-fund playwright@1.55.0
+          npx playwright install-deps chromium
+          if [ "${{ steps.qa-browser-cache.outputs.cache-hit }}" != "true" ]; then
+            npx playwright install chromium
+          fi
       - name: Run comprehensive customer journey QA
         env:
           CARSCANNER_BASE_URL: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:8000/' || 'https://buy-premium-car1.onrender.com/' }}
