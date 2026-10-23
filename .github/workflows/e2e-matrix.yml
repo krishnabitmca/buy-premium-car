@@ -80,8 +80,9 @@ jobs:
           PORT: '8000'
         run: |
           test -n "$SOURCE_INTELLIGENCE_DATABASE_URL"
-          pip install -r requirements.txt
-          gunicorn --config gunicorn.conf.py wsgi:application > /tmp/carscanner-preview.log 2>&1 &
+          python -m ensurepip --upgrade
+          python -m pip install -r requirements.txt
+          python -m gunicorn --config gunicorn.conf.py wsgi:application > /tmp/carscanner-preview.log 2>&1 &
       - name: Install pinned browser test package
         timeout-minutes: 3
         run: |
