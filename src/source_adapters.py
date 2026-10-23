@@ -310,7 +310,20 @@ class BuiltinMarketplaceAdapter:
                         discovered_models[discovered['model'].lower()]=discovered
                 next_url=live_marketplaces._next_page_url(html,endpoint_url)
                 if next_url and next_url not in urls and urlsplit(next_url).hostname==urlsplit(endpoint_url).hostname:
-                    urls.append(next_url)
+                    # Do not allow a scoped CarDekho brand/model crawl to
+                    # silently drift into the generic /used-cars/page-N
+                    # catalogue. Such links advertise national totals but
+                    # are not evidence for the requested scoped inventory.
+                    from urllib.parse import urlsplit as _split
+                    current_path = _split(endpoint_url).path.rstrip('/').lower()
+                    next_path = _split(next_url).path.rstrip('/').lower()
+                    scoped_cardekho = (parser_strategy == 'cardekho_cards'
+                                       and current_path.startswith('/used-')
+                                       and not current_path.startswith('/used-cars/'))
+                    generic_next = (next_path == '/used-cars'
+                                    or next_path.startswith('/used-cars/page-'))
+                    if not (scoped_cardekho and generic_next):
+                        urls.append(next_url)
             if partial_error and request.continuation is not None:
                 raise RuntimeError(partial_error)
             if not fetched_urls:
