@@ -379,6 +379,9 @@ class BuiltinMarketplaceAdapter:
                 row["identity_evidence"] = ["brand", "model", "listing_name", "url"]
                 filtered.append(row)
 
+            from .scraper_quality import extraction_quality
+            quality = extraction_quality(filtered, pages_fetched=fetched_this_batch,
+                                         advertised_counts=advertised_counts)
             result = AdapterResult(
                 source_name=self.source_name,
                 listings=filtered,
@@ -398,7 +401,7 @@ class BuiltinMarketplaceAdapter:
                     'pending_page_count':sum(page not in seen_pages for page in urls),
                     'listings_this_batch':len(filtered),'pages_this_batch':fetched_this_batch,
                     'catalog_scopes':list(catalog_scopes.values()),
-                    'advertised_counts':advertised_counts, 'scope':scope,
+                    'advertised_counts':advertised_counts, 'scraper_quality':quality, 'scope':scope,
                     **outcome(scan_generation, pending=any(page not in seen_pages for page in urls),
                               background=request.continuation is not None)},
             )

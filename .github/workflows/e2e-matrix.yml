@@ -52,9 +52,13 @@ jobs:
         run: python scripts/production_e2e.py
 
   qa-agent:
+    # Use the pinned Playwright image with Chromium and system libraries already installed.
+    # This removes the slow, unreliable install-deps / browser download gate.
     # Preview access is limited to branches in this repository, never fork code.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.55.0-noble
     timeout-minutes: 30
     continue-on-error: false
     steps:
@@ -76,24 +80,17 @@ jobs:
           PORT: '8000'
         run: |
           test -n "$SOURCE_INTELLIGENCE_DATABASE_URL"
-          pip install -r requirements.txt
-          gunicorn --config gunicorn.conf.py wsgi:application > /tmp/carscanner-preview.log 2>&1 &
-      - name: Cache QA Chromium
-        id: qa-browser-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-qa-chromium-playwright-1.55.0
-      - name: Install browser test runtime
-        timeout-minutes: 8
+          python -m ensurepip --upgrade
+          python -m pip install -r requirements.txt
+          python -m gunicorn --config gunicorn.conf.py wsgi:application > /tmp/carscanner-preview.log 2>&1 &
+      - name: Install pinned browser test package
+        timeout-minutes: 3
+        shell: bash
         run: |
           set -euxo pipefail
           npm init -y >/dev/null
           npm install --no-save --no-audit --no-fund playwright@1.55.0
-          npx playwright install-deps chromium
-          if [ "${{ steps.qa-browser-cache.outputs.cache-hit }}" != "true" ]; then
-            npx playwright install chromium
-          fi
+          node -e "const {chromium}=require('playwright'); console.log(chromium.executablePath())"
       - name: Run comprehensive customer journey QA
         env:
           CARSCANNER_BASE_URL: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:8000/' || 'https://buy-premium-car1.onrender.com/' }}
