@@ -30,14 +30,22 @@ def run_cycle(limit: int) -> dict[str, int]:
     try:
         scheduled = schedule_refreshes(limit=limit)
         acquisition={'completed':0,'failed':0}
+        consumed=0
         failure=None
         for kind,budget,kwargs in acquisition_plan(limit):
             try:
                 for key,count in run_batch(budget,**kwargs).items():
                     acquisition[key]=acquisition.get(key,0)+count
+                    consumed+=count
             except Exception as exc:
                 failure=failure or exc
                 log.error('Acquisition bucket failed: %s',kind)
+        # Reserved buckets are priorities, not hard caps on throughput. When a
+        # specialized bucket runs dry, let generic eligible jobs use its slots.
+        # Do not retry a failed bucket in the same cycle.
+        if not failure and consumed < limit:
+            for key,count in run_batch(limit-consumed).items():
+                acquisition[key]=acquisition.get(key,0)+count
         if failure:raise failure
     finally:
         renewal=renew_listings(limit)
