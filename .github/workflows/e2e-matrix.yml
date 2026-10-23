@@ -85,6 +85,7 @@ jobs:
           python -m gunicorn --config gunicorn.conf.py wsgi:application > /tmp/carscanner-preview.log 2>&1 &
       - name: Install pinned browser test package
         timeout-minutes: 3
+        shell: bash
         run: |
           set -euxo pipefail
           npm init -y >/dev/null
