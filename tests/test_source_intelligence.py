@@ -27,6 +27,26 @@ class TestSourceIntelligence(unittest.TestCase):
         self.assertIn("CarWale Used", names)
         self.assertLess(names.index("BMW Premium Selection"), names.index("CarDekho Used"))
 
+    def test_motozite_demo_registry_includes_reviewed_brand_catalogues(self):
+        source = next(x for x in self.registry if x["name"] == "Motozite Demo")
+        endpoint_urls = {endpoint["url"] for endpoint in source.get("endpoints") or []}
+        self.assertEqual(
+            endpoint_urls,
+            {
+                "https://motozite.com/demo/audi/all",
+                "https://motozite.com/demo/bmw/all",
+                "https://motozite.com/demo/land-rover/all",
+                "https://motozite.com/demo/lexus/all",
+                "https://motozite.com/demo/maserati/all",
+                "https://motozite.com/demo/mercedes-benz/all",
+                "https://motozite.com/demo/mini/all",
+                "https://motozite.com/demo/porsche/all",
+                "https://motozite.com/demo/volvo/all",
+            },
+        )
+        self.assertIn("Maserati", source["brands"])
+        self.assertNotIn("Jaguar", source["brands"])
+
     def test_bmw_demo_changes_source_mix(self):
         plan = plan_sources(brand="BMW", model="X5", condition="demo", budget_min=50, budget_max=80,
                             destination="Bengaluru", registry=self.registry)
@@ -221,3 +241,4 @@ class TestSourceIntelligence(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
