@@ -380,8 +380,15 @@ class BuiltinMarketplaceAdapter:
                 filtered.append(row)
 
             from .scraper_quality import extraction_quality
-            quality = extraction_quality(filtered, pages_fetched=fetched_this_batch,
+            # Extraction health measures what the scraper parsed, not what a
+            # customer's condition/model/price filters happened to match.
+            # Otherwise a valid zero-match search looks like a broken parser.
+            extracted = [row for row in parsed
+                         if live_marketplaces._canonical_url(url, row.get('url') or '') not in tombstones]
+            quality = extraction_quality(extracted, pages_fetched=fetched_this_batch,
                                          advertised_counts=advertised_counts)
+            quality["matched_listing_count"] = len(filtered)
+            quality["filtered_out_count"] = len(extracted) - len(filtered)
             result = AdapterResult(
                 source_name=self.source_name,
                 listings=filtered,
