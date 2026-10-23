@@ -240,6 +240,25 @@ known_sources:
 - name: Motozite Demo
   url: https://motozite.com/demo-cars
   parser_strategy: motozite_cards
+  endpoints:
+  - url: https://motozite.com/demo/audi/all
+    condition: demo
+  - url: https://motozite.com/demo/bmw/all
+    condition: demo
+  - url: https://motozite.com/demo/land-rover/all
+    condition: demo
+  - url: https://motozite.com/demo/lexus/all
+    condition: demo
+  - url: https://motozite.com/demo/maserati/all
+    condition: demo
+  - url: https://motozite.com/demo/mercedes-benz/all
+    condition: demo
+  - url: https://motozite.com/demo/mini/all
+    condition: demo
+  - url: https://motozite.com/demo/porsche/all
+    condition: demo
+  - url: https://motozite.com/demo/volvo/all
+    condition: demo
   query_url_template: https://motozite.com/demo/{brand_slug}/{model_slug}/all
   brand_query_url_template: https://motozite.com/demo/{brand_slug}/all
   tier: 2
@@ -248,7 +267,7 @@ known_sources:
   geography: regional
   conditions: [demo]
   segments: [premium, luxury, super_luxury]
-  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Jaguar, Land Rover, MINI, Porsche]
+  brands: [Mercedes-Benz, BMW, Audi, Volvo, Lexus, Land Rover, Maserati, MINI, Porsche]
   priority: 86
   query_strategy: demo_model
   vehicle_link_pattern: /(?:pre-owned-cars|demo-cars)/[^/?#]+
