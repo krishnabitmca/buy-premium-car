@@ -310,7 +310,20 @@ class BuiltinMarketplaceAdapter:
                         discovered_models[discovered['model'].lower()]=discovered
                 next_url=live_marketplaces._next_page_url(html,endpoint_url)
                 if next_url and next_url not in urls and urlsplit(next_url).hostname==urlsplit(endpoint_url).hostname:
-                    urls.append(next_url)
+                    # Do not allow a scoped CarDekho brand/model crawl to
+                    # silently drift into the generic /used-cars/page-N
+                    # catalogue. Such links advertise national totals but
+                    # are not evidence for the requested scoped inventory.
+                    from urllib.parse import urlsplit as _split
+                    current_path = _split(endpoint_url).path.rstrip('/').lower()
+                    next_path = _split(next_url).path.rstrip('/').lower()
+                    scoped_cardekho = (parser_strategy == 'cardekho_cards'
+                                       and current_path.startswith('/used-')
+                                       and not current_path.startswith('/used-cars/'))
+                    generic_next = (next_path == '/used-cars'
+                                    or next_path.startswith('/used-cars/page-'))
+                    if not (scoped_cardekho and generic_next):
+                        urls.append(next_url)
             if partial_error and request.continuation is not None:
                 raise RuntimeError(partial_error)
             if not fetched_urls:
@@ -380,8 +393,15 @@ class BuiltinMarketplaceAdapter:
                 filtered.append(row)
 
             from .scraper_quality import extraction_quality
-            quality = extraction_quality(filtered, pages_fetched=fetched_this_batch,
+            # Extraction health measures what the scraper parsed, not what a
+            # customer's condition/model/price filters happened to match.
+            # Otherwise a valid zero-match search looks like a broken parser.
+            extracted = [row for row in parsed
+                         if live_marketplaces._canonical_url(url, row.get('url') or '') not in tombstones]
+            quality = extraction_quality(extracted, pages_fetched=fetched_this_batch,
                                          advertised_counts=advertised_counts)
+            quality["matched_listing_count"] = len(filtered)
+            quality["filtered_out_count"] = len(extracted) - len(filtered)
             result = AdapterResult(
                 source_name=self.source_name,
                 listings=filtered,
