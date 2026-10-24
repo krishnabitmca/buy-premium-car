@@ -191,6 +191,12 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
             enqueue_models(brand,result.discovered_models)
         # Fence all canonical writes, not only queue completion, after network I/O.
         with _connect() as conn,conn.cursor() as cur:
+            # Serialize only database ingestion commits, not marketplace network fetches.
+            # The search projection revision trigger updates one singleton row for
+            # every changed table; concurrent transactions otherwise wait on its
+            # row lock until statement_timeout, losing otherwise successful crawls.
+            # Advisory xact lock releases automatically on commit/rollback.
+            cur.execute("select pg_advisory_xact_lock(731912, 1)")
             cur.execute("""select refresh_id from inventory_refresh_queue where refresh_id=%s
                 and status='running' and attempt_count=%s and started_at=%s for update""",
                 (job['refresh_id'],job['attempt_count'],job['started_at']))
