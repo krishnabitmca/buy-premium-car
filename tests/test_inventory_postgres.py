@@ -553,7 +553,10 @@ def test_worker_passes_parser_configuration_and_continues_after_failure(db,monke
             raise RuntimeError('source unavailable')
         return AdapterResult(adapter.source_name,[],status='live')
     monkeypatch.setattr('src.inventory_refresh_worker.BuiltinMarketplaceAdapter.fetch',fetch)
-    assert run_batch(10)=={'completed':1,'failed':1}
+    batch = run_batch(10)
+    assert batch['completed'] == 1 and batch['failed'] == 1
+    assert batch['pages_fetched'] == 0
+    assert batch['listings_extracted'] == 0
     assert len(seen)==2
     assert next(s for s in seen if s['name']=='Other Dealer')['metadata']['parser_strategy']=='custom_fixture'
 
@@ -568,7 +571,12 @@ def seed_adapter_inventory(db,monkeypatch):
            'price_basis':'asking'} for i,price in enumerate((30,40,50),1)]
     monkeypatch.setattr('src.inventory_refresh_worker.BuiltinMarketplaceAdapter.fetch',
                         lambda self,request:AdapterResult(self.source_name,rows,status='live'))
-    assert run_cycle(10)=={'scheduled':1,'completed':1,'failed':0,'lifecycle':{'expired':0,'enrolled':0,'recovered':0,'heartbeat_gap_seconds':None}}
+    cycle = run_cycle(10)
+    assert {key: cycle[key] for key in ('scheduled', 'completed', 'failed', 'lifecycle')} == {
+        'scheduled': 1, 'completed': 1, 'failed': 0,
+        'lifecycle': {'expired': 0, 'enrolled': 0, 'recovered': 0, 'heartbeat_gap_seconds': None}}
+    assert cycle['listings_extracted'] == len(rows)
+    assert cycle['listings_unpersisted'] == 0
     return rows
 
 

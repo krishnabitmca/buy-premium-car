@@ -34,9 +34,10 @@ def run_cycle(limit: int) -> dict[str, int]:
         failure=None
         for kind,budget,kwargs in acquisition_plan(limit):
             try:
-                for key,count in run_batch(budget,**kwargs).items():
+                batch=run_batch(budget,**kwargs)
+                for key,count in batch.items():
                     acquisition[key]=acquisition.get(key,0)+count
-                    consumed+=count
+                consumed+=sum(batch.get(k,0) for k in ('completed','failed','deferred','superseded'))
             except Exception as exc:
                 failure=failure or exc
                 log.error('Acquisition bucket failed: %s',kind)
