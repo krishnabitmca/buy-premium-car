@@ -214,7 +214,10 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
             complete_job(int(job["refresh_id"]), success=True, attempt_count=job.get("attempt_count"),
                 continuation=result.continuation,pages_fetched=result.pages_fetched,scan_evidence=result.scan_evidence,_connection=conn)
             conn.commit()
-        return ingested
+        return {**ingested, 'pages_fetched': result.pages_fetched,
+                'listings_extracted': len(result.listings),
+                'listings_unpersisted': max(0, len(result.listings) - ingested.get('listings', 0)),
+                'traversals_pending': int(bool(result.continuation))}
     except Exception as exc:
         complete_job(int(job["refresh_id"]), success=False, error=str(exc)[:1000],
                      attempt_count=job.get("attempt_count"))
@@ -235,6 +238,9 @@ def run_batch(limit: int = 10, *, brands=None, source_names=None, baseline_only=
             result=process_job(jobs[0])
             key='deferred' if result.get('deferred') else 'superseded' if result.get('superseded') else 'completed'
             counts[key]=counts.get(key,0)+1
+            if key == 'completed':
+                for metric in ('pages_fetched', 'listings_extracted', 'listings_unpersisted', 'traversals_pending'):
+                    counts[metric]=counts.get(metric,0)+result.get(metric,0)
         except Exception:
             counts["failed"] += 1
             log.exception("Refresh failed for job %s", jobs[0]["refresh_id"])
