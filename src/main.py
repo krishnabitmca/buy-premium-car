@@ -19,6 +19,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limit", type=int, default=100)
     parser.add_argument("--export-json", help="Optional Postgres-derived diagnostic export")
+    parser.add_argument("--max-source-failures", type=int, default=0,
+                        help="Allow this many isolated source failures only when acquisition succeeds")
     args = parser.parse_args()
     require_database()
     result = run_cycle(args.limit)
@@ -39,7 +41,7 @@ def main() -> None:
                     first = False
             handle.write("]}")
     print(result)
-    if result["failed"]:
+    if result["failed"] > args.max_source_failures or (result["failed"] and not result.get("completed")):
         raise SystemExit(1)
 
 

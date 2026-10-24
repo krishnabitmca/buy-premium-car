@@ -29,14 +29,16 @@ jobs:
         env:
           SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.CARSCANNER_FREE_TEST_DATABASE_URL || secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
           CARSCANNER_MAX_PAGES_PER_SOURCE: '10'
-        run: python -m src.main --limit 40 --export-json work/inventory-export.json
+        run: python -m src.main --limit 40 --max-source-failures 3 --export-json work/inventory-export.json
       - name: Upload diagnostic inventory export
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: postgres-inventory-export
           path: work/inventory-export.json
           retention-days: 7
       - name: Process daily car watches
+        if: always()
         env:
           SUPABASE_URL: ${{ secrets.CARSCANNER_FREE_TEST_SUPABASE_URL || secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.CARSCANNER_FREE_TEST_SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_SERVICE_ROLE_KEY }}

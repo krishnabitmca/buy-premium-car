@@ -85,11 +85,12 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-python-chromium-playwright-1.55.0
       - name: Install E2E dependencies
-        timeout-minutes: 8
+        timeout-minutes: 12
         run: |
           set -euxo pipefail
           python -m pip install --disable-pip-version-check "pytest>=8,<9" "playwright==1.55.0" beautifulsoup4 PyYAML ddgs
-          python -m playwright install-deps chromium
+          # GitHub ubuntu-latest already provides Chromium runtime libraries;
+          # install-deps invokes apt and can hang on Ubuntu mirror downloads.
           if [ "${{ steps.e2e-browser-cache.outputs.cache-hit }}" != "true" ]; then
             python -m playwright install chromium
           fi
