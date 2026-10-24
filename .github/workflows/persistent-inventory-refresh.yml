@@ -1,0 +1,41 @@
+name: Persistent Inventory Refresh Worker
+
+on:
+  schedule:
+    # GitHub Actions cron uses UTC. Run every three hours independently
+    # of the broader acquisition/export workflow.
+    - cron: '15 */3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: carscanner-persistent-inventory-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install runtime dependencies
+        run: pip install -r requirements.txt
+      - name: Check database configuration
+        env:
+          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
+        run: |
+          if [ -z "$SOURCE_INTELLIGENCE_DATABASE_URL" ]; then
+            echo "::error::SOURCE_INTELLIGENCE_DATABASE_URL is not configured"
+            exit 1
+          fi
+      - name: Process queued source scans
+        env:
+          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
+          CARSCANNER_MAX_PAGES_PER_SOURCE: '10'
+        run: python -m src.inventory_refresh_worker --limit 40
