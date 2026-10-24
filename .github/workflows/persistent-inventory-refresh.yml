@@ -2,9 +2,9 @@ name: Persistent Inventory Refresh Worker
 
 on:
   schedule:
-    # GitHub Actions cron uses UTC. Run every three hours independently
+    # GitHub Actions cron uses UTC. Run hourly independently
     # of the broader acquisition/export workflow.
-    - cron: '15 */3 * * *'
+    - cron: '15 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -38,4 +38,4 @@ jobs:
         env:
           SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.CARSCANNER_FREE_TEST_DATABASE_URL || secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
           CARSCANNER_MAX_PAGES_PER_SOURCE: '10'
-        run: python -m src.inventory_refresh_worker --limit 40
+        run: python -m src.inventory_refresh_worker --limit 80 --workers 4

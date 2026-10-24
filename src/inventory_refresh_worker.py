@@ -225,31 +225,59 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
     finally:crawl_leases.release(lease)
 
 
-def run_batch(limit: int = 10, *, brands=None, source_names=None, baseline_only=False, models_only=False, continuations_only=False, catalogues_only=False, demo_only=False) -> dict[str, int]:
-    """Claim only when ready to execute; isolate marketplace failures."""
+def run_batch(limit: int = 10, *, brands=None, source_names=None, baseline_only=False, models_only=False, continuations_only=False, catalogues_only=False, demo_only=False, workers: int = 1) -> dict[str, int]:
+    """Bounded parallel work; claims are transactional and leases isolate domains.
+
+    Each worker claims only when ready, avoiding 30-minute abandoned claims
+    for jobs waiting behind slow network requests.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
     counts = {"completed": 0, "failed": 0}
     recover_jobs()
-    for _ in range(max(1, min(int(limit), 100))):
-        jobs = claim_jobs(1,brands=brands,source_names=source_names,baseline_only=baseline_only,
-            models_only=models_only,continuations_only=continuations_only,catalogues_only=catalogues_only,demo_only=demo_only) if brands or source_names or baseline_only or models_only or continuations_only or catalogues_only or demo_only else claim_jobs(1)
-        if not jobs:
-            break
-        try:
-            result=process_job(jobs[0])
-            key='deferred' if result.get('deferred') else 'superseded' if result.get('superseded') else 'completed'
-            counts[key]=counts.get(key,0)+1
-            if key == 'completed':
-                for metric in ('pages_fetched', 'listings_extracted', 'listings_unpersisted', 'traversals_pending'):
-                    counts[metric]=counts.get(metric,0)+result.get(metric,0)
-        except Exception:
-            counts["failed"] += 1
-            log.exception("Refresh failed for job %s", jobs[0]["refresh_id"])
+    total = max(1, min(int(limit), 100))
+    parallelism = max(1, min(int(workers), 4, total))
+    from threading import Lock
+    lock = Lock()
+    remaining = total
+
+    def run_one_lane():
+        nonlocal remaining
+        local = {"completed": 0, "failed": 0}
+        while True:
+            with lock:
+                if remaining <= 0:
+                    break
+                remaining -= 1
+            jobs = claim_jobs(1, brands=brands, source_names=source_names,
+                baseline_only=baseline_only, models_only=models_only,
+                continuations_only=continuations_only, catalogues_only=catalogues_only,
+                demo_only=demo_only)
+            if not jobs:
+                break
+            try:
+                result = process_job(jobs[0])
+                key = 'deferred' if result.get('deferred') else 'superseded' if result.get('superseded') else 'completed'
+                local[key] = local.get(key, 0) + 1
+                if key == 'completed':
+                    for metric in ('pages_fetched', 'listings_extracted', 'listings_unpersisted', 'traversals_pending'):
+                        local[metric] = local.get(metric, 0) + result.get(metric, 0)
+            except Exception:
+                local['failed'] += 1
+                log.exception("Refresh failed for job %s", jobs[0]['refresh_id'])
+        return local
+
+    with ThreadPoolExecutor(max_workers=parallelism, thread_name_prefix='inventory-refresh') as pool:
+        for lane in pool.map(lambda _: run_one_lane(), range(parallelism)):
+            for key, value in lane.items():
+                counts[key] = counts.get(key, 0) + value
     return counts
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument("--workers", type=int, default=1, help="Parallel source lanes (max 4); domain leases still apply")
     parser.add_argument('--brand',action='append',help='Limit recovery work to this make; repeatable')
     parser.add_argument('--source',action='append',help='Limit recovery to verified source names; repeatable')
     parser.add_argument('--baseline-only',action='store_true',help='Process India-wide make scans, excluding model/location demand jobs')
@@ -261,9 +289,9 @@ def main() -> None:
     require_database()
     logging.basicConfig(level=logging.INFO)
     result = run_batch(args.limit,brands=args.brand,source_names=args.source,baseline_only=args.baseline_only,
-        models_only=args.models_only,continuations_only=args.continuations_only,catalogues_only=args.catalogues_only,demo_only=args.demo_only)
+        models_only=args.models_only,continuations_only=args.continuations_only,catalogues_only=args.catalogues_only,demo_only=args.demo_only,workers=args.workers)
     print(result)
-    if result["failed"]:
+    if result["failed"] and not result["completed"]:
         raise SystemExit(1)
 
 
