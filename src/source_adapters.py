@@ -402,6 +402,12 @@ class BuiltinMarketplaceAdapter:
                                          advertised_counts=advertised_counts)
             quality["matched_listing_count"] = len(filtered)
             quality["filtered_out_count"] = len(extracted) - len(filtered)
+            from .source_coverage import coverage_evidence
+            coverage = coverage_evidence(
+                advertised_counts=advertised_counts, fetched_urls=fetched_urls,
+                visited_urls=seen_pages,
+                pending_urls=[page for page in urls if page not in seen_pages],
+                extracted_count=len(extracted), matched_count=len(filtered))
             result = AdapterResult(
                 source_name=self.source_name,
                 listings=filtered,
@@ -421,7 +427,8 @@ class BuiltinMarketplaceAdapter:
                     'pending_page_count':sum(page not in seen_pages for page in urls),
                     'listings_this_batch':len(filtered),'pages_this_batch':fetched_this_batch,
                     'catalog_scopes':list(catalog_scopes.values()),
-                    'advertised_counts':advertised_counts, 'scraper_quality':quality, 'scope':scope,
+                    'advertised_counts':advertised_counts, 'scraper_quality':quality,
+                    'coverage_evidence':coverage, 'scope':scope,
                     **outcome(scan_generation, pending=any(page not in seen_pages for page in urls),
                               background=request.continuation is not None)},
             )
