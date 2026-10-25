@@ -1,0 +1,95 @@
+name: CarScanner Three-Agent Delivery
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Implementation PR to validate"
+        required: true
+        type: string
+      deploy:
+        description: "Allow merge after independent review and green CI"
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+concurrency:
+  group: carscanner-agent-release-${{ inputs.pr_number }}
+  cancel-in-progress: false
+jobs:
+  implementation:
+    name: Agent 1 - implementation evidence
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.pr.outputs.sha }}
+    steps:
+      - name: Validate PR and record immutable implementation SHA
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          case "$PR_NUMBER" in ''|*[!0-9]*) echo "::error::Invalid PR number"; exit 1;; esac
+          payload=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")
+          draft=$(jq -r '.draft' <<<"$payload")
+          state=$(jq -r '.state' <<<"$payload")
+          sha=$(jq -r '.head.sha' <<<"$payload")
+          if [ "$draft" != false ] || [ "$state" != open ]; then
+            echo "::error::PR must be open and ready for review"; exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Implementation PR #$PR_NUMBER at $sha" >> "$GITHUB_STEP_SUMMARY"
+  review:
+    name: Agent 2 - independent review gate
+    needs: implementation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require independent approval at immutable head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          EXPECTED_SHA: ${{ needs.implementation.outputs.sha }}
+        run: |
+          set -euo pipefail
+          payload=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")
+          test "$(jq -r '.head.sha' <<<"$payload")" = "$EXPECTED_SHA" || { echo "::error::PR changed"; exit 1; }
+          author=$(jq -r '.user.login' <<<"$payload")
+          reviews=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews")
+          jq -e --arg sha "$EXPECTED_SHA" --arg author "$author" '
+            [ .[] | select(.user.login != $author and .commit_id == $sha)
+              | {user: .user.login, state: .state, submitted: .submitted_at}]
+            | sort_by(.submitted)
+            | group_by(.user)
+            | map(last)
+            | any(.state == "APPROVED")
+          ' <<<"$reviews" >/dev/null || { echo "::error::Independent review required at current SHA"; exit 1; }
+          echo "Independent approval verified for $EXPECTED_SHA" >> "$GITHUB_STEP_SUMMARY"
+  release:
+    name: Agent 3 - CI and deployment coordination
+    needs: [implementation, review]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required CI and unchanged PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          EXPECTED_SHA: ${{ needs.implementation.outputs.sha }}
+          DEPLOY: ${{ inputs.deploy }}
+        run: |
+          set -euo pipefail
+          payload=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")
+          test "$(jq -r '.head.sha' <<<"$payload")" = "$EXPECTED_SHA" || { echo "::error::Head moved"; exit 1; }
+          checks=$(gh api "repos/$GITHUB_REPOSITORY/commits/$EXPECTED_SHA/check-runs?per_page=100")
+          for name in Tests "CarScanner Verification" "CarScanner E2E Matrix"; do
+            jq -e --arg name "$name" '[.check_runs[] | select(.name == $name and .status == "completed" and .conclusion == "success")] | length > 0' <<<"$checks" >/dev/null || {
+              echo "::error::Required successful check missing: $name"; exit 1;
+            }
+          done
+          if [ "$DEPLOY" = true ]; then
+            echo "::error::Automated merge/deployment intentionally disabled until protected environment and least-privilege release token are configured."
+            exit 1
+          fi
+          echo "Review and CI gates passed. Manual merge remains required." >> "$GITHUB_STEP_SUMMARY"
