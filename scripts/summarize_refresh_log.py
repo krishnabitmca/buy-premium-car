@@ -12,7 +12,7 @@ from pathlib import Path
 
 MAX_EVENTS = 200
 MAX_BYTES = 64_000
-SOURCE_PATTERN = re.compile(r"source=([^\\r\\n]*?) refresh_id=(\\d+) telemetry=")
+SOURCE_PATTERN = re.compile(r"source=(.*?) refresh_id=([0-9]+) telemetry=")
 METRICS = ("pages_traced", "pages_empty", "pages_recovered_by_fallback", "records_extracted")
 
 
