@@ -57,15 +57,17 @@ jobs:
           payload=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")
           test "$(jq -r '.head.sha' <<<"$payload")" = "$EXPECTED_SHA" || { echo "::error::PR changed"; exit 1; }
           author=$(jq -r '.user.login' <<<"$payload")
-          reviews=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews")
+          # Only the latest review per reviewer counts. A subsequent request
+          # for changes revokes that reviewer's earlier approval.
+          reviews=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews?per_page=100")
           jq -e --arg sha "$EXPECTED_SHA" --arg author "$author" '
-            [ .[] | select(.user.login != $author and .commit_id == $sha)
-              | {user: .user.login, state: .state, submitted: .submitted_at}]
+            [ .[] | select(.user.login != $author)
+              | {user: .user.login, state: .state, sha: .commit_id, submitted: .submitted_at}]
             | sort_by(.submitted)
             | group_by(.user)
             | map(last)
-            | any(.state == "APPROVED")
-          ' <<<"$reviews" >/dev/null || { echo "::error::Independent review required at current SHA"; exit 1; }
+            | any(.state == "APPROVED" and .sha == $sha)
+          ' <<<"$reviews" >/dev/null || { echo "::error::Independent current-head approval required"; exit 1; }
           echo "Independent approval verified for $EXPECTED_SHA" >> "$GITHUB_STEP_SUMMARY"
   release:
     name: Agent 3 - CI and deployment coordination
