@@ -14,6 +14,7 @@ MAX_EVENTS = 200
 MAX_BYTES = 64_000
 SOURCE_PATTERN = re.compile(r"source=(.*?) refresh_id=([0-9]+) telemetry=")
 METRICS = ("pages_traced", "pages_empty", "pages_recovered_by_fallback", "records_extracted")
+COMMITTED_METRICS = ("pages_fetched", "listings_extracted", "listings_ingested")
 
 
 def extract_summary(log_path: Path, output_path: Path) -> dict:
@@ -41,6 +42,15 @@ def extract_summary(log_path: Path, output_path: Path) -> dict:
                         raise ValueError("invalid count")
                     if payload.get("absence_reconciliation_permitted") is not False:
                         raise ValueError("unsafe absence reconciliation flag")
+                    # Accept legacy trace-only logs, but never export a partial
+                    # set of durable outcome counters as if it were complete.
+                    committed_present = [key in payload for key in COMMITTED_METRICS]
+                    if any(committed_present) and not all(committed_present):
+                        raise ValueError("incomplete committed outcome counters")
+                    committed = ({key: payload[key] for key in COMMITTED_METRICS}
+                                 if all(committed_present) else {})
+                    if any(type(v) is not int or v < 0 for v in committed.values()):
+                        raise ValueError("invalid committed outcome counter")
                     source = re.sub(r"[^a-zA-Z0-9 ._/-]", "_", match.group(1))[:80]
                     if not source:
                         raise ValueError("missing source")
@@ -52,7 +62,9 @@ def extract_summary(log_path: Path, output_path: Path) -> dict:
                         if any(type(v) is not int or v < 0 for v in counters.values()):
                             raise ValueError("invalid category count")
                     events.append({"source": source, "refresh_id": int(match.group(2)),
-                                   **counts, "strategy_attempt_count": sum(attempts.values()),
+                                   **counts, **committed,
+                                   "committed_metrics_available": bool(committed),
+                                   "strategy_attempt_count": sum(attempts.values()),
                                    "parser_error_count": sum(errors.values())})
                 except (ValueError, TypeError, KeyError, json.JSONDecodeError):
                     invalid += 1
