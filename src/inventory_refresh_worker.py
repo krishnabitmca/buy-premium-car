@@ -127,6 +127,27 @@ def complete_job(refresh_id: int, *, success: bool, error: str | None = None,
         if _connection is None:conn.commit()
 
 
+def _defer_ingestion_on_lock_contention(cur, conn, job: dict[str, Any]) -> dict[str, int]:
+    """Retry ingestion later without losing the crawl or marking inventory sold.
+
+    The database-wide ingestion lock can be held by another worker. Waiting
+    for it until statement_timeout makes a healthy source look broken.
+    Preserve the claimed-job fencing and requeue with a short backoff.
+    """
+    cur.execute(
+        """update public.inventory_refresh_queue
+           set status='queued', attempt_count=attempt_count-1,
+               metadata=metadata || jsonb_build_object(
+                   'next_attempt_at',(now()+interval '1 minute')::text)
+           where refresh_id=%s and status='running'
+             and attempt_count=%s and started_at=%s""",
+        (job["refresh_id"], job["attempt_count"], job["started_at"]),
+    )
+    changed = cur.rowcount
+    conn.commit()
+    return {"deferred": 1} if changed else {"superseded": 1}
+
+
 def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
     from .live_marketplaces import _query_parts
     brand=job.get('brand') or ''
@@ -201,7 +222,12 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
             # every changed table; concurrent transactions otherwise wait on its
             # row lock until statement_timeout, losing otherwise successful crawls.
             # Advisory xact lock releases automatically on commit/rollback.
-            cur.execute("select pg_advisory_xact_lock(731912, 1)")
+            # Never block on another worker's ingestion transaction until the
+            # database statement timeout. A contended lock means "retry later",
+            # not "source failed"; no inventory mutation has happened yet.
+            cur.execute("select pg_try_advisory_xact_lock(731912, 1)")
+            if not cur.fetchone()[0]:
+                return _defer_ingestion_on_lock_contention(cur, conn, job)
             cur.execute("""select refresh_id from inventory_refresh_queue where refresh_id=%s
                 and status='running' and attempt_count=%s and started_at=%s for update""",
                 (job['refresh_id'],job['attempt_count'],job['started_at']))
