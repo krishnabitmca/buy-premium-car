@@ -10,6 +10,7 @@ import argparse
 import logging
 import json
 import os
+import re
 from contextlib import nullcontext
 from datetime import datetime, timezone
 from typing import Any
@@ -19,6 +20,12 @@ from .source_adapters import AdapterRequest, BuiltinMarketplaceAdapter
 from .source_registry_db import _connect, enabled, require_database, load_registry
 
 log = logging.getLogger(__name__)
+
+
+def _safe_source_label(value: object) -> str:
+    """Bound a source label in failure logs; never emit arbitrary metadata."""
+    label = re.sub(r"[^A-Za-z0-9 ._-]", "_", str(value or "unknown"))[:80]
+    return label or "unknown"
 
 
 def claim_jobs(limit: int = 10, *, brands=None, source_names=None, baseline_only=False, models_only=False, continuations_only=False, catalogues_only=False, demo_only=False) -> list[dict[str, Any]]:
@@ -281,7 +288,8 @@ def run_batch(limit: int = 10, *, brands=None, source_names=None, baseline_only=
                         local[metric] = local.get(metric, 0) + result.get(metric, 0)
             except Exception:
                 local['failed'] += 1
-                log.exception("Refresh failed for job %s", jobs[0]['refresh_id'])
+                log.exception("Refresh failed for job %s source=%s",
+                              jobs[0]['refresh_id'], _safe_source_label(jobs[0].get('source_name')))
         return local
 
     with ThreadPoolExecutor(max_workers=parallelism, thread_name_prefix='inventory-refresh') as pool:
