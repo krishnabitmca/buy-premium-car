@@ -1,4 +1,5 @@
-from src.extraction_telemetry import summarize_extraction
+from src.extraction_telemetry import summarize_extraction, summarize_committed_refresh
+import pytest
 
 
 def test_empty_scan_is_unknown_not_sold():
@@ -50,3 +51,25 @@ def test_primary_success_is_not_mislabeled_as_fallback():
         ]
     }]})
     assert value["pages_recovered_by_fallback"] == 0
+
+
+def test_committed_oem_inventory_is_visible_even_without_parser_page_traces():
+    value = summarize_committed_refresh(
+        {"extraction_attempts": []}, pages_fetched=3,
+        listings_extracted=18, listings_ingested=17,
+    )
+    assert value["pages_traced"] == 0
+    assert value["records_extracted"] == 0
+    assert value["pages_fetched"] == 3
+    assert value["listings_extracted"] == 18
+    assert value["listings_ingested"] == 17
+    assert value["absence_reconciliation_permitted"] is False
+
+
+@pytest.mark.parametrize("bad_count", [-1, True, 2.5, None])
+def test_committed_outcomes_reject_invalid_counts(bad_count):
+    with pytest.raises(ValueError):
+        summarize_committed_refresh(
+            {}, pages_fetched=1, listings_extracted=2,
+            listings_ingested=bad_count,
+        )
