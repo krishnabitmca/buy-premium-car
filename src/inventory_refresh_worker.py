@@ -54,6 +54,11 @@ def claim_jobs(limit: int = 10, *, brands=None, source_names=None, baseline_only
                    and exists (
                      select 1 from public.source_adapters sa
                      where sa.source_id=s.source_id and sa.status='verified'
+                       and (
+                         coalesce(sa.circuit_state,'closed') in ('closed','half_open')
+                         or (sa.circuit_state='open' and sa.next_retry_at is not null
+                             and sa.next_retry_at<=now())
+                       )
                    )
                  order by b.last_started asc nulls first,
                           q.started_at asc nulls first,q.priority desc,q.requested_at asc,q.refresh_id
