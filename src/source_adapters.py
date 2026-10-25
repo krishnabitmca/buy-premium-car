@@ -177,6 +177,7 @@ class BuiltinMarketplaceAdapter:
             oem_cursors=dict(progress.get('oem_cursors') or {})
             catalog_scopes=dict(progress.get('catalog_scopes') or {})
             advertised_counts=dict(progress.get('advertised_counts') or {})
+            extraction_attempts=[]
             tombstones={}
             for endpoint_url in urls:
                 if endpoint_url in seen_pages or fetched_this_batch>=max_pages:
@@ -278,16 +279,24 @@ class BuiltinMarketplaceAdapter:
                     )
                 else:
                     parsed = parse_live_listings(html, self.source_name, endpoint_url)
-                if not parsed and parser_strategy not in {'autohangar_cards','quikr_cards'}:
-                    parsed=parse_live_listings(html,self.source_name,endpoint_url)
-                if not parsed and parser_strategy not in {'autohangar_cards','quikr_cards'}:
-                    parsed = parse_visible_listing_links(
-                        html, self.source_name, endpoint_url, request.query
-                    )
-                if not parsed and request.query and parser_strategy not in {'autohangar_cards','quikr_cards'}:
-                    parsed = live_marketplaces.parse_generic_detail_page(
-                        html, self.source_name, endpoint_url, request.query
-                    )
+                # Preserve reviewed high-precision parsers; record exactly which
+                # fallback produced inventory rather than reporting silent success.
+                from .adaptive_extraction import extract_with_fallback
+                fallback_steps = []
+                if parser_strategy not in {'autohangar_cards','quikr_cards'}:
+                    if parser_strategy:
+                        fallback_steps.append(('generic_structured', lambda: parse_live_listings(
+                            html, self.source_name, endpoint_url)))
+                    fallback_steps.append(('visible_links', lambda: parse_visible_listing_links(
+                        html, self.source_name, endpoint_url, request.query)))
+                    if request.query:
+                        fallback_steps.append(('detail_page', lambda: live_marketplaces.parse_generic_detail_page(
+                            html, self.source_name, endpoint_url, request.query)))
+                parsed, attempts = extract_with_fallback(
+                    lambda: parsed, fallback_steps,
+                    primary_strategy=parser_strategy or 'generic_structured')
+                extraction_attempts.append({'url': endpoint_url, 'attempts': attempts,
+                                            'extracted': len(parsed)})
                 all_parsed.extend(parsed)
                 from .listing_evidence import catalogue_tombstones
                 for evidence in catalogue_tombstones(html,endpoint_url,parser_strategy):
@@ -439,6 +448,7 @@ class BuiltinMarketplaceAdapter:
                     'listings_this_batch':len(filtered),'pages_this_batch':fetched_this_batch,
                     'catalog_scopes':list(catalog_scopes.values()),
                     'advertised_counts':advertised_counts, 'scraper_quality':quality,
+                    'extraction_attempts':extraction_attempts,
                     'coverage_evidence':coverage, 'scope':scope,
                     **outcome(scan_generation, pending=any(page not in seen_pages for page in urls),
                               background=request.continuation is not None)},
