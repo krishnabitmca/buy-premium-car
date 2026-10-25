@@ -308,7 +308,9 @@ def main() -> None:
     result = run_batch(args.limit,brands=args.brand,source_names=args.source,baseline_only=args.baseline_only,
         models_only=args.models_only,continuations_only=args.continuations_only,catalogues_only=args.catalogues_only,demo_only=args.demo_only,workers=args.workers)
     print(result)
-    if result["failed"] and not result["completed"]:
+    # A partial success is still a failed refresh cycle: surface source failures
+    # to the scheduler rather than silently reporting the run as healthy.
+    if result["failed"]:
         raise SystemExit(1)
 
 
