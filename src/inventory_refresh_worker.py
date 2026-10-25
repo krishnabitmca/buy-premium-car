@@ -225,8 +225,14 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
             # Never block on another worker's ingestion transaction until the
             # database statement timeout. A contended lock means "retry later",
             # not "source failed"; no inventory mutation has happened yet.
-            cur.execute("select pg_try_advisory_xact_lock(731912, 1)")
-            if not cur.fetchone()[0]:
+            cur.execute("select pg_try_advisory_xact_lock(731912, 1) as acquired")
+            lock_row = cur.fetchone()
+            # Production uses psycopg dict_row; positional indexing raises KeyError.
+            # A missing row is an unexpected database failure, not contention.
+            if lock_row is None:
+                raise RuntimeError("advisory lock query returned no row")
+            acquired = lock_row["acquired"] if isinstance(lock_row, dict) else lock_row[0]
+            if not acquired:
                 return _defer_ingestion_on_lock_contention(cur, conn, job)
             cur.execute("""select refresh_id from inventory_refresh_queue where refresh_id=%s
                 and status='running' and attempt_count=%s and started_at=%s for update""",
