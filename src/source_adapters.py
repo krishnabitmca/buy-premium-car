@@ -400,6 +400,17 @@ class BuiltinMarketplaceAdapter:
                          if live_marketplaces._canonical_url(url, row.get('url') or '') not in tombstones]
             quality = extraction_quality(extracted, pages_fetched=fetched_this_batch,
                                          advertised_counts=advertised_counts)
+            # Generic evidence gate: distinguish parsed cards from usable vehicle
+            # observations without treating either as customer-search inventory.
+            from .extraction_contract import assess_extraction
+            assessment = assess_extraction(extracted)
+            quality["extraction_assessment"] = {
+                "status": assessment.status,
+                "reason": assessment.reason,
+                "extracted": assessment.extracted,
+                "usable": assessment.usable,
+                "with_images": assessment.with_images,
+            }
             quality["matched_listing_count"] = len(filtered)
             quality["filtered_out_count"] = len(extracted) - len(filtered)
             from .source_coverage import coverage_evidence
