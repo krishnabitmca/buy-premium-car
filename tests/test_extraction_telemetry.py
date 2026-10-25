@@ -34,3 +34,19 @@ def test_missing_and_malformed_trace_does_not_claim_inventory():
     ]})
     assert value["records_extracted"] == 0
     assert value["absence_reconciliation_permitted"] is False
+
+
+def test_malformed_top_level_attempts_are_ignored():
+    value = summarize_extraction({"extraction_attempts": {"unexpected": "object"}})
+    assert value["pages_traced"] == 0
+    assert value["pages_recovered_by_fallback"] == 0
+
+
+def test_primary_success_is_not_mislabeled_as_fallback():
+    value = summarize_extraction({"extraction_attempts": [{
+        "extracted": 2, "attempts": [
+            {"strategy": "primary", "extracted": 2, "error": None},
+            {"strategy": "fallback", "extracted": 0, "error": None},
+        ]
+    }]})
+    assert value["pages_recovered_by_fallback"] == 0
