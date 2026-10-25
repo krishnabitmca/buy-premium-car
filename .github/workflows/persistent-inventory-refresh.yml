@@ -43,24 +43,11 @@ jobs:
           python -m src.inventory_refresh_worker --limit 80 --workers 4 2>&1 | tee /tmp/carscanner-refresh.log
       - name: Publish bounded extraction diagnostics
         if: always()
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          lines = Path("/tmp/carscanner-refresh.log")
-          summary = Path("extraction-diagnostics.txt")
-          if not lines.exists():
-              summary.write_text("Inventory worker did not produce a log.\\n")
-          else:
-              events = [line.strip() for line in lines.read_text(errors="replace").splitlines()
-                        if "source_extraction_summary " in line]
-              summary.write_text("\\n".join(events) + ("\\n" if events else
-                                 "No extraction summaries observed; inspect worker run logs.\\n"))
-          print(summary.read_text()[:12000])
-          PY
+        run: python scripts/summarize_refresh_log.py /tmp/carscanner-refresh.log extraction-diagnostics.json
       - name: Upload extraction diagnostics artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: extraction-diagnostics-${{ github.run_id }}
-          path: extraction-diagnostics.txt
+          path: extraction-diagnostics.json
           retention-days: 7
