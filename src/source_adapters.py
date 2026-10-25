@@ -303,7 +303,7 @@ class BuiltinMarketplaceAdapter:
                     if total is not None:
                         advertised_counts[endpoint_url]=total
                         if total>0 and not parsed and not tombstones:
-                            raise RuntimeError('Source advertises inventory but no valid cards were extracted')
+                            raise RuntimeError(\n                                'Source advertises inventory but no valid cards were extracted '\n                                f'(source={self.source_name}, parser={parser_strategy}, '\n                                f'advertised={total}, page_path={urlsplit(endpoint_url).path})'\n                            )
                 if request.continuation is not None and parser_strategy in {'cardekho_cards','carwale_cards','cartrade_cards'}:
                     from .used_inventory_frontier import discover_models
                     for discovered in discover_models(html,self.source,endpoint_url,request.query,parsed):
