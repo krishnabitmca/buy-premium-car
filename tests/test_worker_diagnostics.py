@@ -63,7 +63,7 @@ class WorkerDiagnosticsTests(unittest.TestCase):
                      "parser_errors": {}, "absence_reconciliation_permitted": False}
         report, raw = self._run([
             "source_extraction_summary source=OEM Dealer refresh_id=7 telemetry="
-            + json.dumps(telemetry) + "\\n"
+            + json.dumps(telemetry) + "\n"
         ])
         self.assertEqual(report["events_exported"], 1)
         self.assertTrue(report["events"][0]["committed_metrics_available"])
@@ -78,7 +78,7 @@ class WorkerDiagnosticsTests(unittest.TestCase):
                      "parser_errors": {}, "absence_reconciliation_permitted": False}
         report, _ = self._run([
             "source_extraction_summary source=OEM refresh_id=7 telemetry="
-            + json.dumps(telemetry) + "\\n"
+            + json.dumps(telemetry) + "\n"
         ])
         self.assertEqual(report["events_invalid"], 1)
         self.assertEqual(report["events_exported"], 0)
