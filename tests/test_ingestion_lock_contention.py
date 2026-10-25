@@ -43,6 +43,34 @@ class IngestionLockContentionTests(unittest.TestCase):
         )
         conn.commit.assert_called_once()
 
+    def test_dict_row_contention_is_deferred(self):
+        # psycopg connections in production return dict_row, not tuple rows.
+        source = {"source_id": 19, "adapter_status": "live",
+                  "url": "https://dealer.example", "name": "Verified Dealer"}
+        fetched = SimpleNamespace(
+            status="live", listings=[], discovered_models=[], tombstones=[],
+            pages_fetched=1, scan_evidence={}, continuation=None,
+        )
+        cur = MagicMock()
+        cur.fetchone.return_value = {"acquired": False}
+        cur.rowcount = 1
+        cur.__enter__.return_value = cur
+        conn = MagicMock()
+        conn.__enter__.return_value = conn
+        conn.cursor.return_value = cur
+        with (patch.object(worker, "load_registry", return_value=[source]),
+              patch.object(worker, "BuiltinMarketplaceAdapter") as adapter,
+              patch.object(worker, "_connect", return_value=conn),
+              patch.object(worker, "ingest_vehicles") as ingest,
+              patch.object(worker, "complete_job") as complete,
+              patch("src.crawl_leases.acquire", return_value=object()),
+              patch("src.crawl_leases.release")):
+            adapter.return_value.fetch.return_value = fetched
+            result = worker.process_job(self.job)
+        self.assertEqual(result, {"deferred": 1})
+        ingest.assert_not_called()
+        complete.assert_not_called()
+
     def test_lock_contention_skips_ingestion_and_deletion(self):
         source = {"source_id": 19, "adapter_status": "live",
                   "url": "https://dealer.example", "name": "Verified Dealer"}
