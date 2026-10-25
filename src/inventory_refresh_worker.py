@@ -222,6 +222,12 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
             if ledger_batch is not None:
                 from .scan_ledger import finish_batch
                 finish_batch(ledger_batch,accepted,result.scan_evidence,result.continuation,conn)
+            # Publish bounded operational evidence after canonical writes. This
+            # is not evidence of enumeration completeness or sold inventory.
+            from .extraction_telemetry import summarize_extraction
+            telemetry = summarize_extraction(result.scan_evidence)
+            log.info("source_extraction_summary source=%s refresh_id=%s telemetry=%s",
+                     source_name, job["refresh_id"], json.dumps(telemetry, sort_keys=True))
             complete_job(int(job["refresh_id"]), success=True, attempt_count=job.get("attempt_count"),
                 continuation=result.continuation,pages_fetched=result.pages_fetched,scan_evidence=result.scan_evidence,_connection=conn)
             conn.commit()
