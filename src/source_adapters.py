@@ -532,13 +532,15 @@ def record_adapter_execution(
                            circuit_opened_at=case when consecutive_failures+1 >= %s
                                                  then now() else circuit_opened_at end,
                            next_retry_at=case when consecutive_failures+1 >= %s
-                                              then now()+make_interval(mins => %s)
+                                              then now()+make_interval(mins => least(360,
+                                                (%s * power(2,least(5,greatest(0,
+                                                  consecutive_failures+1-%s))))::integer))
                                               else next_retry_at end,
                            updated_at=now()
                      where adapter_id=({adapter_filter})""",
                 (str(error or "")[:500], latency_ms, failure_threshold,
                  failure_threshold, failure_threshold, cooldown_minutes,
-                 source_name),
+                 failure_threshold, source_name),
             )
         conn.commit()
 
