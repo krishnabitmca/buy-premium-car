@@ -11,6 +11,8 @@ from typing import Any
 
 def summarize_extraction(evidence: dict[str, Any] | None) -> dict[str, Any]:
     pages = (evidence or {}).get("extraction_attempts") or []
+    if not isinstance(pages, list):
+        pages = []
     strategies: Counter[str] = Counter()
     errors: Counter[str] = Counter()
     empty_pages = fallback_pages = 0
@@ -29,7 +31,13 @@ def summarize_extraction(evidence: dict[str, Any] | None) -> dict[str, Any]:
             count = 0
         extracted += count
         empty_pages += int(count == 0)
-        fallback_pages += int(count > 0 and len(valid) > 1)
+        # More than one attempt does not prove a fallback recovered data;
+        # a prior strategy may already have extracted records.
+        fallback_pages += int(count > 0 and len(valid) > 1
+                              and not any(type(a.get("extracted")) is int
+                                          and a["extracted"] > 0 for a in valid[:-1])
+                              and type(valid[-1].get("extracted")) is int
+                              and valid[-1]["extracted"] > 0)
         for attempt in valid:
             strategy = attempt.get("strategy")
             if isinstance(strategy, str) and strategy:
@@ -38,7 +46,9 @@ def summarize_extraction(evidence: dict[str, Any] | None) -> dict[str, Any]:
             if isinstance(error, str) and error:
                 errors[error] += 1
     return {
-        "pages_traced": len([p for p in pages if isinstance(p, dict) and p.get("attempts")]),
+        "pages_traced": sum(1 for p in pages if isinstance(p, dict)
+                            and isinstance(p.get("attempts"), list)
+                            and any(isinstance(a, dict) for a in p["attempts"])),
         "pages_empty": empty_pages,
         "pages_recovered_by_fallback": fallback_pages,
         "records_extracted": extracted,
