@@ -33,5 +33,22 @@ class RefreshExitStatusTests(unittest.TestCase):
             inventory_refresh_worker.main()
 
 
+    def test_failed_source_name_is_visible_without_control_characters(self):
+        job = {"refresh_id": 62552, "source_name": "Quikr\\nInjected/Name"}
+        with patch.object(inventory_refresh_worker, "recover_jobs"), \\
+             patch.object(inventory_refresh_worker, "claim_jobs", return_value=[job]), \\
+             patch.object(inventory_refresh_worker, "process_job",
+                          side_effect=RuntimeError("parser failed")):
+            with self.assertLogs(inventory_refresh_worker.log, level="ERROR") as captured:
+                result = inventory_refresh_worker.run_batch(limit=1, workers=1)
+        self.assertEqual(result["failed"], 1)
+        self.assertIn("source=Quikr_Injected_Name", captured.output[0])
+        self.assertNotIn("source=Quikr\\n", captured.output[0])
+
+    def test_safe_source_label_is_bounded_and_never_empty(self):
+        self.assertEqual(inventory_refresh_worker._safe_source_label(None), "unknown")
+        self.assertEqual(len(inventory_refresh_worker._safe_source_label("x" * 500)), 80)
+
+
 if __name__ == "__main__":
     unittest.main()
