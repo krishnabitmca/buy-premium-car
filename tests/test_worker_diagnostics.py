@@ -88,6 +88,16 @@ class WorkerDiagnosticsTests(unittest.TestCase):
             report = extract_summary(Path(tmp) / "missing", Path(tmp) / "out.json")
             self.assertEqual(report["status"], "no_log")
 
+    def test_scheduled_refresh_prefers_production_database(self):
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/persistent-inventory-refresh.yml").read_text()
+        self.assertIn(
+            "secrets.SOURCE_INTELLIGENCE_DATABASE_URL || secrets.CARSCANNER_FREE_TEST_DATABASE_URL",
+            workflow)
+        self.assertNotIn(
+            "secrets.CARSCANNER_FREE_TEST_DATABASE_URL || secrets.SOURCE_INTELLIGENCE_DATABASE_URL",
+            workflow)
+        self.assertIn("PRODUCTION_DATABASE_CONFIGURED", workflow)
 
 if __name__ == "__main__":
     unittest.main()
