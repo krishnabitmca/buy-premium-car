@@ -227,10 +227,20 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
             conn.commit()
         # Log only after the durable transaction commits; failed transactions
         # must not be represented as successfully persisted scans.
-        from .extraction_telemetry import summarize_extraction
-        telemetry = summarize_extraction(result.scan_evidence)
-        log.info("source_extraction_summary source=%s refresh_id=%s telemetry=%s",
-                 source_name, job["refresh_id"], json.dumps(telemetry, sort_keys=True))
+        from .extraction_telemetry import summarize_committed_refresh
+        # Observed parser traces are incomplete for some specialized OEM
+        # adapters. Publish the committed listing counts independently.
+        try:
+            telemetry = summarize_committed_refresh(
+                result.scan_evidence, pages_fetched=result.pages_fetched,
+                listings_extracted=len(result.listings),
+                listings_ingested=ingested.get('listings', 0),
+            )
+            log.info("source_extraction_summary source=%s refresh_id=%s telemetry=%s",
+                     source_name, job["refresh_id"], json.dumps(telemetry, sort_keys=True))
+        except Exception:
+            # Diagnostics must never mark an already committed job as failed.
+            log.exception("Committed refresh telemetry unavailable for job %s", job["refresh_id"])
         return {**ingested, 'pages_fetched': result.pages_fetched,
                 'listings_extracted': len(result.listings),
                 'listings_unpersisted': max(0, len(result.listings) - ingested.get('listings', 0)),
