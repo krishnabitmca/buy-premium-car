@@ -55,6 +55,34 @@ class WorkerDiagnosticsTests(unittest.TestCase):
         self.assertLessEqual(len(raw), MAX_BYTES + 1)
         json.loads(raw)
 
+    def test_committed_counts_distinguish_untraced_inventory_from_empty_source(self):
+        telemetry = {"pages_traced": 0, "pages_empty": 0,
+                     "pages_recovered_by_fallback": 0, "records_extracted": 0,
+                     "pages_fetched": 3, "listings_extracted": 18,
+                     "listings_ingested": 17, "strategy_attempts": {},
+                     "parser_errors": {}, "absence_reconciliation_permitted": False}
+        report, raw = self._run([
+            "source_extraction_summary source=OEM Dealer refresh_id=7 telemetry="
+            + json.dumps(telemetry) + "\\n"
+        ])
+        self.assertEqual(report["events_exported"], 1)
+        self.assertTrue(report["events"][0]["committed_metrics_available"])
+        self.assertEqual(report["events"][0]["listings_ingested"], 17)
+        self.assertEqual(report["events"][0]["pages_traced"], 0)
+        self.assertFalse(json.loads(raw)["absence_reconciliation_permitted"])
+
+    def test_partial_committed_metrics_are_not_exported(self):
+        telemetry = {"pages_traced": 0, "pages_empty": 0,
+                     "pages_recovered_by_fallback": 0, "records_extracted": 0,
+                     "pages_fetched": 3, "strategy_attempts": {},
+                     "parser_errors": {}, "absence_reconciliation_permitted": False}
+        report, _ = self._run([
+            "source_extraction_summary source=OEM refresh_id=7 telemetry="
+            + json.dumps(telemetry) + "\\n"
+        ])
+        self.assertEqual(report["events_invalid"], 1)
+        self.assertEqual(report["events_exported"], 0)
+
     def test_missing_log_is_explicit(self):
         with tempfile.TemporaryDirectory() as tmp:
             report = extract_summary(Path(tmp) / "missing", Path(tmp) / "out.json")
