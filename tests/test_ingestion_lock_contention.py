@@ -43,6 +43,22 @@ class IngestionLockContentionTests(unittest.TestCase):
         )
         conn.commit.assert_called_once()
 
+    def test_domain_lease_deferral_fences_exact_claim_timestamp(self):
+        source = {"source_id": 19, "adapter_status": "live",
+                  "url": "https://dealer.example", "name": "Verified Dealer"}
+        conn = MagicMock()
+        conn.__enter__.return_value = conn
+        with (patch.object(worker, "load_registry", return_value=[source]),
+              patch.object(worker, "_connect", return_value=conn),
+              patch("src.crawl_leases.acquire", return_value=None),
+              patch("src.crawl_leases.release")):
+            result = worker.process_job(self.job)
+        self.assertEqual(result, {"deferred": 1})
+        sql, params = conn.execute.call_args.args
+        self.assertIn("started_at=%s", sql)
+        self.assertEqual(params, (7849, 2, self.job["started_at"]))
+        conn.commit.assert_called_once()
+
     def test_dict_row_contention_is_deferred(self):
         # psycopg connections in production return dict_row, not tuple rows.
         source = {"source_id": 19, "adapter_status": "live",
