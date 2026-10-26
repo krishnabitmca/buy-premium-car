@@ -24,9 +24,10 @@ jobs:
       - name: Run all-brand all-model live matrix
         run: |
           set -o pipefail
-          PYTHONPATH=. python tests/live_catalog_matrix.py | tee live-catalog-matrix.json
+          PYTHONUNBUFFERED=1 PYTHONPATH=. timeout --signal=TERM --kill-after=20s 38m python tests/live_catalog_matrix.py | tee live-catalog-matrix.json
           test -s live-catalog-matrix.json
       - name: Upload matrix report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: carscanner-live-catalog-matrix
