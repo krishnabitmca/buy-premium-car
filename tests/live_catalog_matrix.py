@@ -15,7 +15,7 @@ import time
 from src.live_marketplaces import live_brands, live_models, live_inventory
 
 MAX_WORKERS = 6
-MODEL_TIMEOUT = 45
+MODEL_TIMEOUT = 45  # Diagnostic threshold; network calls must enforce their own timeouts.
 
 
 def main() -> int:
@@ -31,6 +31,7 @@ def main() -> int:
             catalog_errors.append({"brand":b["name"],"error":str(exc)[:200]})
 
     pairs=[(brand,m["name"]) for brand,models in catalog for m in models]
+    print(f"Live matrix: {len(brands)} brands, {len(pairs)} models; {MAX_WORKERS} workers", file=sys.stderr, flush=True)
     if not brands:
         print(json.dumps({"status":"error","error":"live brand catalog is empty"}, indent=2))
         return 2
@@ -56,8 +57,15 @@ def main() -> int:
             return {"brand":brand,"model":model,"status":"error","error":str(exc)[:240]}
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-        for r in pool.map(probe,pairs):
+        futures={pool.submit(probe,pair):pair for pair in pairs}
+        for future in concurrent.futures.as_completed(futures):
+            r=future.result()
             results.append(r)
+            count=len(results)
+            if r.get('seconds',0) > MODEL_TIMEOUT or r['status']=='error':
+                print(f"Slow/error probe {r['brand']} {r['model']}: {r.get('seconds','?')}s {r['status']}", file=sys.stderr, flush=True)
+            if count % 10 == 0 or count == len(pairs):
+                print(f"Live matrix progress: {count}/{len(pairs)} models in {time.time()-started:.0f}s", file=sys.stderr, flush=True)
 
     zero=[r for r in results if r["status"]=="ok" and r["matched"]==0]
     errors=[r for r in results if r["status"]=="error"]
