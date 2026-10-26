@@ -51,7 +51,9 @@ jobs:
           python -m pip install --disable-pip-version-check 'playwright==1.55.0'
       - name: Install Chromium system dependencies
         timeout-minutes: 7
-        run: python -m playwright install-deps chromium
+        run: |
+          echo 'Starting Chromium OS dependency installation'
+          timeout --signal=TERM --kill-after=15s 6m python -m playwright install-deps chromium
       - name: Install Chromium browser
         timeout-minutes: 10
         run: |
