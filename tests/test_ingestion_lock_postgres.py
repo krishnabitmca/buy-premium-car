@@ -6,8 +6,11 @@ credentials, external inventory, or marketplace requests are used.
 from datetime import datetime, timezone
 import pytest
 
+# Unit/E2E CI jobs intentionally omit PostgreSQL dependencies. Only the
+# dedicated disposable-PostgreSQL integration job must import and run this suite.
+psycopg = pytest.importorskip('psycopg')
 from psycopg.rows import dict_row
-from tests.test_inventory_postgres import db, disposable_database, add_source, psycopg
+from tests.test_inventory_postgres import db, disposable_database, add_source
 from src.inventory_refresh_worker import (
     _defer_ingestion_on_lock_contention, claim_jobs,
 )
