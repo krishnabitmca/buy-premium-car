@@ -73,6 +73,8 @@ def request(method, path, body=None, *, indexer=False, ndjson=False):
                         'network' if isinstance(exc, (URLError, OSError)) else 'decode')
             _log.warning('elastic_indexer_request_failed stage=%s category=%s status=%s',
                          stage, category, status)
+        if indexer and method == 'GET' and path == '/_mapping' and isinstance(exc, HTTPError) and exc.code == 404:
+            raise IndexUnavailable('Elasticsearch index missing') from None
         raise IndexUnavailable('Elasticsearch request failed') from None
 
 
@@ -196,7 +198,11 @@ def rebuild():
     # HEAD is read-only and authorized by view_index_metadata; create only once.
     try:
         request('GET', '/_mapping', indexer=True)
-    except IndexUnavailable:
+    except IndexUnavailable as exc:
+        # Only an explicit missing-index response authorizes creation. A 401,
+        # 403, 429, 5xx, timeout, or malformed response must fail closed.
+        if str(exc) != 'Elasticsearch index missing':
+            raise
         request('PUT', '', mapping, indexer=True)
     generation = uuid4().hex
     now = datetime.now(timezone.utc)
