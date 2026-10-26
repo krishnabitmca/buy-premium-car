@@ -120,3 +120,22 @@ def test_discovered_models_share_ingestion_transaction_and_rollback(db):
         "select count(*) as n from public.inventory_refresh_queue "
         "where source_id=%s and model='x1'", (source_id,),
     ).fetchone()["n"] == 1
+
+def test_stale_failure_completion_cannot_fail_newer_claim(db):
+    from src.inventory_refresh_worker import complete_job
+    job = _claim(db)
+    new_start = datetime(2026, 10, 26, tzinfo=timezone.utc)
+    db.execute(
+        "update public.inventory_refresh_queue set started_at=%s "
+        "where refresh_id=%s", (new_start, job["refresh_id"]),
+    )
+    db.commit()
+    complete_job(job["refresh_id"], success=False, error="stale worker error",
+                 attempt_count=job["attempt_count"], started_at=job["started_at"])
+    row = db.execute(
+        "select status,last_error,started_at from public.inventory_refresh_queue "
+        "where refresh_id=%s", (job["refresh_id"],),
+    ).fetchone()
+    assert row["status"] == "running"
+    assert row["started_at"] == new_start
+    assert row["last_error"] != "stale worker error"
