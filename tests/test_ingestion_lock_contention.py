@@ -27,7 +27,7 @@ class IngestionLockContentionTests(unittest.TestCase):
         )
         sql, params = cur.execute.call_args.args
         self.assertIn("status='queued'", sql)
-        self.assertIn("attempt_count=attempt_count-1", sql)
+        self.assertIn("attempt_count=greatest(0, attempt_count-1)", sql)
         self.assertIn("next_attempt_at", sql)
         self.assertIn("status='running'", sql)
         self.assertIn("started_at=%s", sql)
