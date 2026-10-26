@@ -315,14 +315,14 @@ class BuiltinMarketplaceAdapter:
                 from .listing_evidence import catalogue_tombstones
                 for evidence in catalogue_tombstones(html,endpoint_url,parser_strategy):
                     tombstones[evidence['url']]=evidence
-                from .catalog_traversal import advertised_scopes,advertised_total
+                from .catalog_traversal import advertised_scopes,scoped_advertised_total
                 if request.continuation is not None and not request.query:
                     for scope in advertised_scopes(html,self.source,endpoint_url):
                         catalog_scopes[scope['url']]=scope
                         if scope['url'] not in urls and scope['url'] not in seen_pages:
                             urls.append(scope['url'])
                 if parser_strategy in {'cardekho_cards','carwale_cards','cartrade_cards'}:
-                    total=advertised_total(html)
+                    total=scoped_advertised_total(html,self.source_name,endpoint_url)
                     if total is not None:
                         advertised_counts[endpoint_url]=total
                         if total>0 and not parsed and not tombstones:
