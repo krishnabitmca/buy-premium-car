@@ -1,4 +1,5 @@
 const { chromium } = require("playwright");
+const { navigateWithServerRetry } = require("./hosted_navigation");
 
 const base = process.env.CARSCANNER_BASE_URL || "https://buy-premium-car1.onrender.com";
 const testUrl = key => { const u = new URL(base); u.searchParams.set(key, String(Date.now())); return u.toString(); };
@@ -26,12 +27,7 @@ const testUrl = key => { const u = new URL(base); u.searchParams.set(key, String
   try {
     // Render may briefly return a 5xx during instance restart. Retry only that
     // transport failure; never treat a successfully served broken UI as passing.
-    let navigation;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      navigation = await page.goto(testUrl("e2e"), { waitUntil: "networkidle", timeout: 90000 });
-      if (navigation && navigation.status() < 500) break;
-      if (attempt < 2) await page.waitForTimeout(3000 * (attempt + 1));
-    }
+    const navigation = await navigateWithServerRetry(page, () => testUrl("e2e"));
     // An E2E run against the hosted app is a production smoke check, not
     // evidence that this PR's commit was deployed. Surface that distinction.
     const expectedSha = process.env.EXPECTED_DEPLOYMENT_SHA || "";
