@@ -83,6 +83,67 @@ class WorkerDiagnosticsTests(unittest.TestCase):
         self.assertEqual(report["events_invalid"], 1)
         self.assertEqual(report["events_exported"], 0)
 
+    def test_zero_yield_oem_is_flagged_without_claiming_absence(self):
+        telemetry = {"pages_traced": 0, "pages_empty": 0,
+                     "pages_recovered_by_fallback": 0, "records_extracted": 0,
+                     "pages_fetched": 10, "listings_extracted": 0,
+                     "listings_ingested": 0, "strategy_attempts": {},
+                     "parser_errors": {}, "absence_reconciliation_permitted": False}
+        report, raw = self._run([
+            "source_extraction_summary source=OEM refresh_id=9 telemetry="
+            + json.dumps(telemetry) + "\n"
+        ])
+        flags = report["events"][0]["quality_flags"]
+        self.assertTrue(flags["zero_yield_after_fetch"])
+        self.assertTrue(flags["untraced_fetched_pages"])
+        self.assertFalse(flags["parser_records_unaccepted"])
+        self.assertEqual(report["quality_flag_counts"]["zero_yield_after_fetch"], 1)
+        self.assertFalse(json.loads(raw)["absence_reconciliation_permitted"])
+
+    def test_parser_record_rejected_is_distinguished_from_empty_source(self):
+        telemetry = {"pages_traced": 1, "pages_empty": 0,
+                     "pages_recovered_by_fallback": 1, "records_extracted": 1,
+                     "pages_fetched": 1, "listings_extracted": 0,
+                     "listings_ingested": 0, "strategy_attempts": {"fallback": 1},
+                     "parser_errors": {}, "absence_reconciliation_permitted": False}
+        report, raw = self._run([
+            "source_extraction_summary source=9th Gear refresh_id=66900 telemetry="
+            + json.dumps(telemetry) + "\n"
+        ])
+        flags = report["events"][0]["quality_flags"]
+        self.assertTrue(flags["parser_records_unaccepted"])
+        self.assertTrue(flags["zero_yield_after_fetch"])
+        self.assertFalse(flags["untraced_fetched_pages"])
+        self.assertNotIn(b"fallback", raw)
+
+    def test_committed_ingestion_gap_is_flagged_but_successful_scan_is_not(self):
+        base = {"pages_traced": 1, "pages_empty": 0,
+                "pages_recovered_by_fallback": 0, "records_extracted": 4,
+                "pages_fetched": 1, "listings_extracted": 4,
+                "listings_ingested": 3, "strategy_attempts": {},
+                "parser_errors": {}, "absence_reconciliation_permitted": False}
+        good = {**base, "listings_ingested": 4}
+        lines = [
+            "source_extraction_summary source=Dealer refresh_id=1 telemetry=" + json.dumps(base) + "\n",
+            "source_extraction_summary source=Dealer refresh_id=2 telemetry=" + json.dumps(good) + "\n",
+        ]
+        report, _ = self._run(lines)
+        self.assertTrue(report["events"][0]["quality_flags"]["extracted_not_ingested"])
+        self.assertFalse(any(report["events"][1]["quality_flags"].values()))
+        self.assertEqual(report["quality_flag_counts"]["extracted_not_ingested"], 1)
+
+    def test_legacy_trace_only_is_not_mislabeled_as_zero_yield(self):
+        telemetry = {"pages_traced": 1, "pages_empty": 1,
+                     "pages_recovered_by_fallback": 0, "records_extracted": 0,
+                     "strategy_attempts": {}, "parser_errors": {},
+                     "absence_reconciliation_permitted": False}
+        report, _ = self._run([
+            "source_extraction_summary source=Legacy refresh_id=3 telemetry="
+            + json.dumps(telemetry) + "\n"
+        ])
+        self.assertFalse(any(report["events"][0]["quality_flags"].values()))
+        self.assertFalse(report["events"][0]["committed_metrics_available"])
+
     def test_missing_log_is_explicit(self):
         with tempfile.TemporaryDirectory() as tmp:
             report = extract_summary(Path(tmp) / "missing", Path(tmp) / "out.json")
