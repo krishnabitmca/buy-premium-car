@@ -77,8 +77,11 @@ def extract_summary(log_path: Path, output_path: Path) -> dict:
                         "untraced_fetched_pages": bool(committed and committed["pages_fetched"] > 0
                                                        and counts["pages_traced"] == 0),
                     }
+                    # Sparse flag names avoid exceeding the artifact cap when
+                    # hundreds of healthy sources produce no investigation flags.
+                    active_flags = [name for name in QUALITY_FLAGS if flags[name]]
                     events.append({"source": source, "refresh_id": int(match.group(2)),
-                                   **counts, **committed, "quality_flags": flags,
+                                   **counts, **committed, "quality_flags": active_flags,
                                    "committed_metrics_available": bool(committed),
                                    "strategy_attempt_count": sum(attempts.values()),
                                    "parser_error_count": sum(errors.values())})
@@ -89,7 +92,7 @@ def extract_summary(log_path: Path, output_path: Path) -> dict:
               "events_exported": len(events), "events_invalid": invalid,
               "events_omitted": max(0, observed - invalid - len(events)),
               "absence_reconciliation_permitted": False, "events": events,
-              "quality_flag_counts": {flag: sum(event["quality_flags"][flag] for event in events)
+              "quality_flag_counts": {flag: sum(flag in event["quality_flags"] for event in events)
                                       for flag in QUALITY_FLAGS}}
     # Events have a strict cap and contain only aggregate integers + bounded names.
     rendered = json.dumps(report, sort_keys=True, separators=(",", ":"))
@@ -98,7 +101,7 @@ def extract_summary(log_path: Path, output_path: Path) -> dict:
         while report["events"] and len(rendered.encode("utf-8")) > MAX_BYTES:
             removed = report["events"].pop()
             for flag in QUALITY_FLAGS:
-                report["quality_flag_counts"][flag] -= int(removed["quality_flags"][flag])
+                report["quality_flag_counts"][flag] -= int(flag in removed["quality_flags"])
             report["events_exported"] -= 1
             report["events_omitted"] += 1
             rendered = json.dumps(report, sort_keys=True, separators=(",", ":"))
