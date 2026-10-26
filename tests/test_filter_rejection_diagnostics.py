@@ -39,7 +39,8 @@ def test_filter_rejection_reasons_are_counted_without_changing_results(monkeypat
 def test_telemetry_drops_untrusted_labels_and_malformed_counters():
     evidence = {"scraper_quality": {
         "filter_rejection_counts": {"identity": 3, "demo_evidence": True,
-                                    "secret_token": 900, "above_max_or_missing_price": -1},
+                                    "secret_token": 900, "above_max_or_missing_price": -1,
+                                    "used_excludes_demo": 10**100},
         "deduplicated_within_source_count": "invalid",
     }}
     telemetry = summarize_committed_refresh(evidence, pages_fetched=1,
