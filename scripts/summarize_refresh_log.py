@@ -75,7 +75,7 @@ def extract_summary(log_path: Path, output_path: Path) -> dict:
                         "extracted_not_ingested": bool(committed and committed["listings_extracted"] >
                                                        committed["listings_ingested"]),
                         "untraced_fetched_pages": bool(committed and committed["pages_fetched"] > 0
-                                                       and counts["pages_traced"] == 0),
+                                                       and counts["pages_traced"] < committed["pages_fetched"]),
                     }
                     # Sparse flag names avoid exceeding the artifact cap when
                     # hundreds of healthy sources produce no investigation flags.
