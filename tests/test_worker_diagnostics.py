@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from scripts.summarize_refresh_log import extract_summary, MAX_EVENTS, MAX_BYTES
 
 
@@ -149,6 +150,28 @@ class WorkerDiagnosticsTests(unittest.TestCase):
         self.assertIn("untraced_fetched_pages", report["events"][0]["quality_flags"])
         self.assertNotIn("untraced_fetched_pages", report["events"][1]["quality_flags"])
         self.assertEqual(report["quality_flag_counts"]["untraced_fetched_pages"], 1)
+        self.assertFalse(json.loads(raw)["absence_reconciliation_permitted"])
+
+    def test_byte_cap_keeps_quality_counts_consistent_with_exported_events(self):
+        telemetry = {"pages_traced": 1, "pages_empty": 1,
+                     "pages_recovered_by_fallback": 0, "records_extracted": 0,
+                     "pages_fetched": 1, "listings_extracted": 0,
+                     "listings_ingested": 0, "strategy_attempts": {},
+                     "parser_errors": {}, "absence_reconciliation_permitted": False}
+        lines = [
+            "source_extraction_summary source=OEM Dealer refresh_id="
+            + str(i) + " telemetry=" + json.dumps(telemetry) + "\\n"
+            for i in range(20)
+        ]
+        # Force the artifact-size path rather than only the MAX_EVENTS path.
+        with patch("scripts.summarize_refresh_log.MAX_BYTES", 1100):
+            report, raw = self._run(lines)
+        self.assertLessEqual(len(raw.rstrip(b"\\n")), 1100)
+        self.assertLess(report["events_exported"], 20)
+        self.assertGreater(report["events_omitted"], 0)
+        self.assertEqual(report["events_exported"] + report["events_omitted"], 20)
+        for flag, count in report["quality_flag_counts"].items():
+            self.assertEqual(count, sum(flag in event["quality_flags"] for event in report["events"]))
         self.assertFalse(json.loads(raw)["absence_reconciliation_permitted"])
 
     def test_legacy_trace_only_is_not_mislabeled_as_zero_yield(self):
