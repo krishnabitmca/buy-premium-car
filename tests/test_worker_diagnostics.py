@@ -134,6 +134,23 @@ class WorkerDiagnosticsTests(unittest.TestCase):
         self.assertEqual(report["events"][1]["quality_flags"], [])
         self.assertEqual(report["quality_flag_counts"]["extracted_not_ingested"], 1)
 
+    def test_partially_untraced_pages_are_flagged_but_fully_traced_are_not(self):
+        base = {"pages_traced": 2, "pages_empty": 0,
+                "pages_recovered_by_fallback": 0, "records_extracted": 4,
+                "pages_fetched": 3, "listings_extracted": 4,
+                "listings_ingested": 4, "strategy_attempts": {},
+                "parser_errors": {}, "absence_reconciliation_permitted": False}
+        fully_traced = {**base, "pages_traced": 3}
+        report, raw = self._run([
+            "source_extraction_summary source=OEM refresh_id=10 telemetry=" + json.dumps(base) + "\n",
+            "source_extraction_summary source=OEM refresh_id=11 telemetry=" + json.dumps(fully_traced) + "\n",
+        ])
+        self.assertEqual(report["events_exported"], 2)
+        self.assertIn("untraced_fetched_pages", report["events"][0]["quality_flags"])
+        self.assertNotIn("untraced_fetched_pages", report["events"][1]["quality_flags"])
+        self.assertEqual(report["quality_flag_counts"]["untraced_fetched_pages"], 1)
+        self.assertFalse(json.loads(raw)["absence_reconciliation_permitted"])
+
     def test_legacy_trace_only_is_not_mislabeled_as_zero_yield(self):
         telemetry = {"pages_traced": 1, "pages_empty": 1,
                      "pages_recovered_by_fallback": 0, "records_extracted": 0,
