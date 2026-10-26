@@ -136,8 +136,9 @@ class IngestionLockContentionTests(unittest.TestCase):
         conn.__enter__.return_value = conn
         conn.cursor.return_value = cur
 
-        def check_after_commit(*args):
+        def check_in_transaction(*args, **kwargs):
             self.assertFalse(conn.commit.called, "model discovery must precede ingestion commit")
+            self.assertIs(kwargs.get('_connection'), conn)
             return 1
 
         with (patch.object(worker, "load_registry", return_value=[source]),
