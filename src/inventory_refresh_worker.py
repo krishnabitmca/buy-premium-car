@@ -136,7 +136,7 @@ def _defer_ingestion_on_lock_contention(cur, conn, job: dict[str, Any]) -> dict[
     """
     cur.execute(
         """update public.inventory_refresh_queue
-           set status='queued', attempt_count=attempt_count-1,
+           set status='queued', attempt_count=greatest(0, attempt_count-1),
                metadata=metadata || jsonb_build_object(
                    'next_attempt_at',(now()+interval '1 minute')::text)
            where refresh_id=%s and status='running'
