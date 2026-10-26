@@ -38,7 +38,7 @@ def test_real_advisory_contention_defers_claim_without_inventory_writes(db, disp
                 assert cur.execute(
                     "select pg_try_advisory_xact_lock(731912, 1) as acquired"
                 ).fetchone()["acquired"] is False
-                assert _defer_ingestion_on_lock_contention(cur, contender, job) == {"deferred": 1}
+                assert _defer_ingestion_on_lock_contention(cur, contender, job) == {"deferred": 1, "deferred_ingestion_lock": 1}
         row = db.execute(
             "select status,attempt_count,metadata->>'next_attempt_at' as retry_at "
             "from public.inventory_refresh_queue where refresh_id=%s",
@@ -77,7 +77,7 @@ def test_real_postgres_retry_budget_and_claim_fencing(db, disposable_database):
     job = _claim(db)
     with psycopg.connect(disposable_database, row_factory=dict_row) as conn:
         with conn.cursor() as cur:
-            assert _defer_ingestion_on_lock_contention(cur, conn, job) == {"deferred": 1}
+            assert _defer_ingestion_on_lock_contention(cur, conn, job) == {"deferred": 1, "deferred_ingestion_lock": 1}
     db.execute(
         "update public.inventory_refresh_queue set metadata=metadata-'next_attempt_at' "
         "where refresh_id=%s", (job["refresh_id"],)
