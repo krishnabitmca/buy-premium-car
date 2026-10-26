@@ -23,9 +23,10 @@ log = logging.getLogger(__name__)
 
 
 def _safe_source_label(value: object) -> str:
-    """Bound a source label in failure logs; never emit arbitrary metadata."""
+    """Bound source labels in failure logs and exclude control characters."""
     label = re.sub(r"[^A-Za-z0-9 ._-]", "_", str(value or "unknown"))[:80]
     return label or "unknown"
+
 
 
 def claim_jobs(limit: int = 10, *, brands=None, source_names=None, baseline_only=False, models_only=False, continuations_only=False, catalogues_only=False, demo_only=False) -> list[dict[str, Any]]:
@@ -234,10 +235,20 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
             conn.commit()
         # Log only after the durable transaction commits; failed transactions
         # must not be represented as successfully persisted scans.
-        from .extraction_telemetry import summarize_extraction
-        telemetry = summarize_extraction(result.scan_evidence)
-        log.info("source_extraction_summary source=%s refresh_id=%s telemetry=%s",
-                 source_name, job["refresh_id"], json.dumps(telemetry, sort_keys=True))
+        from .extraction_telemetry import summarize_committed_refresh
+        # Observed parser traces are incomplete for some specialized OEM
+        # adapters. Publish the committed listing counts independently.
+        try:
+            telemetry = summarize_committed_refresh(
+                result.scan_evidence, pages_fetched=result.pages_fetched,
+                listings_extracted=len(result.listings),
+                listings_ingested=ingested.get('listings', 0),
+            )
+            log.info("source_extraction_summary source=%s refresh_id=%s telemetry=%s",
+                     source_name, job["refresh_id"], json.dumps(telemetry, sort_keys=True))
+        except Exception:
+            # Diagnostics must never mark an already committed job as failed.
+            log.exception("Committed refresh telemetry unavailable for job %s", job["refresh_id"])
         return {**ingested, 'pages_fetched': result.pages_fetched,
                 'listings_extracted': len(result.listings),
                 'listings_unpersisted': max(0, len(result.listings) - ingested.get('listings', 0)),
@@ -316,8 +327,6 @@ def main() -> None:
     result = run_batch(args.limit,brands=args.brand,source_names=args.source,baseline_only=args.baseline_only,
         models_only=args.models_only,continuations_only=args.continuations_only,catalogues_only=args.catalogues_only,demo_only=args.demo_only,workers=args.workers)
     print(result)
-    # A partial success is still a failed refresh cycle: surface source failures
-    # to the scheduler rather than silently reporting the run as healthy.
     if result["failed"]:
         raise SystemExit(1)
 
