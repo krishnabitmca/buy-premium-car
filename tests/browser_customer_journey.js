@@ -24,8 +24,26 @@ const testUrl = key => { const u = new URL(base); u.searchParams.set(key, String
   });
 
   try {
-    await page.goto(testUrl("e2e"), { waitUntil: "networkidle", timeout: 90000 });
-    await page.waitForSelector("#brand", { state: "visible", timeout: 15000 });
+    // Render may briefly return a 5xx during instance restart. Retry only that
+    // transport failure; never treat a successfully served broken UI as passing.
+    let navigation;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      navigation = await page.goto(testUrl("e2e"), { waitUntil: "networkidle", timeout: 90000 });
+      if (navigation && navigation.status() < 500) break;
+      if (attempt < 2) await page.waitForTimeout(3000 * (attempt + 1));
+    }
+    if (!navigation || navigation.status() >= 400) {
+      throw new Error("Hosted application navigation failed: HTTP " + (navigation ? navigation.status() : "no response"));
+    }
+    try {
+      await page.waitForSelector("#brand", { state: "visible", timeout: 15000 });
+    } catch (err) {
+      const title = await page.title().catch(() => "unavailable");
+      const snippet = (await page.locator("body").innerText().catch(() => "")).slice(0, 350);
+      throw new Error("Brand selector missing after HTTP " + navigation.status() +
+        "; title=" + JSON.stringify(title) + "; body=" + JSON.stringify(snippet) +
+        "; original=" + err.message);
+    }
     await page.waitForFunction(() => document.querySelectorAll("#brand option").length >= 5, null, { timeout: 30000 });
 
     const brandCount = await page.locator("#brand option").count();
