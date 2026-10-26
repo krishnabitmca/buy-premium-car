@@ -22,7 +22,7 @@ max_requests = 2000
 max_requests_jitter = 200
 preload_app = False  # Database pools and background executors must be worker-local.
 accesslog = '-'
-access_log_format = '%(m)s status=%(s)s duration_ms=%(M)s'
+access_log_format = '%(m)s path=%(U)s status=%(s)s duration_ms=%(M)s'
 errorlog = '-'
 loglevel = 'info'
 
