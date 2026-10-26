@@ -72,3 +72,63 @@ def test_cli_reason_is_allowlisted_and_never_echoes_exception_text():
     assert elastic.rebuild_failure_reason(elastic.IndexUnavailable(
         'PRIVATE-SECRET-TOKEN')) == 'index_unavailable'
     assert elastic.rebuild_failure_reason(ValueError('PRIVATE-SECRET-TOKEN')) == 'unexpected'
+
+
+@pytest.mark.parametrize('status,expected', [
+    (404, 'Elasticsearch index missing'),
+    (401, 'Elasticsearch request failed'),
+    (403, 'Elasticsearch request failed'),
+    (429, 'Elasticsearch request failed'),
+    (503, 'Elasticsearch request failed'),
+])
+def test_mapping_lookup_only_treats_404_as_missing(monkeypatch, caplog, status, expected):
+    configure(monkeypatch)
+
+    def fail(_request, timeout):
+        raise HTTPError('https://elastic.example.invalid/PRIVATE-URL', status,
+                        'PRIVATE-ERROR', {}, None)
+
+    monkeypatch.setattr(elastic, 'urlopen', fail)
+    with caplog.at_level(logging.WARNING, logger=elastic.__name__):
+        with pytest.raises(elastic.IndexUnavailable, match=expected):
+            elastic.request('GET', '/_mapping', indexer=True)
+    assert f'stage=mapping_lookup category=http status={status}' in caplog.text
+    assert 'PRIVATE-URL' not in caplog.text
+    assert 'PRIVATE-ERROR' not in caplog.text
+
+
+def test_rebuild_does_not_create_mapping_after_transient_lookup_failure(monkeypatch):
+    monkeypatch.setattr(elastic, 'require_database', lambda: None)
+    calls = []
+
+    def fake_request(method, path, body=None, *, indexer=False):
+        calls.append((method, path))
+        raise elastic.IndexUnavailable('Elasticsearch request failed')
+
+    monkeypatch.setattr(elastic, 'request', fake_request)
+    with pytest.raises(elastic.IndexUnavailable, match='request failed'):
+        elastic.rebuild()
+    assert calls == [('GET', '/_mapping')]
+
+
+def test_rebuild_creates_mapping_only_after_explicit_missing_index(monkeypatch):
+    monkeypatch.setattr(elastic, 'require_database', lambda: None)
+    calls = []
+
+    def fake_request(method, path, body=None, *, indexer=False):
+        calls.append((method, path))
+        if method == 'GET':
+            raise elastic.IndexUnavailable('Elasticsearch index missing')
+        return {}
+
+    class StopBeforeSnapshot(Exception):
+        pass
+
+    def stop_before_snapshot():
+        raise StopBeforeSnapshot()
+
+    monkeypatch.setattr(elastic, 'request', fake_request)
+    monkeypatch.setattr(elastic, '_connect', stop_before_snapshot)
+    with pytest.raises(StopBeforeSnapshot):
+        elastic.rebuild()
+    assert calls == [('GET', '/_mapping'), ('PUT', '')]
