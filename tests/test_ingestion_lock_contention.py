@@ -119,7 +119,7 @@ class IngestionLockContentionTests(unittest.TestCase):
         conn.commit.assert_called_once()
 
 
-    def test_successful_claim_enqueues_models_only_after_commit(self):
+    def test_successful_claim_enqueues_models_in_same_transaction(self):
         source = {"source_id": 19, "adapter_status": "live",
                   "url": "https://dealer.example", "name": "Verified Dealer"}
         models = [{"model": "X1", "discovery_kind": "observed_model",
@@ -137,7 +137,7 @@ class IngestionLockContentionTests(unittest.TestCase):
         conn.cursor.return_value = cur
 
         def check_after_commit(*args):
-            self.assertTrue(conn.commit.called, "model discovery must follow ingestion commit")
+            self.assertFalse(conn.commit.called, "model discovery must precede ingestion commit")
             return 1
 
         with (patch.object(worker, "load_registry", return_value=[source]),
@@ -152,8 +152,40 @@ class IngestionLockContentionTests(unittest.TestCase):
             adapter.return_value.fetch.return_value = fetched
             result = worker.process_job(job)
         self.assertEqual(result["pages_fetched"], 1)
-        enqueue.assert_called_once_with("BMW", models)
+        enqueue.assert_called_once_with("BMW", models, _connection=conn)
         complete.assert_called_once()
+
+
+    def test_discovery_enqueue_failure_cannot_commit_inventory(self):
+        source = {"source_id": 19, "adapter_status": "live",
+                  "url": "https://dealer.example", "name": "Verified Dealer"}
+        models = [{"model": "X1", "discovery_kind": "observed_model",
+                   "evidence_url": "https://dealer.example/x1"}]
+        fetched = SimpleNamespace(
+            status="live", listings=[], discovered_models=models, tombstones=[],
+            pages_fetched=1, scan_evidence={}, continuation=None,
+        )
+        cur, conn = MagicMock(), MagicMock()
+        cur.fetchone.side_effect = [{"acquired": True}, {"refresh_id": 7849}]
+        cur.__enter__.return_value = cur
+        conn.__enter__.return_value = conn
+        conn.cursor.return_value = cur
+        with (patch.object(worker, "load_registry", return_value=[source]),
+              patch.object(worker, "BuiltinMarketplaceAdapter") as adapter,
+              patch.object(worker, "_connect", return_value=conn),
+              patch.object(worker, "ingest_vehicles", return_value={"listings": 0}),
+              patch.object(worker, "complete_job") as complete,
+              patch("src.crawl_leases.acquire", return_value=object()),
+              patch("src.crawl_leases.release"),
+              patch("src.used_inventory_frontier.enqueue_models",
+                    side_effect=RuntimeError("transient queue failure"))):
+            adapter.return_value.fetch.return_value = fetched
+            with self.assertRaisesRegex(RuntimeError, "transient queue failure"):
+                worker.process_job({**self.job, "brand": "BMW"})
+        conn.commit.assert_not_called()
+        complete.assert_called_once()
+        self.assertFalse(complete.call_args.kwargs["success"])
+
 
 
 if __name__ == "__main__":
