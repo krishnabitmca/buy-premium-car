@@ -114,7 +114,9 @@ class WorkerDiagnosticsTests(unittest.TestCase):
         self.assertIn("parser_records_unaccepted", flags)
         self.assertIn("zero_yield_after_fetch", flags)
         self.assertNotIn("untraced_fetched_pages", flags)
-        self.assertNotIn(b"fallback", raw)
+        # The aggregate field pages_recovered_by_fallback is allowed; the
+        # raw strategy name/value pair must not be exported.
+        self.assertNotIn(b'"fallback":1', raw)
 
     def test_committed_ingestion_gap_is_flagged_but_successful_scan_is_not(self):
         base = {"pages_traced": 1, "pages_empty": 0,
