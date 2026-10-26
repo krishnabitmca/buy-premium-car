@@ -371,29 +371,39 @@ class BuiltinMarketplaceAdapter:
                 parsed.append(row)
 
             wanted_condition = normalize_condition(request.condition)
+            # Aggregate only: no seller data, URLs or search terms in telemetry.
+            rejection_counts = {key: 0 for key in (
+                'tombstone', 'identity', 'demo_evidence', 'used_excludes_demo',
+                'below_min_or_missing_price', 'above_max_or_missing_price')}
             filtered: list[dict[str, Any]] = []
             for row in parsed:
                 if live_marketplaces._canonical_url(url,row.get('url') or '') in tombstones:
+                    rejection_counts['tombstone'] += 1
                     continue
                 if request.query and not live_marketplaces._identity_matches_query(row, request.query):
+                    rejection_counts['identity'] += 1
                     continue
                 actual = normalize_condition(row.get("condition_signal"))
                 # Demonstrator searches are fail-closed: only explicit per-listing
                 # demonstrator evidence may enter the response. Used searches may
                 # retain unknown rows from ordinary used inventory pages.
                 if wanted_condition == "demo" and actual != "demo":
+                    rejection_counts['demo_evidence'] += 1
                     continue
                 if wanted_condition == "used" and actual == "demo":
+                    rejection_counts['used_excludes_demo'] += 1
                     continue
                 if request.budget_min is not None and (
                     row.get("price_lakh") is None
                     or float(row["price_lakh"]) < request.budget_min
                 ):
+                    rejection_counts['below_min_or_missing_price'] += 1
                     continue
                 if request.budget_max is not None and (
                     row.get("price_lakh") is None
                     or float(row["price_lakh"]) > request.budget_max
                 ):
+                    rejection_counts['above_max_or_missing_price'] += 1
                     continue
                 row["identity_confidence"] = (
                     1.0 if row.get("brand") and row.get("model") else 0.0
@@ -420,6 +430,8 @@ class BuiltinMarketplaceAdapter:
                 "usable": assessment.usable,
                 "with_images": assessment.with_images,
             }
+            quality["filter_rejection_counts"] = rejection_counts
+            quality["deduplicated_within_source_count"] = len(all_parsed) - len(parsed)
             quality["matched_listing_count"] = len(filtered)
             quality["filtered_out_count"] = len(extracted) - len(filtered)
             from .source_coverage import coverage_evidence
