@@ -62,7 +62,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt "pytest>=8,<9"
-      - run: pytest -q -o faulthandler_timeout=30 -m integration tests/test_inventory_postgres.py tests/test_shared_metadata_cache.py tests/test_scan_ledger_postgres.py tests/test_scan_ledger_retention_postgres.py tests/test_scan_ledger_access_postgres.py
+      - run: pytest -q -o faulthandler_timeout=30 -m integration tests/test_inventory_postgres.py tests/test_shared_metadata_cache.py tests/test_scan_ledger_postgres.py tests/test_scan_ledger_retention_postgres.py tests/test_scan_ledger_access_postgres.py tests/test_ingestion_lock_postgres.py
         env:
           CARSCANNER_TEST_DATABASE_URL: postgresql://carscanner_test:local-test-password@127.0.0.1:5432/postgres
           CARSCANNER_TEST_REDIS_URL: redis://127.0.0.1:6379/0
