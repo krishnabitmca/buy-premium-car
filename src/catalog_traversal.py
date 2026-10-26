@@ -34,6 +34,29 @@ def advertised_total(html):
     return None
 
 
+def scoped_advertised_total(html, source_name, url):
+    """Reject generic site-wide headings as inventory evidence for scoped CarTrade URLs.
+
+    The CarTrade /second-hand/<model>/ route can return a generic national
+    count on a scoped page. Only a heading naming that model is credible.
+    This is deliberately conservative: absence reconciliation must not use
+    an unrelated count as proof of a complete scoped crawl.
+    """
+    total = advertised_total(html)
+    if total is None or source_name.lower() != 'cartrade':
+        return total
+    parts = [part for part in urlsplit(url).path.lower().split('/') if part]
+    if len(parts) != 2 or parts[0] != 'second-hand':
+        return total
+    heading = BeautifulSoup(html, 'html.parser').find('h1')
+    title = heading.get_text(' ', strip=True).lower() if heading else ''
+    slug_tokens = [token for token in parts[1].split('-') if token]
+    title_tokens = re.findall(r'[a-z0-9]+', title)
+    if not slug_tokens or not all(token in title_tokens for token in slug_tokens):
+        return None
+    return total
+
+
 def validate_paged_response(html, url):
     """WordPress may redirect page two back to page one without an HTTP error."""
     requested=parse_qs(urlsplit(url).query).get('paged', [])
