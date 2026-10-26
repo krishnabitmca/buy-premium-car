@@ -57,10 +57,12 @@ def summarize_extraction(evidence: dict[str, Any] | None) -> dict[str, Any]:
     raw_rejections = quality.get('filter_rejection_counts') or {}
     if not isinstance(raw_rejections, dict):
         raw_rejections = {}
+    # A bounded decimal width is important even for malformed private evidence.
+    max_count = 1_000_000_000
     rejections = {key: raw_rejections[key] for key in allowed_rejections
-                  if type(raw_rejections.get(key)) is int and raw_rejections[key] >= 0}
+                  if type(raw_rejections.get(key)) is int and 0 <= raw_rejections[key] <= max_count}
     raw_dedup = quality.get('deduplicated_within_source_count')
-    deduplicated = raw_dedup if type(raw_dedup) is int and raw_dedup >= 0 else 0
+    deduplicated = (raw_dedup if type(raw_dedup) is int and 0 <= raw_dedup <= max_count else 0)
     return {
         'filter_rejection_counts': rejections,
         'deduplicated_within_source_count': deduplicated,
