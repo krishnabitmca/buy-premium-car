@@ -258,18 +258,16 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
             if ledger_batch is not None:
                 from .scan_ledger import finish_batch
                 finish_batch(ledger_batch,accepted,result.scan_evidence,result.continuation,conn)
+            # Persist discovery fan-out in the same transaction as accepted
+            # listings and the fenced job completion. A separate post-commit
+            # enqueue can lose model coverage permanently on transient failure.
+            if result.discovered_models:
+                from .used_inventory_frontier import enqueue_models
+                enqueue_models(job.get('brand') or '', result.discovered_models,
+                               _connection=conn)
             complete_job(int(job["refresh_id"]), success=True, attempt_count=job.get("attempt_count"),
                 continuation=result.continuation,pages_fetched=result.pages_fetched,scan_evidence=result.scan_evidence,_connection=conn)
             conn.commit()
-        # Discovery fan-out is a database mutation. Do not enqueue models from
-        # superseded claims or crawls deferred by ingestion-lock contention.
-        # Ingestion is already durable; a frontier failure must not mark it failed.
-        if result.discovered_models:
-            try:
-                from .used_inventory_frontier import enqueue_models
-                enqueue_models(job.get('brand') or '', result.discovered_models)
-            except Exception:
-                log.exception("Model discovery enqueue failed after committed refresh %s", job["refresh_id"])
         # Log only after the durable transaction commits; failed transactions
         # must not be represented as successfully persisted scans.
         from .extraction_telemetry import summarize_committed_refresh
