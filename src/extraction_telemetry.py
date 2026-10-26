@@ -45,7 +45,25 @@ def summarize_extraction(evidence: dict[str, Any] | None) -> dict[str, Any]:
             error = attempt.get("error")
             if isinstance(error, str) and error:
                 errors[error] += 1
+    # Explicit allowlist prevents arbitrary scraper metadata, URLs, or seller
+    # information from leaking into low-cardinality production logs.
+    allowed_rejections = (
+        'tombstone', 'identity', 'demo_evidence', 'used_excludes_demo',
+        'below_min_or_missing_price', 'above_max_or_missing_price',
+    )
+    quality = (evidence or {}).get('scraper_quality') or {}
+    if not isinstance(quality, dict):
+        quality = {}
+    raw_rejections = quality.get('filter_rejection_counts') or {}
+    if not isinstance(raw_rejections, dict):
+        raw_rejections = {}
+    rejections = {key: raw_rejections[key] for key in allowed_rejections
+                  if type(raw_rejections.get(key)) is int and raw_rejections[key] >= 0}
+    raw_dedup = quality.get('deduplicated_within_source_count')
+    deduplicated = raw_dedup if type(raw_dedup) is int and raw_dedup >= 0 else 0
     return {
+        'filter_rejection_counts': rejections,
+        'deduplicated_within_source_count': deduplicated,
         "pages_traced": sum(1 for p in pages if isinstance(p, dict)
                             and isinstance(p.get("attempts"), list)
                             and any(isinstance(a, dict) for a in p["attempts"])),
