@@ -28,19 +28,15 @@ jobs:
         run: pip install -r requirements.txt
       - name: Check database configuration
         env:
-          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL || secrets.CARSCANNER_FREE_TEST_DATABASE_URL }}
-          PRODUCTION_DATABASE_CONFIGURED: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL != '' }}
+          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
         run: |
-          if [ "$PRODUCTION_DATABASE_CONFIGURED" != "true" ]; then
-            echo "::warning::Scheduled refresh uses fallback database; production freshness is not verified"
-          fi
           if [ -z "$SOURCE_INTELLIGENCE_DATABASE_URL" ]; then
-            echo "::error::SOURCE_INTELLIGENCE_DATABASE_URL is not configured"
+            echo "::error::Production SOURCE_INTELLIGENCE_DATABASE_URL is required; refusing to refresh a test database"
             exit 1
           fi
       - name: Process queued source scans
         env:
-          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL || secrets.CARSCANNER_FREE_TEST_DATABASE_URL }}
+          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
           CARSCANNER_MAX_PAGES_PER_SOURCE: '10'
         run: |
           set -o pipefail
