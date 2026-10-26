@@ -107,7 +107,7 @@ def recover_jobs() -> int:
 
 
 def complete_job(refresh_id: int, *, success: bool, error: str | None = None,
-                 attempt_count: int | None = None,
+                 attempt_count: int | None = None, started_at=None,
                  continuation: dict[str, Any] | None = None, pages_fetched: int = 0, scan_evidence=None,_connection=None) -> None:
     if not enabled():
         return
@@ -123,14 +123,16 @@ def complete_job(refresh_id: int, *, success: bool, error: str | None = None,
                        coalesce((metadata->>'pages_fetched')::integer,0)+%s)
                      else metadata end
                where refresh_id=%s and status='running'
-                 and (%s::integer is null or attempt_count=%s)""",
+                 and (%s::integer is null or attempt_count=%s)
+                 and (%s::timestamptz is null or started_at=%s)""",
             ("queued" if success and continuation else "completed" if success else "failed",
              error, bool(success and continuation), success,
              json.dumps(({"continuation": continuation} if continuation else
                         {"last_success_at": datetime.now(timezone.utc).isoformat()}) |
                         ({'last_scan_evidence':scan_evidence,
                           'last_batch_observed_at':datetime.now(timezone.utc).isoformat()} if scan_evidence else {})),
-             max(0, int(pages_fetched)), refresh_id, attempt_count, attempt_count),
+             max(0, int(pages_fetched)), refresh_id, attempt_count, attempt_count,
+             started_at, started_at),
         )
         if _connection is None:conn.commit()
 
@@ -266,6 +268,7 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
                 enqueue_models(job.get('brand') or '', result.discovered_models,
                                _connection=conn)
             complete_job(int(job["refresh_id"]), success=True, attempt_count=job.get("attempt_count"),
+                started_at=job.get("started_at"),
                 continuation=result.continuation,pages_fetched=result.pages_fetched,scan_evidence=result.scan_evidence,_connection=conn)
             conn.commit()
         # Log only after the durable transaction commits; failed transactions
@@ -290,7 +293,7 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
                 'traversals_pending': int(bool(result.continuation))}
     except Exception as exc:
         complete_job(int(job["refresh_id"]), success=False, error=str(exc)[:1000],
-                     attempt_count=job.get("attempt_count"))
+                     attempt_count=job.get("attempt_count"), started_at=job.get("started_at"))
         raise
     finally:crawl_leases.release(lease)
 
