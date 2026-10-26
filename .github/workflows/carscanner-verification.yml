@@ -26,7 +26,9 @@ jobs:
       - name: Install source-planner dependency
         run: python -m pip install PyYAML beautifulsoup4
       - name: Python syntax checks
-        run: python -m py_compile api/search.py api/catalog.py src/live_marketplaces.py
+        run: python -m py_compile api/search.py api/catalog.py src/live_marketplaces.py src/source_adapters.py
+      - name: Parser diagnostic security regression tests
+        run: python -m unittest -v tests.test_source_diagnostic_sanitization
       - name: Parser smoke tests
         run: python tests/test_live_marketplaces.py
       - name: Comprehensive QA tests
