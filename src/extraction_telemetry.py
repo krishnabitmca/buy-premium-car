@@ -56,3 +56,23 @@ def summarize_extraction(evidence: dict[str, Any] | None) -> dict[str, Any]:
         "parser_errors": dict(sorted(errors.items())),
         "absence_reconciliation_permitted": False,
     }
+
+
+def summarize_committed_refresh(
+    evidence: dict[str, Any] | None, *, pages_fetched: int,
+    listings_extracted: int, listings_ingested: int,
+) -> dict[str, Any]:
+    """Combine per-page parser traces with durable per-job outcome counters.
+
+    Specialized OEM parsers do not always emit per-page strategy traces.
+    Consequently zero traced records must never be presented as zero inventory.
+    This function is called only after the database transaction commits.
+    """
+    counts = {
+        "pages_fetched": pages_fetched,
+        "listings_extracted": listings_extracted,
+        "listings_ingested": listings_ingested,
+    }
+    if any(type(value) is not int or value < 0 for value in counts.values()):
+        raise ValueError("Committed refresh counts must be nonnegative integers")
+    return {**summarize_extraction(evidence), **counts}

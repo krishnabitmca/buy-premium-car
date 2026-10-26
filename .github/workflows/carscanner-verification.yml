@@ -26,11 +26,13 @@ jobs:
       - name: Install source-planner dependency
         run: python -m pip install PyYAML beautifulsoup4
       - name: Python syntax checks
-        run: python -m py_compile api/search.py api/catalog.py src/live_marketplaces.py
+        run: python -m py_compile api/search.py api/catalog.py src/live_marketplaces.py src/inventory_refresh_worker.py
       - name: Parser smoke tests
         run: python tests/test_live_marketplaces.py
       - name: Comprehensive QA tests
         run: python -m unittest -v tests.test_qa_comprehensive
+      - name: Worker diagnostics artifact safety tests
+        run: python -m unittest -v tests.test_worker_diagnostics
       - name: Ingestion contention regression tests
         run: python -m unittest -v tests.test_ingestion_lock_contention
       - name: Cache Playwright Chromium

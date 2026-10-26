@@ -10,6 +10,7 @@ import argparse
 import logging
 import json
 import os
+import re
 from contextlib import nullcontext
 from datetime import datetime, timezone
 from typing import Any
@@ -19,6 +20,13 @@ from .source_adapters import AdapterRequest, BuiltinMarketplaceAdapter
 from .source_registry_db import _connect, enabled, require_database, load_registry
 
 log = logging.getLogger(__name__)
+
+
+def _safe_source_label(value: object) -> str:
+    """Bound source labels in failure logs and exclude control characters."""
+    label = re.sub(r"[^A-Za-z0-9 ._-]", "_", str(value or "unknown"))[:80]
+    return label or "unknown"
+
 
 
 def claim_jobs(limit: int = 10, *, brands=None, source_names=None, baseline_only=False, models_only=False, continuations_only=False, catalogues_only=False, demo_only=False) -> list[dict[str, Any]]:
@@ -264,10 +272,20 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
                 log.exception("Model discovery enqueue failed after committed refresh %s", job["refresh_id"])
         # Log only after the durable transaction commits; failed transactions
         # must not be represented as successfully persisted scans.
-        from .extraction_telemetry import summarize_extraction
-        telemetry = summarize_extraction(result.scan_evidence)
-        log.info("source_extraction_summary source=%s refresh_id=%s telemetry=%s",
-                 source_name, job["refresh_id"], json.dumps(telemetry, sort_keys=True))
+        from .extraction_telemetry import summarize_committed_refresh
+        # Observed parser traces are incomplete for some specialized OEM
+        # adapters. Publish the committed listing counts independently.
+        try:
+            telemetry = summarize_committed_refresh(
+                result.scan_evidence, pages_fetched=result.pages_fetched,
+                listings_extracted=len(result.listings),
+                listings_ingested=ingested.get('listings', 0),
+            )
+            log.info("source_extraction_summary source=%s refresh_id=%s telemetry=%s",
+                     source_name, job["refresh_id"], json.dumps(telemetry, sort_keys=True))
+        except Exception:
+            # Diagnostics must never mark an already committed job as failed.
+            log.exception("Committed refresh telemetry unavailable for job %s", job["refresh_id"])
         return {**ingested, 'pages_fetched': result.pages_fetched,
                 'listings_extracted': len(result.listings),
                 'listings_unpersisted': max(0, len(result.listings) - ingested.get('listings', 0)),
@@ -318,7 +336,8 @@ def run_batch(limit: int = 10, *, brands=None, source_names=None, baseline_only=
                         local[metric] = local.get(metric, 0) + result.get(metric, 0)
             except Exception:
                 local['failed'] += 1
-                log.exception("Refresh failed for job %s", jobs[0]['refresh_id'])
+                log.exception("Refresh failed for job %s source=%s",
+                              jobs[0]['refresh_id'], _safe_source_label(jobs[0].get('source_name')))
         return local
 
     with ThreadPoolExecutor(max_workers=parallelism, thread_name_prefix='inventory-refresh') as pool:
@@ -345,7 +364,7 @@ def main() -> None:
     result = run_batch(args.limit,brands=args.brand,source_names=args.source,baseline_only=args.baseline_only,
         models_only=args.models_only,continuations_only=args.continuations_only,catalogues_only=args.catalogues_only,demo_only=args.demo_only,workers=args.workers)
     print(result)
-    if result["failed"] and not result["completed"]:
+    if result["failed"]:
         raise SystemExit(1)
 
 
