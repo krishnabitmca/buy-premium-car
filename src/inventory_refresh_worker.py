@@ -173,7 +173,7 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
             with _connect() as conn:
                 conn.execute("""update inventory_refresh_queue set status='queued',attempt_count=attempt_count-1,
                     metadata=metadata || jsonb_build_object('next_attempt_at',(now()+interval '1 minute')::text)
-                    where refresh_id=%s and status='running' and attempt_count=%s""",(job['refresh_id'],job['attempt_count']))
+                    where refresh_id=%s and status='running' and attempt_count=%s and started_at=%s""",\n                    (job['refresh_id'],job['attempt_count'],job['started_at']))
                 conn.commit()
             return {'deferred':1}
         adapter = BuiltinMarketplaceAdapter(source)
