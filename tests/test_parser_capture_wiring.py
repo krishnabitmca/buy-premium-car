@@ -75,7 +75,9 @@ def test_worker_forwards_private_buffer_but_never_exports_before_claim_fence(mon
     monkeypatch.setattr(crawl_leases, 'acquire', lambda _: 'lease')
     monkeypatch.setattr(crawl_leases, 'release', lambda *_: None)
     cursor = Mock()
-    cursor.fetchone.return_value = None  # The old claim has been superseded.
+    cursor.fetchone.side_effect = [
+        {'acquired': True}, None,  # Lock acquired, but the old claim was superseded.
+    ]
     connection = Mock()
     connection.__enter__ = Mock(return_value=connection)
     connection.__exit__ = Mock(return_value=False)

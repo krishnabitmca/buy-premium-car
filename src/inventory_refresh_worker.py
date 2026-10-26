@@ -107,7 +107,7 @@ def recover_jobs() -> int:
 
 
 def complete_job(refresh_id: int, *, success: bool, error: str | None = None,
-                 attempt_count: int | None = None,
+                 attempt_count: int | None = None, started_at=None,
                  continuation: dict[str, Any] | None = None, pages_fetched: int = 0, scan_evidence=None,_connection=None) -> None:
     if not enabled():
         return
@@ -123,16 +123,39 @@ def complete_job(refresh_id: int, *, success: bool, error: str | None = None,
                        coalesce((metadata->>'pages_fetched')::integer,0)+%s)
                      else metadata end
                where refresh_id=%s and status='running'
-                 and (%s::integer is null or attempt_count=%s)""",
+                 and (%s::integer is null or attempt_count=%s)
+                 and (%s::timestamptz is null or started_at=%s)""",
             ("queued" if success and continuation else "completed" if success else "failed",
              error, bool(success and continuation), success,
              json.dumps(({"continuation": continuation} if continuation else
                         {"last_success_at": datetime.now(timezone.utc).isoformat()}) |
                         ({'last_scan_evidence':scan_evidence,
                           'last_batch_observed_at':datetime.now(timezone.utc).isoformat()} if scan_evidence else {})),
-             max(0, int(pages_fetched)), refresh_id, attempt_count, attempt_count),
+             max(0, int(pages_fetched)), refresh_id, attempt_count, attempt_count,
+             started_at, started_at),
         )
         if _connection is None:conn.commit()
+
+
+def _defer_ingestion_on_lock_contention(cur, conn, job: dict[str, Any]) -> dict[str, int]:
+    """Retry ingestion later without losing the crawl or marking inventory sold.
+
+    The database-wide ingestion lock can be held by another worker. Waiting
+    for it until statement_timeout makes a healthy source look broken.
+    Preserve the claimed-job fencing and requeue with a short backoff.
+    """
+    cur.execute(
+        """update public.inventory_refresh_queue
+           set status='queued', attempt_count=greatest(0, attempt_count-1),
+               metadata=metadata || jsonb_build_object(
+                   'next_attempt_at',(now()+interval '1 minute')::text)
+           where refresh_id=%s and status='running'
+             and attempt_count=%s and started_at=%s""",
+        (job["refresh_id"], job["attempt_count"], job["started_at"]),
+    )
+    changed = cur.rowcount
+    conn.commit()
+    return {"deferred": 1} if changed else {"superseded": 1}
 
 
 def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
@@ -160,7 +183,8 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
             with _connect() as conn:
                 conn.execute("""update inventory_refresh_queue set status='queued',attempt_count=attempt_count-1,
                     metadata=metadata || jsonb_build_object('next_attempt_at',(now()+interval '1 minute')::text)
-                    where refresh_id=%s and status='running' and attempt_count=%s""",(job['refresh_id'],job['attempt_count']))
+                    where refresh_id=%s and status='running' and attempt_count=%s and started_at=%s""",
+                    (job['refresh_id'],job['attempt_count'],job['started_at']))
                 conn.commit()
             return {'deferred':1}
         adapter = BuiltinMarketplaceAdapter(source)
@@ -198,10 +222,6 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
             image_urls=list(v.get("images") or ([v.get("image")] if v.get("image") else [])),
         ) for v in result.listings]
 
-        if result.discovered_models:
-            from .used_inventory_frontier import enqueue_models
-            brand=job.get('brand') or ''
-            enqueue_models(brand,result.discovered_models)
         # Fence all canonical writes, not only queue completion, after network I/O.
         with _connect() as conn,conn.cursor() as cur:
             # Serialize only database ingestion commits, not marketplace network fetches.
@@ -209,7 +229,18 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
             # every changed table; concurrent transactions otherwise wait on its
             # row lock until statement_timeout, losing otherwise successful crawls.
             # Advisory xact lock releases automatically on commit/rollback.
-            cur.execute("select pg_advisory_xact_lock(731912, 1)")
+            # Never block on another worker's ingestion transaction until the
+            # database statement timeout. A contended lock means "retry later",
+            # not "source failed"; no inventory mutation has happened yet.
+            cur.execute("select pg_try_advisory_xact_lock(731912, 1) as acquired")
+            lock_row = cur.fetchone()
+            # Production uses psycopg dict_row; positional indexing raises KeyError.
+            # A missing row is an unexpected database failure, not contention.
+            if lock_row is None:
+                raise RuntimeError("advisory lock query returned no row")
+            acquired = lock_row["acquired"] if isinstance(lock_row, dict) else lock_row[0]
+            if not acquired:
+                return _defer_ingestion_on_lock_contention(cur, conn, job)
             cur.execute("""select refresh_id from inventory_refresh_queue where refresh_id=%s
                 and status='running' and attempt_count=%s and started_at=%s for update""",
                 (job['refresh_id'],job['attempt_count'],job['started_at']))
@@ -230,7 +261,15 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
             if ledger_batch is not None:
                 from .scan_ledger import finish_batch
                 finish_batch(ledger_batch,accepted,result.scan_evidence,result.continuation,conn)
+            # Persist discovery fan-out in the same transaction as accepted
+            # listings and the fenced job completion. A separate post-commit
+            # enqueue can lose model coverage permanently on transient failure.
+            if result.discovered_models:
+                from .used_inventory_frontier import enqueue_models
+                enqueue_models(job.get('brand') or '', result.discovered_models,
+                               _connection=conn)
             complete_job(int(job["refresh_id"]), success=True, attempt_count=job.get("attempt_count"),
+                started_at=job.get("started_at"),
                 continuation=result.continuation,pages_fetched=result.pages_fetched,scan_evidence=result.scan_evidence,_connection=conn)
             conn.commit()
         # Log only after the durable transaction commits; failed transactions
@@ -255,7 +294,7 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
                 'traversals_pending': int(bool(result.continuation))}
     except Exception as exc:
         complete_job(int(job["refresh_id"]), success=False, error=str(exc)[:1000],
-                     attempt_count=job.get("attempt_count"))
+                     attempt_count=job.get("attempt_count"), started_at=job.get("started_at"))
         raise
     finally:crawl_leases.release(lease)
 

@@ -1,6 +1,7 @@
 """Source-evidenced used model discovery and durable acquisition fan-out."""
 from __future__ import annotations
 import json
+from contextlib import nullcontext
 import re
 from datetime import datetime,timezone
 from urllib.parse import urljoin, urlsplit
@@ -45,7 +46,7 @@ def discover_models(html,source,base_url,query,rows):
     return list(found.values())[:100]
 
 
-def enqueue_models(brand,models):
+def enqueue_models(brand,models,*,_connection=None):
     """Cross-source model scans only on reviewed, verified model-route adapters.
 
     Queue metadata is discovery evidence, never inventory or availability proof.
@@ -57,7 +58,7 @@ def enqueue_models(brand,models):
     # make token so the worker never treats an alias suffix as part of a model.
     brand=lm._query_parts(brand)[0] or brand
     count=0
-    with _connect() as conn,conn.cursor() as cur:
+    with (nullcontext(_connection) if _connection is not None else _connect()) as conn,conn.cursor() as cur:
         for item in models:
             model=' '.join(str(item.get('model') or '').split()).lower()
             if not model or len(model)>100 or item.get('discovery_kind') not in {'observed_model','used_catalog_link'}:
@@ -80,7 +81,8 @@ def enqueue_models(brand,models):
                 do update set metadata=inventory_refresh_queue.metadata || excluded.metadata""",
                 (brand.strip().lower(),model,json.dumps(evidence),brand))
             count+=cur.rowcount
-        conn.commit()
+        if _connection is None:
+            conn.commit()
     return count
 
 
