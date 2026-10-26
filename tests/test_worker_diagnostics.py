@@ -160,13 +160,13 @@ class WorkerDiagnosticsTests(unittest.TestCase):
                      "parser_errors": {}, "absence_reconciliation_permitted": False}
         lines = [
             "source_extraction_summary source=OEM Dealer refresh_id="
-            + str(i) + " telemetry=" + json.dumps(telemetry) + "\\n"
+            + str(i) + " telemetry=" + json.dumps(telemetry) + "\n"
             for i in range(20)
         ]
         # Force the artifact-size path rather than only the MAX_EVENTS path.
         with patch("scripts.summarize_refresh_log.MAX_BYTES", 1100):
             report, raw = self._run(lines)
-        self.assertLessEqual(len(raw.rstrip(b"\\n")), 1100)
+        self.assertLessEqual(len(raw.rstrip(b"\n")), 1100)
         self.assertLess(report["events_exported"], 20)
         self.assertGreater(report["events_omitted"], 0)
         self.assertEqual(report["events_exported"] + report["events_omitted"], 20)
