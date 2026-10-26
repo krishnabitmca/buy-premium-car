@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 import time
 import os
+import re
 from urllib.parse import urlsplit
 
 from . import live_marketplaces as live_marketplaces
@@ -306,7 +307,8 @@ class BuiltinMarketplaceAdapter:
                             raise RuntimeError(
                                 'Source advertises inventory but no valid cards were extracted '
                                 f'(source={self.source_name}, parser={parser_strategy}, '
-                                f'advertised={total}, page_path={urlsplit(endpoint_url).path})'
+                                f'advertised={total}, page_path=' +
+                                re.sub(r'[^A-Za-z0-9/_-]', '_', urlsplit(endpoint_url).path)[:120] + ')'
                             )
                 if request.continuation is not None and parser_strategy in {'cardekho_cards','carwale_cards','cartrade_cards'}:
                     from .used_inventory_frontier import discover_models
