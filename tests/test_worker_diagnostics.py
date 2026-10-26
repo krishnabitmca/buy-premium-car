@@ -88,16 +88,18 @@ class WorkerDiagnosticsTests(unittest.TestCase):
             report = extract_summary(Path(tmp) / "missing", Path(tmp) / "out.json")
             self.assertEqual(report["status"], "no_log")
 
-    def test_scheduled_refresh_prefers_production_database(self):
+    def test_scheduled_refresh_requires_production_database(self):
         workflow = (Path(__file__).resolve().parents[1] /
                     ".github/workflows/persistent-inventory-refresh.yml").read_text()
-        self.assertIn(
-            "secrets.SOURCE_INTELLIGENCE_DATABASE_URL || secrets.CARSCANNER_FREE_TEST_DATABASE_URL",
-            workflow)
-        self.assertNotIn(
-            "secrets.CARSCANNER_FREE_TEST_DATABASE_URL || secrets.SOURCE_INTELLIGENCE_DATABASE_URL",
-            workflow)
-        self.assertIn("PRODUCTION_DATABASE_CONFIGURED", workflow)
+        # A scheduled production refresh must not silently mutate a test DB.
+        self.assertEqual(
+            workflow.count("SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}"),
+            2,
+        )
+        self.assertNotIn("secrets.CARSCANNER_FREE_TEST_DATABASE_URL", workflow)
+        self.assertIn('if [ -z "$SOURCE_INTELLIGENCE_DATABASE_URL" ]; then', workflow)
+        self.assertIn("exit 1", workflow)
+        self.assertIn("refusing to refresh a test database", workflow)
 
 if __name__ == "__main__":
     unittest.main()
