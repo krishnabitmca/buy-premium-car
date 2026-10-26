@@ -63,6 +63,19 @@ class SourceAdapter(Protocol):
         ...
 
 
+def _safe_diagnostic_token(value: object, limit: int = 80) -> str:
+    """Bound and neutralize untrusted values in single-line diagnostic messages."""
+    return re.sub(r'[^A-Za-z0-9._-]', '_', str(value or 'unknown'))[:limit] or 'unknown'
+
+
+def _safe_diagnostic_path(url: str) -> str:
+    """Report a sanitized URL path, never credentials, query strings or fragments."""
+    try:
+        return re.sub(r'[^A-Za-z0-9/_-]', '_', urlsplit(url).path)[:120]
+    except ValueError:
+        return '[invalid_url]'
+
+
 class BuiltinMarketplaceAdapter:
     """Adapter for a verified registry source using the existing parser."""
 
@@ -306,9 +319,10 @@ class BuiltinMarketplaceAdapter:
                         if total>0 and not parsed and not tombstones:
                             raise RuntimeError(
                                 'Source advertises inventory but no valid cards were extracted '
-                                f'(source={self.source_name}, parser={parser_strategy}, '
+                                f'(source={_safe_diagnostic_token(self.source_name)}, '
+                                f'parser={_safe_diagnostic_token(parser_strategy)}, '
                                 f'advertised={total}, page_path=' +
-                                re.sub(r'[^A-Za-z0-9/_-]', '_', urlsplit(endpoint_url).path)[:120] + ')'
+                                _safe_diagnostic_path(endpoint_url) + ')'
                             )
                 if request.continuation is not None and parser_strategy in {'cardekho_cards','carwale_cards','cartrade_cards'}:
                     from .used_inventory_frontier import discover_models
