@@ -93,3 +93,30 @@ def test_real_postgres_retry_budget_and_claim_fencing(db, disposable_database):
     ).fetchone()
     assert row["status"] == "running"
     assert row["started_at"] == newer[0]["started_at"]
+
+def test_discovered_models_share_ingestion_transaction_and_rollback(db):
+    from src.used_inventory_frontier import enqueue_models
+    source_id = add_source(db)
+    db.execute(
+        "update public.sources set metadata=jsonb_build_object("
+        "'parser_strategy','cardekho_cards',"
+        "'query_url_template','https://fixture.invalid/{brand}/{model}') "
+        "where source_id=%s", (source_id,),
+    )
+    db.commit()
+    model = [{"model": "X1", "discovery_kind": "observed_model",
+              "evidence_url": "https://fixture.invalid/x1"}]
+    assert enqueue_models("BMW", model, _connection=db) >= 1
+    # The helper must not commit the caller's inventory transaction.
+    db.rollback()
+    assert db.execute(
+        "select count(*) as n from public.inventory_refresh_queue "
+        "where source_id=%s and model='x1'", (source_id,),
+    ).fetchone()["n"] == 0
+    db.rollback()
+    assert enqueue_models("BMW", model, _connection=db) >= 1
+    db.commit()
+    assert db.execute(
+        "select count(*) as n from public.inventory_refresh_queue "
+        "where source_id=%s and model='x1'", (source_id,),
+    ).fetchone()["n"] == 1
