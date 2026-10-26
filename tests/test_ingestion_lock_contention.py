@@ -149,7 +149,7 @@ class IngestionLockContentionTests(unittest.TestCase):
               patch("src.crawl_leases.acquire", return_value=object()),
               patch("src.crawl_leases.release"),
               patch("src.used_inventory_frontier.enqueue_models",
-                    side_effect=check_after_commit) as enqueue):
+                    side_effect=check_in_transaction) as enqueue):
             adapter.return_value.fetch.return_value = fetched
             result = worker.process_job(job)
         self.assertEqual(result["pages_fetched"], 1)
