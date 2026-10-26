@@ -16,7 +16,7 @@ import time
 
 from src.live_marketplaces import live_brands, live_models, live_inventory
 
-MAX_WORKERS = 6
+MAX_WORKERS = 4
 MODEL_TIMEOUT = 45  # Diagnostic threshold; network calls must enforce their own timeouts.
 MAX_MATRIX_SECONDS = int(os.getenv('CARSCANNER_MATRIX_SECONDS', '2100'))
 
@@ -33,8 +33,14 @@ def main() -> int:
         except Exception as exc:
             catalog_errors.append({"brand":b["name"],"error":str(exc)[:200]})
 
-    pairs=[(brand,m["name"]) for brand,models in catalog for m in models]
-    print(f"Live matrix: {len(brands)} brands, {len(pairs)} models; {MAX_WORKERS} workers", file=sys.stderr, flush=True)
+    all_pairs=[(brand,m["name"]) for brand,models in catalog for m in models]
+    shard_count=int(os.getenv("CARSCANNER_MATRIX_SHARDS","1"))
+    shard_index=int(os.getenv("CARSCANNER_MATRIX_SHARD","0"))
+    if shard_count < 1 or not 0 <= shard_index < shard_count:
+        print("Invalid matrix shard configuration",file=sys.stderr)
+        return 2
+    pairs=[pair for i,pair in enumerate(all_pairs) if i % shard_count == shard_index]
+    print(f"Live matrix shard {shard_index+1}/{shard_count}: {len(pairs)}/{len(all_pairs)} models; {MAX_WORKERS} workers",file=sys.stderr,flush=True)
     if not brands:
         print(json.dumps({"status":"error","error":"live brand catalog is empty"}, indent=2))
         return 2
@@ -95,6 +101,9 @@ def main() -> int:
     report={
         "generated_at":time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime()),
         "brands":len(brands),
+        "shard_index":shard_index,
+        "shard_count":shard_count,
+        "catalog_total_models":len(all_pairs),
         "catalog_errors":catalog_errors,
         "models":len(pairs),
         "probes":len(results),
