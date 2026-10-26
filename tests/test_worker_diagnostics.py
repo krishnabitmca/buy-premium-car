@@ -94,9 +94,9 @@ class WorkerDiagnosticsTests(unittest.TestCase):
             + json.dumps(telemetry) + "\n"
         ])
         flags = report["events"][0]["quality_flags"]
-        self.assertTrue(flags["zero_yield_after_fetch"])
-        self.assertTrue(flags["untraced_fetched_pages"])
-        self.assertFalse(flags["parser_records_unaccepted"])
+        self.assertIn("zero_yield_after_fetch", flags)
+        self.assertIn("untraced_fetched_pages", flags)
+        self.assertNotIn("parser_records_unaccepted", flags)
         self.assertEqual(report["quality_flag_counts"]["zero_yield_after_fetch"], 1)
         self.assertFalse(json.loads(raw)["absence_reconciliation_permitted"])
 
@@ -111,9 +111,9 @@ class WorkerDiagnosticsTests(unittest.TestCase):
             + json.dumps(telemetry) + "\n"
         ])
         flags = report["events"][0]["quality_flags"]
-        self.assertTrue(flags["parser_records_unaccepted"])
-        self.assertTrue(flags["zero_yield_after_fetch"])
-        self.assertFalse(flags["untraced_fetched_pages"])
+        self.assertIn("parser_records_unaccepted", flags)
+        self.assertIn("zero_yield_after_fetch", flags)
+        self.assertNotIn("untraced_fetched_pages", flags)
         self.assertNotIn(b"fallback", raw)
 
     def test_committed_ingestion_gap_is_flagged_but_successful_scan_is_not(self):
@@ -128,8 +128,8 @@ class WorkerDiagnosticsTests(unittest.TestCase):
             "source_extraction_summary source=Dealer refresh_id=2 telemetry=" + json.dumps(good) + "\n",
         ]
         report, _ = self._run(lines)
-        self.assertTrue(report["events"][0]["quality_flags"]["extracted_not_ingested"])
-        self.assertFalse(any(report["events"][1]["quality_flags"].values()))
+        self.assertIn("extracted_not_ingested", report["events"][0]["quality_flags"])
+        self.assertEqual(report["events"][1]["quality_flags"], [])
         self.assertEqual(report["quality_flag_counts"]["extracted_not_ingested"], 1)
 
     def test_legacy_trace_only_is_not_mislabeled_as_zero_yield(self):
@@ -141,7 +141,7 @@ class WorkerDiagnosticsTests(unittest.TestCase):
             "source_extraction_summary source=Legacy refresh_id=3 telemetry="
             + json.dumps(telemetry) + "\n"
         ])
-        self.assertFalse(any(report["events"][0]["quality_flags"].values()))
+        self.assertEqual(report["events"][0]["quality_flags"], [])
         self.assertFalse(report["events"][0]["committed_metrics_available"])
 
     def test_missing_log_is_explicit(self):
