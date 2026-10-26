@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 import time
 import os
+import re
 from urllib.parse import urlsplit
 
 from . import live_marketplaces as live_marketplaces
@@ -60,6 +61,19 @@ class SourceAdapter(Protocol):
 
     def fetch(self, request: AdapterRequest) -> AdapterResult:
         ...
+
+
+def _safe_diagnostic_token(value: object, limit: int = 80) -> str:
+    """Bound and neutralize untrusted values in single-line diagnostic messages."""
+    return re.sub(r'[^A-Za-z0-9._-]', '_', str(value or 'unknown'))[:limit] or 'unknown'
+
+
+def _safe_diagnostic_path(url: str) -> str:
+    """Report a sanitized URL path, never credentials, query strings or fragments."""
+    try:
+        return re.sub(r'[^A-Za-z0-9/_-]', '_', urlsplit(url).path)[:120]
+    except ValueError:
+        return '[invalid_url]'
 
 
 class BuiltinMarketplaceAdapter:
@@ -312,7 +326,13 @@ class BuiltinMarketplaceAdapter:
                     if total is not None:
                         advertised_counts[endpoint_url]=total
                         if total>0 and not parsed and not tombstones:
-                            raise RuntimeError('Source advertises inventory but no valid cards were extracted')
+                            raise RuntimeError(
+                                'Source advertises inventory but no valid cards were extracted '
+                                f'(source={_safe_diagnostic_token(self.source_name)}, '
+                                f'parser={_safe_diagnostic_token(parser_strategy)}, '
+                                f'advertised={total}, page_path=' +
+                                _safe_diagnostic_path(endpoint_url) + ')'
+                            )
                 if request.continuation is not None and parser_strategy in {'cardekho_cards','carwale_cards','cartrade_cards'}:
                     from .used_inventory_frontier import discover_models
                     for discovered in discover_models(html,self.source,endpoint_url,request.query,parsed):
