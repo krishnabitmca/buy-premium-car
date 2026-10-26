@@ -32,6 +32,15 @@ const testUrl = key => { const u = new URL(base); u.searchParams.set(key, String
       if (navigation && navigation.status() < 500) break;
       if (attempt < 2) await page.waitForTimeout(3000 * (attempt + 1));
     }
+    // An E2E run against the hosted app is a production smoke check, not
+    // evidence that this PR's commit was deployed. Surface that distinction.
+    const expectedSha = process.env.EXPECTED_DEPLOYMENT_SHA || "";
+    if (expectedSha) {
+      const version = await page.request.get(new URL("/api/version", base).toString(), { timeout: 15000 });
+      if (!version.ok()) throw new Error("Deployment version endpoint returned HTTP " + version.status());
+      const data = await version.json();
+      if (data.commit !== expectedSha) throw new Error("Hosted deployment SHA mismatch: expected " + expectedSha + ", got " + String(data.commit));
+    }
     if (!navigation || navigation.status() >= 400) {
       throw new Error("Hosted application navigation failed: HTTP " + (navigation ? navigation.status() : "no response"));
     }
