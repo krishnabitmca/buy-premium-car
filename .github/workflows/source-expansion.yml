@@ -39,7 +39,8 @@ jobs:
 
       - name: Discover and promote validated sources
         env:
-          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.CARSCANNER_FREE_TEST_DATABASE_URL || secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
+          # Fail closed: discovery probes must target the same canonical DB as the production worker.
+          SOURCE_INTELLIGENCE_DATABASE_URL: ${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}
         run: |
           test -n "$SOURCE_INTELLIGENCE_DATABASE_URL"
           python scripts/discover_and_promote_sources.py --config config/settings.yaml --max-candidates 8 --max-discovery-queries 10 --min-confidence 0.55 --report coverage/source-expansion.json
