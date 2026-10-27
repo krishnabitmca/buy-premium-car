@@ -353,6 +353,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--workers", type=int, default=1, help="Parallel source lanes (max 4); domain leases still apply")
+    parser.add_argument("--fail-on-all-deferred", action="store_true",
+                        help="Exit nonzero when every claimed job was deferred; idle queues still succeed")
     parser.add_argument('--brand',action='append',help='Limit recovery work to this make; repeatable')
     parser.add_argument('--source',action='append',help='Limit recovery to verified source names; repeatable')
     parser.add_argument('--baseline-only',action='store_true',help='Process India-wide make scans, excluding model/location demand jobs')
@@ -368,6 +370,9 @@ def main() -> None:
     print(result)
     if result["failed"]:
         raise SystemExit(1)
+    if args.fail_on_all_deferred and result.get("deferred", 0) > 0 and result.get("completed", 0) == 0:
+        log.error("All claimed refresh jobs deferred; no inventory progress")
+        raise SystemExit(2)
 
 
 if __name__ == "__main__":
