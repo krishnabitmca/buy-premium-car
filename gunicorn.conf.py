@@ -38,6 +38,11 @@ def on_starting(server):
     Run as a child process so a slow source cannot block the web server startup.
     Production database configuration is inherited; failures appear in Render logs.
     """
+    # Inventory refresh runs in scheduled workers. Starting a crawler every time
+    # Render wakes a single web instance competes with its first user request.
+    if os.getenv('CARSCANNER_STARTUP_REFRESH', '').lower() not in {'1', 'true', 'yes'}:
+        server.log.info('Skipping web startup crawler; scheduled inventory refresh remains enabled')
+        return
     import subprocess
     import sys
     if not (os.getenv('CARSCANNER_FREE_TEST_DATABASE_URL') or os.getenv('SOURCE_INTELLIGENCE_DATABASE_URL')):
