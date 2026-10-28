@@ -397,7 +397,7 @@ known_sources:
   vehicle_link_pattern: /used/[^?#]+
 
 - name: Das WeltAuto
-  url: https://www.dasweltauto.co.in/buy-used-cars
+  url: https://www.vwcertifiedpreowned.co.in/buy-used-cars
   tier: 1
   source_type: oem_certified
   adapter_status: live
