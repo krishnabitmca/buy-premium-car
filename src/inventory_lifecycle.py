@@ -245,13 +245,30 @@ def main():
     parser.add_argument('--limit',type=int,default=10)
     parser.add_argument('--report')
     args=parser.parse_args()
-    summary=run_cycle(args.limit)
+    # Always publish bounded failure evidence when a scheduled run fails.
+    # GitHub Actions uploads the report with if: always(); keep the original
+    # exception/exit status so a failed renewal cannot masquerade as healthy.
+    from pathlib import Path
+    path=Path(args.report) if args.report else None
+    try:
+        summary=run_cycle(args.limit)
+    except Exception as exc:
+        if path:
+            path.parent.mkdir(parents=True,exist_ok=True)
+            path.write_text(json.dumps({'status':'failed','stage':'run_cycle',
+                'fatal_error':type(exc).__name__},indent=2),encoding='utf-8')
+        raise
     if (summary.get('heartbeat_gap_seconds') or 0)>3600:
         print('::warning::Inventory worker heartbeat gap exceeded one hour; freshness targets may be missed.')
-    if args.report:
-        from pathlib import Path
-        path=Path(args.report);path.parent.mkdir(parents=True,exist_ok=True)
-        path.write_text(json.dumps(report(),indent=2,default=str),encoding='utf-8')
+    if path:
+        path.parent.mkdir(parents=True,exist_ok=True)
+        try:
+            evidence=report()
+        except Exception as exc:
+            path.write_text(json.dumps({'status':'failed','stage':'report',
+                'fatal_error':type(exc).__name__},indent=2),encoding='utf-8')
+            raise
+        path.write_text(json.dumps(evidence,indent=2,default=str),encoding='utf-8')
     print(json.dumps(summary))
 
 
