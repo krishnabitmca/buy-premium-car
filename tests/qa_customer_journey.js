@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { chromium } = require("playwright");
+const { formatFailedRequest } = require("./qa_resource_diagnostics");
 
 const BASE = process.env.CARSCANNER_BASE_URL || "https://buy-premium-car1.onrender.com";
 const testUrl = key => { const u = new URL(BASE); u.searchParams.set(key, String(Date.now())); return u.toString(); };
@@ -25,8 +26,18 @@ const destinations = ["Bengaluru","Delhi NCR"];
 
 function now(){return new Date().toISOString();}
 
+function captureCertificateFailures(page, pageErrors) {
+  page.on("requestfailed", request => {
+    const failure = request.failure();
+    if (failure && /ERR_CERT_/i.test(failure.errorText || "") && pageErrors.length < 100) {
+      pageErrors.push(formatFailedRequest(request));
+    }
+  });
+}
+
 async function preparePage(browser,pageErrors){
   const page=await browser.newPage({viewport:{width:1440,height:1100}});
+  captureCertificateFailures(page,pageErrors);
   page.on("pageerror",e=>pageErrors.push("pageerror: "+e.message));
   page.on("console",m=>{
     if(m.type()!=="error")return;
@@ -205,6 +216,7 @@ async function main(){
   const started=Date.now(),browser=await chromium.launch({headless:true}),results=[],pageErrors=[];
   try{
     const page=await browser.newPage({viewport:{width:1440,height:1100}});
+    captureCertificateFailures(page,pageErrors);
     page.on("pageerror",e=>pageErrors.push("pageerror: "+e.message));
     page.on("console",m=>{if(m.type()==="error")pageErrors.push("console: "+m.text());});
     await page.goto(BASE+"/?qa="+Date.now(),{waitUntil:"domcontentloaded",timeout:90000});
