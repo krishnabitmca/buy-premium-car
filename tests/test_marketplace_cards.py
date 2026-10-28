@@ -54,6 +54,17 @@ def test_carwale_lazy_srcset_images_skip_placeholders_and_scripts():
     assert row['image']==row['images'][0]
 
 
+def test_carwale_srcset_data_uri_does_not_promote_base64_payload_as_image():
+    html='''<div class="UsedSearchCard__cardFrame">
+      <a href="/used/mumbai/bmw-x1/judvnm3m/"><h3>2022 BMW X1 sDrive20d xLine</h3>
+        <span>27,000 km | Diesel | Mumbai</span></a><p>₹29.5 Lakh</p>
+      <img srcset="data:image/gif;base64,AAAA 1x, /photos/real-x1.webp 2x">
+    </div>'''
+    row=parse_marketplace_cards(html,'CarWale','https://www.carwale.com/used/bmw/','carwale_cards')[0]
+    assert row['images']==['https://www.carwale.com/photos/real-x1.webp']
+    assert row['image']==row['images'][0]
+
+
 def test_card_image_prefers_existing_data_src_over_srcset():
     html='''<div class="UsedSearchCard__cardFrame">
       <a href="/used/delhi/bmw-x5/ts0ov70t/">
