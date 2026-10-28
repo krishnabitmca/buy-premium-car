@@ -21,6 +21,20 @@ MODEL_TIMEOUT = 45  # Diagnostic threshold; network calls must enforce their own
 MAX_MATRIX_SECONDS = int(os.getenv('CARSCANNER_MATRIX_SECONDS', '2100'))
 
 
+def _actionable_zero_matches(results):
+    """Flag zero matches only when returned vehicle cards failed identity matching.
+
+    An available/live source is not evidence of inventory for a specific model.
+    A model can legitimately have no currently advertised used/demo vehicles.
+    """
+    return [
+        r for r in results
+        if r.get("status") == "ok"
+        and r.get("matched") == 0
+        and r.get("vehicles", 0) > 0
+    ]
+
+
 def main() -> int:
     started=time.time()
     brands=live_brands()
@@ -93,11 +107,10 @@ def main() -> int:
 
     zero=[r for r in results if r["status"]=="ok" and r["matched"]==0]
     errors=[r for r in results if r["status"]=="error"]
-    # A zero match is a hard failure only when the selected live sources
-    # actually reported live inventory. Empty inventory is valid for a model
-    # with no current listings; live inventory that fails identity matching is
-    # the correctness defect this matrix is intended to catch.
-    actionable_zero=[r for r in zero if r["live_sources"] > 0]
+    # A source marked "live" means its adapter is available, not that it
+    # returned any vehicles for this particular model. Distinguish a genuine
+    # identity-matching failure from a legitimate zero-inventory search.
+    actionable_zero=_actionable_zero_matches(results)
     report={
         "generated_at":time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime()),
         "brands":len(brands),
