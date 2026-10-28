@@ -35,6 +35,47 @@ def test_carwale_rejects_category_and_external_links():
     assert rows[0]['location']=='Mumbai'
 
 
+def test_carwale_lazy_srcset_images_skip_placeholders_and_scripts():
+    html='''<div class="UsedSearchCard__cardFrame">
+      <a href="/used/mumbai/bmw-x1/judvnm3m/">
+        <h3>2022 BMW X1 sDrive20d xLine</h3>
+        <span>27,000 km | Diesel | Mumbai</span>
+      </a>
+      <p>₹29.5 Lakh</p>
+      <img src="data:image/gif;base64,AA" srcset="/photos/x1.webp 1x, /photos/x1-large.webp 2x">
+      <img src="/loading.svg" data-srcset="/photos/x1-rear.webp 640w, /photos/x1-rear-large.webp 1280w">
+      <img src="javascript:alert(1)">
+    </div>'''
+    row=parse_marketplace_cards(html,'CarWale','https://www.carwale.com/used/bmw/','carwale_cards')[0]
+    assert row['images']==[
+        'https://www.carwale.com/photos/x1.webp',
+        'https://www.carwale.com/photos/x1-rear.webp',
+    ]
+    assert row['image']==row['images'][0]
+
+
+def test_carwale_srcset_data_uri_does_not_promote_base64_payload_as_image():
+    html='''<div class="UsedSearchCard__cardFrame">
+      <a href="/used/mumbai/bmw-x1/judvnm3m/"><h3>2022 BMW X1 sDrive20d xLine</h3>
+        <span>27,000 km | Diesel | Mumbai</span></a><p>₹29.5 Lakh</p>
+      <img srcset="data:image/gif;base64,AAAA 1x, /photos/real-x1.webp 2x">
+    </div>'''
+    row=parse_marketplace_cards(html,'CarWale','https://www.carwale.com/used/bmw/','carwale_cards')[0]
+    assert row['images']==['https://www.carwale.com/photos/real-x1.webp']
+    assert row['image']==row['images'][0]
+
+
+def test_card_image_prefers_existing_data_src_over_srcset():
+    html='''<div class="UsedSearchCard__cardFrame">
+      <a href="/used/delhi/bmw-x5/ts0ov70t/">
+        <h3>2025 BMW X5 xDrive40i</h3><span>18,000 km | Petrol | Delhi</span>
+      </a><p>₹92.75 Lakh</p>
+      <img data-src="/photos/x5-primary.webp" src="/photos/placeholder.webp" srcset="/photos/x5-other.webp 2x">
+    </div>'''
+    row=parse_marketplace_cards(html,'CarWale','https://www.carwale.com/used/bmw/','carwale_cards')[0]
+    assert row['images']==['https://www.carwale.com/photos/x5-primary.webp']
+
+
 def test_standard_carwale_layout_does_not_take_emi_as_asking_price():
     html='<div class="UsedSearchCard__searchCardClasses"><a href="/used/delhi/bmw-x5/ts0ov70t/"><h3>2025 BMW X5 xDrive40i</h3><span>18,000 km | Petrol | Delhi</span></a><p>₹92.75 Lakh EMI at ₹1.67 L</p></div>'
     row=parse_marketplace_cards(html,'CarWale','https://www.carwale.com/used/bmw/','carwale_cards')[0]

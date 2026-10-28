@@ -5,6 +5,38 @@ from bs4 import BeautifulSoup
 from . import live_marketplaces as lm
 
 
+def _card_image_url(img, base_url):
+    """Extract an HTTP(S) card image, including standard lazy-loaded srcset.
+
+    Do not promote data placeholders, SVG icons, or script URLs to car photos.
+    Preserve the existing data-src/src preference when a usable image exists.
+    """
+    def valid_url(value):
+        if not isinstance(value,str):return None
+        value=value.strip()
+        if not value or value.lower().startswith(('data:','javascript:')):return None
+        if value.lower().split('?',1)[0].endswith('.svg'):return None
+        url=urljoin(base_url,value)
+        return url if urlsplit(url).scheme in ('http','https') else None
+
+    for attr in ('data-src','src'):
+        image=valid_url(img.get(attr))
+        if image:return image
+    for attr in ('data-srcset','srcset'):
+        srcset=img.get(attr) or ''
+        # A data URI contains its own comma. Splitting first would turn the
+        # base64 payload into a bogus relative photo URL (e.g. /AAAA).
+        if 'data:' in srcset.lower():
+            srcset=re.sub(r'data:[^,\s]+,[^,\s]+(?:\s+\d+(?:\.\d+)?[wx])?', '', srcset, flags=re.I)
+            if 'data:' in srcset.lower():continue  # malformed data URI: fail closed
+        for entry in srcset.split(','):
+            parts=entry.strip().split()
+            if parts:
+                image=valid_url(parts[0])
+                if image:return image
+    return None
+
+
 def parse_marketplace_cards(html, source, base_url, strategy, query=''):
     if strategy=='cartrade_cards':
         return parse_cartrade_cards(html,source,base_url,query)
@@ -61,9 +93,8 @@ def parse_marketplace_cards(html, source, base_url, strategy, query=''):
         for img in card.find_all('img'):
             alt=img.get('alt','')
             if strategy=='cars24_cards' and not re.match(r'^(?:19|20)\d{2} ',alt):continue
-            image=img.get('data-src') or img.get('src')
-            if image and not image.startswith('data:') and not image.lower().split('?')[0].endswith('.svg'):
-                images.append(urljoin(base_url,image))
+            image=_card_image_url(img,base_url)
+            if image:images.append(image)
         row={'brand':lm._canonical_brand(brand),'model':model,'variant':re.sub(r'^(?:19|20)\d{2}\s+','',title),
              'listing_name':title,'source':source,'url':url,'price_lakh':amount,'mfg_year':int(year[1]),
              'km':float(km[1].replace(',','')),'fuel':fuel[1] if fuel else None,
