@@ -29,12 +29,17 @@ def acquisition_plan(limit):
 def run_cycle(limit: int) -> dict[str, int]:
     try:
         scheduled = schedule_refreshes(limit=limit)
+        log.info('Acquisition scheduling complete limit=%d scheduled=%s', limit, scheduled)
         acquisition={'completed':0,'failed':0}
         consumed=0
         failure=None
         for kind,budget,kwargs in acquisition_plan(limit):
+            log.info('Acquisition bucket start kind=%s budget=%d', kind, budget)
             try:
                 batch=run_batch(budget,**kwargs)
+                log.info('Acquisition bucket end kind=%s completed=%d deferred=%d failed=%d superseded=%d',
+                         kind, batch.get('completed', 0), batch.get('deferred', 0),
+                         batch.get('failed', 0), batch.get('superseded', 0))
                 for key,count in batch.items():
                     acquisition[key]=acquisition.get(key,0)+count
                 consumed+=sum(batch.get(k,0) for k in ('completed','failed','deferred','superseded'))
@@ -45,7 +50,13 @@ def run_cycle(limit: int) -> dict[str, int]:
         # specialized bucket runs dry, let generic eligible jobs use its slots.
         # Do not retry a failed bucket in the same cycle.
         if not failure and consumed < limit:
-            for key,count in run_batch(limit-consumed).items():
+            fallback_budget = limit-consumed
+            log.info('Acquisition fallback start budget=%d', fallback_budget)
+            fallback = run_batch(fallback_budget)
+            log.info('Acquisition fallback end completed=%d deferred=%d failed=%d superseded=%d',
+                     fallback.get('completed', 0), fallback.get('deferred', 0),
+                     fallback.get('failed', 0), fallback.get('superseded', 0))
+            for key,count in fallback.items():
                 acquisition[key]=acquisition.get(key,0)+count
         if failure:raise failure
     finally:
