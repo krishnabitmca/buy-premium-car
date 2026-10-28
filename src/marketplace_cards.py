@@ -27,7 +27,7 @@ def _card_image_url(img, base_url):
         # A data URI contains its own comma. Splitting first would turn the
         # base64 payload into a bogus relative photo URL (e.g. /AAAA).
         if 'data:' in srcset.lower():
-            srcset=re.sub(r'data:[^,\\s]+,[^,\\s]+(?:\\s+\\d+(?:\\.\\d+)?[wx])?', '', srcset, flags=re.I)
+            srcset=re.sub(r'data:[^,\s]+,[^,\s]+(?:\s+\d+(?:\.\d+)?[wx])?', '', srcset, flags=re.I)
             if 'data:' in srcset.lower():continue  # malformed data URI: fail closed
         for entry in srcset.split(','):
             parts=entry.strip().split()
