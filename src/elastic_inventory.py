@@ -7,6 +7,7 @@ from contextvars import ContextVar
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
+import logging
 import os
 import time
 from urllib.error import HTTPError, URLError
@@ -22,6 +23,7 @@ from .search_timing import measure_call
 INDEX = 'carscanner-inventory-v2'
 _backend = ContextVar('inventory_search_backend', default='postgresql')
 _retry_after = 0.0
+_log = logging.getLogger(__name__)
 
 
 class IndexUnavailable(RuntimeError):
@@ -49,8 +51,28 @@ def request(method, path, body=None, *, indexer=False, ndjson=False):
             if len(raw) > 16_000_000:
                 raise IndexUnavailable('Elasticsearch response exceeded size limit')
             return json.loads(raw)
-    except (HTTPError, URLError, TimeoutError, OSError, ValueError):
-        # Never log vendor errors, headers, URLs or credentials.
+    except (HTTPError, URLError, TimeoutError, OSError, ValueError) as exc:
+        # Fixed labels only: never log vendor messages, URLs, headers, or credentials.
+        if indexer:
+            if method == 'GET' and path == '/_mapping':
+                stage = 'mapping_lookup'
+            elif method == 'PUT' and path == '':
+                stage = 'mapping_create'
+            elif method == 'POST' and path.startswith('/_bulk?'):
+                stage = 'bulk_upload'
+            elif method == 'PUT' and path.startswith('/_doc/manifest'):
+                stage = 'manifest_publish'
+            elif method == 'POST' and path.startswith('/_delete_by_query'):
+                stage = 'generation_cleanup'
+            else:
+                stage = 'other'
+            status = (exc.code if isinstance(exc, HTTPError) and
+                      isinstance(exc.code, int) and 100 <= exc.code <= 599 else 'unknown')
+            category = ('http' if isinstance(exc, HTTPError) else
+                        'timeout' if isinstance(exc, TimeoutError) else
+                        'network' if isinstance(exc, (URLError, OSError)) else 'decode')
+            _log.warning('elastic_indexer_request_failed stage=%s category=%s status=%s',
+                         stage, category, status)
         raise IndexUnavailable('Elasticsearch request failed') from None
 
 
@@ -233,8 +255,25 @@ def rebuild():
             'valid_until': valid_until.isoformat()}
 
 
+def rebuild_failure_reason(exc):
+    """Return only fixed operational labels, never vendor exception text."""
+    if not isinstance(exc, IndexUnavailable):
+        return 'unexpected'
+    return {
+        'Elasticsearch request failed': 'request_failed',
+        'Elasticsearch configuration unavailable': 'configuration_unavailable',
+        'Elasticsearch response exceeded size limit': 'response_too_large',
+        'Index bulk batch rejected; generation not published': 'bulk_rejected',
+        'Snapshot expired before publication': 'snapshot_expired',
+        'Snapshot exceeds supported pagination': 'pagination_limit',
+    }.get(str(exc), 'index_unavailable')
+
+
 if __name__ == '__main__':
     try:
         print(json.dumps(rebuild()))
-    except Exception:
-        raise SystemExit('Elasticsearch rebuild failed; canonical PostgreSQL search remains available.') from None
+    except Exception as exc:
+        raise SystemExit(
+            'Elasticsearch rebuild failed reason=' + rebuild_failure_reason(exc) +
+            '; canonical PostgreSQL search remains available.'
+        ) from None
