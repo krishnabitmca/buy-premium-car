@@ -40,7 +40,7 @@ jobs:
           CARSCANNER_MAX_PAGES_PER_SOURCE: '10'
         run: |
           set -o pipefail
-          python -m src.inventory_refresh_worker --limit 80 --workers 4 2>&1 | tee /tmp/carscanner-refresh.log
+          python -m src.inventory_refresh_worker --limit 80 --workers 4 --fail-on-all-deferred 2>&1 | tee /tmp/carscanner-refresh.log
       - name: Publish bounded extraction diagnostics
         if: always()
         run: python scripts/summarize_refresh_log.py /tmp/carscanner-refresh.log extraction-diagnostics.json
