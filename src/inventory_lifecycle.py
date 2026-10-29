@@ -198,7 +198,10 @@ def run_cycle(limit=10):
     summary={}
     try:
         summary=maintain()
-        summary['heartbeat_gap_seconds']=int((datetime.now(timezone.utc)-prior).total_seconds()) if prior else None
+        # This is the interval since the previous lifecycle run, not a refresh-worker heartbeat.
+        summary['lifecycle_run_gap_seconds']=int((datetime.now(timezone.utc)-prior).total_seconds()) if prior else None
+        # Preserve the legacy key for existing report consumers until migrated.
+        summary['heartbeat_gap_seconds']=summary['lifecycle_run_gap_seconds']
         # Separate slots prevent used volume from starving demonstrator renewal.
         for i in range(max(1,min(int(limit),100))):
             condition='demo' if i%2==0 else 'used'
@@ -206,7 +209,7 @@ def run_cycle(limit=10):
             if not job:job=claim('used' if condition=='demo' else 'demo')
             if not job:continue
             outcome=revalidate(job);summary[outcome]=summary.get(outcome,0)+1
-        status='degraded' if any(summary.get(k) for k in ('error','inconclusive','missing','condition_unverified')) or (summary['heartbeat_gap_seconds'] or 0)>3600 else 'ok'
+        status='degraded' if any(summary.get(k) for k in ('error','inconclusive','missing','condition_unverified')) or (summary['lifecycle_run_gap_seconds'] or 0)>3600 else 'ok'
     except Exception as exc:
         summary['fatal_error']=type(exc).__name__;status='failed'
         raise
@@ -258,8 +261,8 @@ def main():
             path.write_text(json.dumps({'status':'failed','stage':'run_cycle',
                 'fatal_error':type(exc).__name__},indent=2),encoding='utf-8')
         raise
-    if (summary.get('heartbeat_gap_seconds') or 0)>3600:
-        print('::warning::Inventory worker heartbeat gap exceeded one hour; freshness targets may be missed.')
+    if (summary.get('lifecycle_run_gap_seconds', summary.get('heartbeat_gap_seconds')) or 0)>3600:
+        print('::warning::Inventory lifecycle run gap exceeded one hour; renewal cadence may be missed.')
     if path:
         path.parent.mkdir(parents=True,exist_ok=True)
         try:
