@@ -118,7 +118,7 @@ def test_rebuild_creates_mapping_only_after_explicit_missing_index(monkeypatch):
     def fake_request(method, path, body=None, *, indexer=False):
         calls.append((method, path))
         if method == 'GET':
-            raise elastic.IndexUnavailable('Elasticsearch index missing')
+            raise elastic.IndexMissing('Elasticsearch index missing')
         return {}
 
     class StopBeforeSnapshot(Exception):
@@ -132,3 +132,18 @@ def test_rebuild_creates_mapping_only_after_explicit_missing_index(monkeypatch):
     with pytest.raises(StopBeforeSnapshot):
         elastic.rebuild()
     assert calls == [('GET', '/_mapping'), ('PUT', '')]
+
+
+def test_rebuild_rejects_spoofed_missing_index_message(monkeypatch):
+    """An ordinary failure with matching text must never authorize index creation."""
+    monkeypatch.setattr(elastic, 'require_database', lambda: None)
+    calls = []
+
+    def fake_request(method, path, body=None, *, indexer=False):
+        calls.append((method, path))
+        raise elastic.IndexUnavailable('Elasticsearch index missing')
+
+    monkeypatch.setattr(elastic, 'request', fake_request)
+    with pytest.raises(elastic.IndexUnavailable, match='index missing'):
+        elastic.rebuild()
+    assert calls == [('GET', '/_mapping')]
