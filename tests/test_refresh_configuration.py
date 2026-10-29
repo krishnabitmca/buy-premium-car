@@ -106,3 +106,27 @@ def test_open_circuit_allows_probe_only_after_retry_time(monkeypatch):
     assert adapter_execution_allowed('Test Source')
     health['circuit_state'] = 'closed'
     assert adapter_execution_allowed('Test Source')
+
+
+def test_scheduled_refresh_uses_only_canonical_production_inventory_database():
+    """Scheduled ingestion, lifecycle, coverage and indexing must never silently target a test DB."""
+    workflow_text = Path('.github/workflows/inventory-refresh-scheduler.yml').read_text(encoding='utf-8')
+    workflow = yaml.safe_load(workflow_text)
+    steps = workflow['jobs']['schedule']['steps']
+    db_steps = [step for step in steps if 'SOURCE_INTELLIGENCE_DATABASE_URL' in step.get('env', {})]
+    assert len(db_steps) >= 6
+    for step in db_steps:
+        assert step['env']['SOURCE_INTELLIGENCE_DATABASE_URL'] == '${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}', step['name']
+    assert 'secrets.CARSCANNER_FREE_TEST_DATABASE_URL' not in workflow_text
+
+
+def test_daily_acquisition_uses_only_canonical_production_inventory_database():
+    """Daily acquisition and watch checks must not silently use test inventory."""
+    workflow_text = Path('.github/workflows/daily-crawl.yml').read_text(encoding='utf-8')
+    workflow = yaml.safe_load(workflow_text)
+    steps = workflow['jobs']['crawl']['steps']
+    db_steps = [step for step in steps if 'SOURCE_INTELLIGENCE_DATABASE_URL' in step.get('env', {})]
+    assert len(db_steps) == 2
+    for step in db_steps:
+        assert step['env']['SOURCE_INTELLIGENCE_DATABASE_URL'] == '${{ secrets.SOURCE_INTELLIGENCE_DATABASE_URL }}', step['name']
+    assert 'secrets.CARSCANNER_FREE_TEST_DATABASE_URL' not in workflow_text
