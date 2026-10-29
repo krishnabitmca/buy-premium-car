@@ -30,6 +30,11 @@ class IndexUnavailable(RuntimeError):
     pass
 
 
+class IndexMissing(IndexUnavailable):
+    """Only an explicit HTTP 404 from the mapping lookup permits index creation."""
+    pass
+
+
 def backend():
     return _backend.get()
 
@@ -74,7 +79,7 @@ def request(method, path, body=None, *, indexer=False, ndjson=False):
             _log.warning('elastic_indexer_request_failed stage=%s category=%s status=%s',
                          stage, category, status)
         if indexer and method == 'GET' and path == '/_mapping' and isinstance(exc, HTTPError) and exc.code == 404:
-            raise IndexUnavailable('Elasticsearch index missing') from None
+            raise IndexMissing('Elasticsearch index missing') from None
         raise IndexUnavailable('Elasticsearch request failed') from None
 
 
@@ -201,7 +206,7 @@ def rebuild():
     except IndexUnavailable as exc:
         # Only an explicit missing-index response authorizes creation. A 401,
         # 403, 429, 5xx, timeout, or malformed response must fail closed.
-        if str(exc) != 'Elasticsearch index missing':
+        if not isinstance(exc, IndexMissing):
             raise
         request('PUT', '', mapping, indexer=True)
     generation = uuid4().hex
