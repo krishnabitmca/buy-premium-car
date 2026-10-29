@@ -86,6 +86,11 @@ async function selectBrandModel(page,brand,model){
     const options=await page.locator('#model option').allTextContents();
     throw new Error('Model not selectable: '+brand+' / '+model+'; displayed options='+JSON.stringify(options.slice(0,80))+'; '+errText(error));
   }
+  // A successful search must not hide promotional/listing labels in the model selector.
+  // Keep this aligned with the narrow catalog guard; do not reject legitimate trims.
+  const options=await page.locator("#model option").allTextContents();
+  const polluted=options.filter(label=>/^(?:just\s+added\b|(?:used|pre[- ]?owned|demo|certified)\s+)/i.test(label.trim()));
+  if(polluted.length)throw new Error("Non-model labels in "+brand+" model selector: "+JSON.stringify(polluted.slice(0,5)));
   await page.selectOption("#model",{label:model});
 }
 

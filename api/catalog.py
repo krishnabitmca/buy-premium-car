@@ -17,6 +17,12 @@ _NON_MODEL_NAMES = {
     "compare","accessories","view all models","all models",
 }
 
+# Listing condition and promotional labels are not canonical vehicle model names.
+# Preserve genuine family/trim labels; this only rejects unambiguous prefixes.
+_PROMOTIONAL_MODEL_PREFIX = re.compile(
+    r"^(?:just\s+added\b|(?:used|pre[- ]?owned|demo|certified)\s+)", re.I
+)
+
 # Public catalogue metadata only. Never cache listing prices or availability.
 _model_cache=OrderedDict()
 _model_cache_lock=threading.Lock()
@@ -176,7 +182,7 @@ def _sanitize_models(models):
             continue
         name=" ".join(str(item.get("name") or "").split()).strip()
         url=str(item.get("url") or "").strip()
-        if not name or name.lower() in _NON_MODEL_NAMES:
+        if not name or name.lower() in _NON_MODEL_NAMES or _PROMOTIONAL_MODEL_PREFIX.match(name):
             continue
         path=urlparse(url).path.lower().rstrip("/")
         if any(token in path.split("/") for token in {

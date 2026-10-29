@@ -185,3 +185,20 @@ def test_brand_discovery_failure_retains_metadata_and_backs_off(monkeypatch):
     assert not catalog._brand_refresh_pending
     assert catalog._brand_next_refresh>time.monotonic()
 
+@pytest.mark.parametrize('label', [
+    'just added',
+    'just added used GLS 400d',
+    'used GLE 300d 4matic lwb',
+    'pre-owned E-Class',
+    'Demo BMW X5',
+    'Certified Q5',
+])
+def test_model_catalog_rejects_listing_promotions_without_dropping_inventory(label):
+    # Only the customer-facing catalog projection is filtered.
+    assert catalog._sanitize_models([{'name': label, 'catalog_verified': 'observed_inventory'}]) == []
+
+
+def test_model_catalog_preserves_legitimate_families_and_trim_variants():
+    labels = ['E-Class', 'GLS', 'GLE', 'Q5', 'Q5 35 TDI Technology', 'X5', '5 Series']
+    models = catalog._sanitize_models([{'name': label} for label in labels])
+    assert {row['name'] for row in models} == set(labels)
