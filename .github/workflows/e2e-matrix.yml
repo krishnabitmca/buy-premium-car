@@ -31,6 +31,9 @@ jobs:
         run: |
           pytest -q tests/test_e2e_matrix.py
       - name: Run customer journey browser contract
+        # PRs are already browser-tested against their own local preview in qa-agent.
+        # Production outages must not fail an unrelated change before deployment.
+        if: github.event_name != 'pull_request'
         env:
           CARSCANNER_BASE_URL: https://buy-premium-car1.onrender.com/
         run: |
