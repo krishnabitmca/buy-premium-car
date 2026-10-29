@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from scripts.summarize_refresh_log import extract_summary, MAX_EVENTS, MAX_BYTES
 
 
@@ -82,6 +83,108 @@ class WorkerDiagnosticsTests(unittest.TestCase):
         ])
         self.assertEqual(report["events_invalid"], 1)
         self.assertEqual(report["events_exported"], 0)
+
+    def test_zero_yield_oem_is_flagged_without_claiming_absence(self):
+        telemetry = {"pages_traced": 0, "pages_empty": 0,
+                     "pages_recovered_by_fallback": 0, "records_extracted": 0,
+                     "pages_fetched": 10, "listings_extracted": 0,
+                     "listings_ingested": 0, "strategy_attempts": {},
+                     "parser_errors": {}, "absence_reconciliation_permitted": False}
+        report, raw = self._run([
+            "source_extraction_summary source=OEM refresh_id=9 telemetry="
+            + json.dumps(telemetry) + "\n"
+        ])
+        flags = report["events"][0]["quality_flags"]
+        self.assertIn("zero_yield_after_fetch", flags)
+        self.assertIn("untraced_fetched_pages", flags)
+        self.assertNotIn("parser_records_unaccepted", flags)
+        self.assertEqual(report["quality_flag_counts"]["zero_yield_after_fetch"], 1)
+        self.assertFalse(json.loads(raw)["absence_reconciliation_permitted"])
+
+    def test_parser_record_rejected_is_distinguished_from_empty_source(self):
+        telemetry = {"pages_traced": 1, "pages_empty": 0,
+                     "pages_recovered_by_fallback": 1, "records_extracted": 1,
+                     "pages_fetched": 1, "listings_extracted": 0,
+                     "listings_ingested": 0, "strategy_attempts": {"fallback": 1},
+                     "parser_errors": {}, "absence_reconciliation_permitted": False}
+        report, raw = self._run([
+            "source_extraction_summary source=9th Gear refresh_id=66900 telemetry="
+            + json.dumps(telemetry) + "\n"
+        ])
+        flags = report["events"][0]["quality_flags"]
+        self.assertIn("parser_records_unaccepted", flags)
+        self.assertIn("zero_yield_after_fetch", flags)
+        self.assertNotIn("untraced_fetched_pages", flags)
+        # The aggregate field pages_recovered_by_fallback is allowed; the
+        # raw strategy name/value pair must not be exported.
+        self.assertNotIn(b'"fallback":1', raw)
+
+    def test_committed_ingestion_gap_is_flagged_but_successful_scan_is_not(self):
+        base = {"pages_traced": 1, "pages_empty": 0,
+                "pages_recovered_by_fallback": 0, "records_extracted": 4,
+                "pages_fetched": 1, "listings_extracted": 4,
+                "listings_ingested": 3, "strategy_attempts": {},
+                "parser_errors": {}, "absence_reconciliation_permitted": False}
+        good = {**base, "listings_ingested": 4}
+        lines = [
+            "source_extraction_summary source=Dealer refresh_id=1 telemetry=" + json.dumps(base) + "\n",
+            "source_extraction_summary source=Dealer refresh_id=2 telemetry=" + json.dumps(good) + "\n",
+        ]
+        report, _ = self._run(lines)
+        self.assertIn("extracted_not_ingested", report["events"][0]["quality_flags"])
+        self.assertEqual(report["events"][1]["quality_flags"], [])
+        self.assertEqual(report["quality_flag_counts"]["extracted_not_ingested"], 1)
+
+    def test_partially_untraced_pages_are_flagged_but_fully_traced_are_not(self):
+        base = {"pages_traced": 2, "pages_empty": 0,
+                "pages_recovered_by_fallback": 0, "records_extracted": 4,
+                "pages_fetched": 3, "listings_extracted": 4,
+                "listings_ingested": 4, "strategy_attempts": {},
+                "parser_errors": {}, "absence_reconciliation_permitted": False}
+        fully_traced = {**base, "pages_traced": 3}
+        report, raw = self._run([
+            "source_extraction_summary source=OEM refresh_id=10 telemetry=" + json.dumps(base) + "\n",
+            "source_extraction_summary source=OEM refresh_id=11 telemetry=" + json.dumps(fully_traced) + "\n",
+        ])
+        self.assertEqual(report["events_exported"], 2)
+        self.assertIn("untraced_fetched_pages", report["events"][0]["quality_flags"])
+        self.assertNotIn("untraced_fetched_pages", report["events"][1]["quality_flags"])
+        self.assertEqual(report["quality_flag_counts"]["untraced_fetched_pages"], 1)
+        self.assertFalse(json.loads(raw)["absence_reconciliation_permitted"])
+
+    def test_byte_cap_keeps_quality_counts_consistent_with_exported_events(self):
+        telemetry = {"pages_traced": 1, "pages_empty": 1,
+                     "pages_recovered_by_fallback": 0, "records_extracted": 0,
+                     "pages_fetched": 1, "listings_extracted": 0,
+                     "listings_ingested": 0, "strategy_attempts": {},
+                     "parser_errors": {}, "absence_reconciliation_permitted": False}
+        lines = [
+            "source_extraction_summary source=OEM Dealer refresh_id="
+            + str(i) + " telemetry=" + json.dumps(telemetry) + "\n"
+            for i in range(20)
+        ]
+        # Force the artifact-size path rather than only the MAX_EVENTS path.
+        with patch("scripts.summarize_refresh_log.MAX_BYTES", 1100):
+            report, raw = self._run(lines)
+        self.assertLessEqual(len(raw.rstrip(b"\n")), 1100)
+        self.assertLess(report["events_exported"], 20)
+        self.assertGreater(report["events_omitted"], 0)
+        self.assertEqual(report["events_exported"] + report["events_omitted"], 20)
+        for flag, count in report["quality_flag_counts"].items():
+            self.assertEqual(count, sum(flag in event["quality_flags"] for event in report["events"]))
+        self.assertFalse(json.loads(raw)["absence_reconciliation_permitted"])
+
+    def test_legacy_trace_only_is_not_mislabeled_as_zero_yield(self):
+        telemetry = {"pages_traced": 1, "pages_empty": 1,
+                     "pages_recovered_by_fallback": 0, "records_extracted": 0,
+                     "strategy_attempts": {}, "parser_errors": {},
+                     "absence_reconciliation_permitted": False}
+        report, _ = self._run([
+            "source_extraction_summary source=Legacy refresh_id=3 telemetry="
+            + json.dumps(telemetry) + "\n"
+        ])
+        self.assertEqual(report["events"][0]["quality_flags"], [])
+        self.assertFalse(report["events"][0]["committed_metrics_available"])
 
     def test_missing_log_is_explicit(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -15,6 +15,9 @@ MAX_BYTES = 64_000
 SOURCE_PATTERN = re.compile(r"source=(.*?) refresh_id=([0-9]+) telemetry=")
 METRICS = ("pages_traced", "pages_empty", "pages_recovered_by_fallback", "records_extracted")
 COMMITTED_METRICS = ("pages_fetched", "listings_extracted", "listings_ingested")
+# Investigation signals, not proof that a source has stock or that listings are sold.
+QUALITY_FLAGS = ("zero_yield_after_fetch", "parser_records_unaccepted",
+                 "extracted_not_ingested", "untraced_fetched_pages")
 
 
 def extract_summary(log_path: Path, output_path: Path) -> dict:
@@ -61,8 +64,24 @@ def extract_summary(log_path: Path, output_path: Path) -> dict:
                     for counters in (attempts, errors):
                         if any(type(v) is not int or v < 0 for v in counters.values()):
                             raise ValueError("invalid category count")
+                    # Only committed counts can distinguish a zero-yield scan
+                    # from missing trace instrumentation. These are triage flags,
+                    # never authoritative absence or deletion evidence.
+                    flags = {
+                        "zero_yield_after_fetch": bool(committed and committed["pages_fetched"] > 0
+                                                       and committed["listings_extracted"] == 0),
+                        "parser_records_unaccepted": bool(committed and counts["records_extracted"] > 0
+                                                          and committed["listings_extracted"] == 0),
+                        "extracted_not_ingested": bool(committed and committed["listings_extracted"] >
+                                                       committed["listings_ingested"]),
+                        "untraced_fetched_pages": bool(committed and committed["pages_fetched"] > 0
+                                                       and counts["pages_traced"] < committed["pages_fetched"]),
+                    }
+                    # Sparse flag names avoid exceeding the artifact cap when
+                    # hundreds of healthy sources produce no investigation flags.
+                    active_flags = [name for name in QUALITY_FLAGS if flags[name]]
                     events.append({"source": source, "refresh_id": int(match.group(2)),
-                                   **counts, **committed,
+                                   **counts, **committed, "quality_flags": active_flags,
                                    "committed_metrics_available": bool(committed),
                                    "strategy_attempt_count": sum(attempts.values()),
                                    "parser_error_count": sum(errors.values())})
@@ -72,13 +91,17 @@ def extract_summary(log_path: Path, output_path: Path) -> dict:
     report = {"status": status, "events_observed": observed,
               "events_exported": len(events), "events_invalid": invalid,
               "events_omitted": max(0, observed - invalid - len(events)),
-              "absence_reconciliation_permitted": False, "events": events}
+              "absence_reconciliation_permitted": False, "events": events,
+              "quality_flag_counts": {flag: sum(flag in event["quality_flags"] for event in events)
+                                      for flag in QUALITY_FLAGS}}
     # Events have a strict cap and contain only aggregate integers + bounded names.
     rendered = json.dumps(report, sort_keys=True, separators=(",", ":"))
     if len(rendered.encode("utf-8")) > MAX_BYTES:
         # Do not truncate JSON. Drop events until the document fits.
         while report["events"] and len(rendered.encode("utf-8")) > MAX_BYTES:
-            report["events"].pop()
+            removed = report["events"].pop()
+            for flag in QUALITY_FLAGS:
+                report["quality_flag_counts"][flag] -= int(flag in removed["quality_flags"])
             report["events_exported"] -= 1
             report["events_omitted"] += 1
             rendered = json.dumps(report, sort_keys=True, separators=(",", ":"))
