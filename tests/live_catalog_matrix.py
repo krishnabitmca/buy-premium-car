@@ -21,6 +21,17 @@ MODEL_TIMEOUT = 45  # Diagnostic threshold; network calls must enforce their own
 MAX_MATRIX_SECONDS = int(os.getenv('CARSCANNER_MATRIX_SECONDS', '2100'))
 
 
+
+def classify_zero_matches(results):
+    """Separate empty supply from actual identity-mismatch evidence.
+
+    A source marked live does not prove that it returned any vehicles.
+    """
+    zero = [r for r in results if r["status"] == "ok" and r["matched"] == 0]
+    actionable = [r for r in zero if r["vehicles"] > 0]
+    return zero, actionable
+
+
 def main() -> int:
     started=time.time()
     brands=live_brands()
@@ -91,13 +102,10 @@ def main() -> int:
     if unfinished:
         print(f"Live matrix budget exhausted: {len(unfinished)} unfinished model probes",file=sys.stderr,flush=True)
 
-    zero=[r for r in results if r["status"]=="ok" and r["matched"]==0]
+    zero, actionable_zero = classify_zero_matches(results)
     errors=[r for r in results if r["status"]=="error"]
-    # A zero match is a hard failure only when the selected live sources
-    # actually reported live inventory. Empty inventory is valid for a model
-    # with no current listings; live inventory that fails identity matching is
-    # the correctness defect this matrix is intended to catch.
-    actionable_zero=[r for r in zero if r["live_sources"] > 0]
+    # Live source registration alone does not prove nonempty inventory.
+    # Flag an identity mismatch only if the probe returned vehicles.
     report={
         "generated_at":time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime()),
         "brands":len(brands),
