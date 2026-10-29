@@ -58,7 +58,7 @@ def test_new_index_strict_mapping_accepts_every_published_manifest_field(monkeyp
     monkeypatch.setattr(elastic.inventory_db,'search_inventory',lambda **kwargs:([],[]))
     mapping={};published=[]
     def fake_request(method,path,body=None,**kwargs):
-        if path=='/_mapping':raise elastic.IndexUnavailable('index does not exist')
+        if path=='/_mapping':raise elastic.IndexUnavailable('Elasticsearch index missing')
         if method=='PUT' and path=='':mapping.update(body['mappings'])
         if method=='PUT' and path.startswith('/_doc/manifest'):
             assert mapping['dynamic']=='strict'
