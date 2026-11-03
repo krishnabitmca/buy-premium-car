@@ -574,7 +574,8 @@ def seed_adapter_inventory(db,monkeypatch):
     cycle = run_cycle(10)
     assert {key: cycle[key] for key in ('scheduled', 'completed', 'failed', 'lifecycle')} == {
         'scheduled': 1, 'completed': 1, 'failed': 0,
-        'lifecycle': {'expired': 0, 'enrolled': 0, 'recovered': 0, 'heartbeat_gap_seconds': None}}
+        'lifecycle': {'expired': 0, 'enrolled': 0, 'recovered': 0,
+                      'lifecycle_run_gap_seconds': None, 'heartbeat_gap_seconds': None}}
     assert cycle['listings_extracted'] == len(rows)
     assert cycle['listings_unpersisted'] == 0
     return rows
