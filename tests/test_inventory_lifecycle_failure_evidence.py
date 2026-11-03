@@ -74,3 +74,21 @@ def test_lifecycle_warning_does_not_claim_worker_heartbeat(monkeypatch, capsys):
     output = capsys.readouterr().out
     assert "lifecycle run gap exceeded one hour" in output.lower()
     assert "worker heartbeat" not in output.lower()
+
+
+def test_incomplete_evidence_exists_before_lifecycle_work(monkeypatch, tmp_path):
+    path = tmp_path / 'coverage' / 'inventory-lifecycle.json'
+    monkeypatch.setattr(sys, 'argv', ['inventory_lifecycle', '--report', str(path)])
+
+    def observe_preflight(_limit):
+        assert json.loads(path.read_text(encoding='utf-8')) == {
+            'status': 'incomplete',
+            'stage': 'run_cycle',
+            'reason': 'terminated_or_unfinished',
+        }
+        raise KeyboardInterrupt()
+
+    monkeypatch.setattr(lifecycle, 'run_cycle', observe_preflight)
+    with pytest.raises(KeyboardInterrupt):
+        lifecycle.main()
+    assert json.loads(path.read_text(encoding='utf-8'))['status'] == 'incomplete'
