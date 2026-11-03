@@ -132,10 +132,9 @@ def main() -> int:
         "brand_model_counts":{brand:len(models) for brand,models in catalog},
     }
     print(json.dumps(report,indent=2,ensure_ascii=False))
-    # A source outage is not itself a model defect. Fail only on catalog errors
-    # or probe errors; zero matches are reported for investigation because some
-    # models legitimately have no current used inventory.
-    return 1 if catalog_errors or errors or unfinished else 0
+    # Empty inventory is valid, but returned vehicles that all fail identity
+    # matching are an actionable correctness defect and must fail the gate.
+    return 1 if catalog_errors or errors or unfinished or actionable_zero else 0
 
 
 if __name__=="__main__":
