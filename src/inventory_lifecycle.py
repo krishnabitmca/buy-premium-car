@@ -253,6 +253,12 @@ def main():
     # exception/exit status so a failed renewal cannot masquerade as healthy.
     from pathlib import Path
     path=Path(args.report) if args.report else None
+    if path:
+        # Write evidence *before* work starts. A SIGKILL or runner timeout
+        # bypasses Python exception handlers, but leaves this incomplete marker.
+        path.parent.mkdir(parents=True,exist_ok=True)
+        path.write_text(json.dumps({'status':'incomplete','stage':'run_cycle',
+            'reason':'terminated_or_unfinished'},indent=2),encoding='utf-8')
     try:
         summary=run_cycle(args.limit)
     except Exception as exc:
