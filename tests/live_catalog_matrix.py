@@ -35,6 +35,11 @@ def _actionable_zero_matches(results):
     ]
 
 
+def _release_gate_failed(catalog_errors, errors, unfinished, actionable_zero):
+    """Fail closed when inventory identity mismatches are evidenced."""
+    return bool(catalog_errors or errors or unfinished or actionable_zero)
+
+
 def main() -> int:
     started=time.time()
     brands=live_brands()
@@ -134,7 +139,7 @@ def main() -> int:
     print(json.dumps(report,indent=2,ensure_ascii=False))
     # Empty inventory is valid, but returned vehicles that all fail identity
     # matching are an actionable correctness defect and must fail the gate.
-    return 1 if catalog_errors or errors or unfinished or actionable_zero else 0
+    return 1 if _release_gate_failed(catalog_errors, errors, unfinished, actionable_zero) else 0
 
 
 if __name__=="__main__":
