@@ -31,3 +31,12 @@ def test_returned_nonmatching_vehicles_are_actionable():
 def test_unavailable_sources_do_not_change_vehicle_evidence_rule():
     mismatch = {"status": "ok", "vehicles": 1, "matched": 0, "live_sources": 0}
     assert _classify([mismatch]) == [mismatch]
+
+
+def test_release_gate_fails_on_actionable_identity_mismatch():
+    module = run_path(str(Path(__file__).with_name('live_catalog_matrix.py')))
+    gate = module['_release_gate_failed']
+    assert gate([], [], [], [{'brand': 'BMW', 'model': 'X5'}])
+    assert not gate([], [], [], [])
+    assert gate([], [{'status': 'error'}], [], [])
+    assert gate([], [], [('Audi', 'Q5')], [])
