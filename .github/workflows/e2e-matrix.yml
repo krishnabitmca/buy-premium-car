@@ -94,6 +94,8 @@ jobs:
           npm init -y >/dev/null
           npm install --no-save --no-audit --no-fund playwright@1.55.0
           node -e "const {chromium}=require('playwright'); console.log(chromium.executablePath())"
+      - name: Test sanitized resource failure diagnostics
+        run: node --test tests/qa_resource_diagnostics.test.js
       - name: Run comprehensive customer journey QA
         env:
           CARSCANNER_BASE_URL: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:8000/' || 'https://buy-premium-car1.onrender.com/' }}
