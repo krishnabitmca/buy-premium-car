@@ -155,7 +155,7 @@ def _defer_ingestion_on_lock_contention(cur, conn, job: dict[str, Any]) -> dict[
     )
     changed = cur.rowcount
     conn.commit()
-    return {"deferred": 1} if changed else {"superseded": 1}
+    return {"deferred": 1, "deferred_ingestion_lock": 1} if changed else {"superseded": 1}
 
 
 def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
@@ -186,7 +186,7 @@ def process_job(job: dict[str, Any], *, _capture=None) -> dict[str, int]:
                     where refresh_id=%s and status='running' and attempt_count=%s and started_at=%s""",
                     (job['refresh_id'],job['attempt_count'],job['started_at']))
                 conn.commit()
-            return {'deferred':1}
+            return {'deferred': 1, 'deferred_domain_lease': 1}
         adapter = BuiltinMarketplaceAdapter(source)
         result = adapter.fetch(
             AdapterRequest(
@@ -333,6 +333,10 @@ def run_batch(limit: int = 10, *, brands=None, source_names=None, baseline_only=
                 result = process_job(jobs[0])
                 key = 'deferred' if result.get('deferred') else 'superseded' if result.get('superseded') else 'completed'
                 local[key] = local.get(key, 0) + 1
+                if key == 'deferred':
+                    # Bounded aggregate reason counts; no source URLs or raw job metadata.
+                    for reason in ('deferred_domain_lease', 'deferred_ingestion_lock'):
+                        local[reason] = local.get(reason, 0) + int(result.get(reason, 0))
                 if key == 'completed':
                     for metric in ('pages_fetched', 'listings_extracted', 'listings_unpersisted', 'traversals_pending'):
                         local[metric] = local.get(metric, 0) + result.get(metric, 0)

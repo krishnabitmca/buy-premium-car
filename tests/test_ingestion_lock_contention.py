@@ -23,7 +23,7 @@ class IngestionLockContentionTests(unittest.TestCase):
         conn = MagicMock()
         self.assertEqual(
             worker._defer_ingestion_on_lock_contention(cur, conn, self.job),
-            {"deferred": 1},
+            {"deferred": 1, "deferred_ingestion_lock": 1},
         )
         sql, params = cur.execute.call_args.args
         self.assertIn("status='queued'", sql)
@@ -53,7 +53,7 @@ class IngestionLockContentionTests(unittest.TestCase):
               patch("src.crawl_leases.acquire", return_value=None),
               patch("src.crawl_leases.release")):
             result = worker.process_job(self.job)
-        self.assertEqual(result, {"deferred": 1})
+        self.assertEqual(result, {"deferred": 1, "deferred_domain_lease": 1})
         sql, params = conn.execute.call_args.args
         self.assertIn("started_at=%s", sql)
         self.assertEqual(params, (7849, 2, self.job["started_at"]))
@@ -84,7 +84,7 @@ class IngestionLockContentionTests(unittest.TestCase):
               patch("src.used_inventory_frontier.enqueue_models") as enqueue):
             adapter.return_value.fetch.return_value = fetched
             result = worker.process_job(self.job)
-        self.assertEqual(result, {"deferred": 1})
+        self.assertEqual(result, {"deferred": 1, "deferred_ingestion_lock": 1})
         ingest.assert_not_called()
         complete.assert_not_called()
         enqueue.assert_not_called()
@@ -112,11 +112,30 @@ class IngestionLockContentionTests(unittest.TestCase):
               patch("src.crawl_leases.release")):
             adapter.return_value.fetch.return_value = fetched
             result = worker.process_job(self.job)
-        self.assertEqual(result, {"deferred": 1})
+        self.assertEqual(result, {"deferred": 1, "deferred_ingestion_lock": 1})
         self.assertIn("pg_try_advisory_xact_lock", cur.execute.call_args_list[0].args[0])
         ingest.assert_not_called()
         complete.assert_not_called()
         conn.commit.assert_called_once()
+
+
+    def test_batch_reports_deferral_reasons_without_changing_failure_semantics(self):
+        jobs = [{"refresh_id": 1}, {"refresh_id": 2}, {"refresh_id": 3}]
+        outcomes = [
+            {"deferred": 1, "deferred_domain_lease": 1},
+            {"deferred": 1, "deferred_ingestion_lock": 1},
+            {"listings": 1, "pages_fetched": 1, "listings_extracted": 1},
+        ]
+        with (patch.object(worker, "recover_jobs"),
+              patch.object(worker, "claim_jobs", side_effect=[[job] for job in jobs]),
+              patch.object(worker, "process_job", side_effect=outcomes)):
+            summary = worker.run_batch(limit=3, workers=1)
+        self.assertEqual(summary["deferred"], 2)
+        self.assertEqual(summary["deferred_domain_lease"], 1)
+        self.assertEqual(summary["deferred_ingestion_lock"], 1)
+        self.assertEqual(summary["completed"], 1)
+        self.assertEqual(summary["failed"], 0)
+        self.assertNotIn("source_name", summary)
 
 
     def test_successful_claim_enqueues_models_in_same_transaction(self):
