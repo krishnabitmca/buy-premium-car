@@ -25,6 +25,8 @@
  .aiask{margin-top:10px;display:grid;grid-template-columns:1fr 120px;gap:8px}.aiask input{height:40px;border:1px solid var(--line);border-radius:8px;padding:0 12px;font-size:11px}.aiask button{border:1px solid #cbd8ee;background:var(--bluebg);color:#1555b5;border-radius:8px;font-size:10px;font-weight:850;cursor:pointer}.market{display:none;background:#fff;border:1px solid var(--line);border-radius:11px;margin-bottom:14px;padding:15px}.market.show{display:block}.marketTop{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.market h3{margin:0;font-size:15px}.market small{color:var(--muted);font-size:9px}.marketStats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.stat{background:#f7f8fa;border-radius:8px;padding:10px}.stat b{display:block;font-size:16px}.stat span{font-size:8px;color:var(--muted)}.marketNote{margin-top:10px;font-size:9px;color:#536075;line-height:1.5}.confidence{display:inline-block;margin-top:7px;padding:5px 8px;border-radius:6px;background:var(--greenbg);color:var(--green);font-size:8px;font-weight:800}@media(max-width:720px){.marketStats{grid-template-columns:1fr 1fr}.aiask{grid-template-columns:1fr}} 
 
 .filterJump{display:none}.variant,.location,.priceLabel,.sourceRow,.meta,.livebar{font-size:12px}.aiask button,.close{min-height:44px}.compare,.compare th{font-size:12px}.stat span,.market small,.marketNote,.confidence{font-size:12px}.chip{min-height:36px;font-size:12px}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #155bd7;outline-offset:3px}@media(max-width:720px){.filterJump{display:inline-block;min-height:44px;padding:12px 0;font-size:12px}.filters{order:2}#results{order:1}.aiask button{height:44px}.heroIn{padding-top:20px}.crumb{display:none}}
+ .searchHint{margin:10px 0 0!important;color:var(--muted);font-size:12px!important;line-height:1.5}
+@media(max-width:720px){.searchbar select,.searchbar input,.searchbar button{min-height:44px}}
 </style>
 <style>.buyerTools{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.buyerTools button,#savedChoices button{min-height:44px;padding:8px 12px;border-radius:7px;cursor:pointer}#savedChoices{margin-top:12px;padding:12px;background:#fff;border:1px solid var(--line);border-radius:9px;font-size:14px}#savedChoices summary{min-height:44px;padding:10px;cursor:pointer}#savedChoices li{margin:10px 0;line-height:1.7}#savedChoices input[type=checkbox]{width:20px;height:20px;vertical-align:middle}#shareLink{width:100%;padding:10px;margin-top:8px}#buyerNotice,#savedCheckTime,#connectionStatus{font-size:13px;line-height:1.5}#connectionStatus{padding:12px;background:#fff3d9;color:#6b4300}</style>
 </head>
@@ -33,15 +35,16 @@
 <section class="hero"><div class="container heroIn">
 <div class="crumb">Home / India / Used & Demonstrator Cars</div>
 <h1>Find the right car at the right price</h1>
-<p>Compare discovered listings across marketplaces and seller sources. CarScanner compares the market and shows the lowest observed price and the strongest available deal evidence.</p>
-<div class="searchbar">
+<p>Search used and demonstrator cars across India by brand, model and budget. Compare source-backed offers, then verify availability, condition and total purchase costs before paying.</p>
+<div class="searchbar" role="search" aria-label="Find used and demo cars">
 <select id="condition" aria-label="Vehicle condition"><option value="both">Used + Demo</option><option value="used">Used only</option><option value="demo">Demo only</option></select>
 <select id="brand" aria-label="Brand"><option value="">All brands</option></select>
 <select id="model" aria-label="Model"><option value="">All models</option></select>
 <input id="min" aria-label="Minimum budget in lakh" type="number" min="0" step=".5" placeholder="Min ₹ lakh">
 <input id="max" aria-label="Maximum budget in lakh" type="number" min="0" step=".5" placeholder="Max ₹ lakh">
-<button id="search">Search cars</button>
+<button id="search" type="button">Find cars</button>
 </div>
+<p class="searchHint">Start with a make and model, or leave them blank to search all cars. Advanced options are available under All Filters.</p>
 <div class="aiask"><input id="aiPrompt" aria-label="Describe your car preferences" placeholder="Try: 2023 BMW X5 under ₹55 lakh, anywhere in India"><button id="askSearch">Interpret with AI</button></div><label class="check" style="margin-top:10px"><input type="checkbox" id="aiConsent" style="width:auto;height:auto"> I agree to send car preferences to Gemini’s free testing tier. Google may use this content to improve its products. Do not include contact details or private documents.</label><div id="aiReview" aria-live="polite"></div>
 <div class="chips" id="quickchips"><button class="chip active" data-filter="">All</button><button class="chip" data-filter="petrol">Petrol</button><button class="chip" data-filter="diesel">Diesel</button><button class="chip" data-filter="electric">Electric</button><button class="chip" data-filter="hybrid">Hybrid</button><button class="chip" data-filter="suv">SUV</button><button class="chip" data-filter="sedan">Sedan</button></div>
 <div id="connectionStatus" role="status" hidden>Offline. Existing cards are earlier observations, not a current availability check. Reconnect to recheck saved offers.</div>

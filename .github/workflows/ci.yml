@@ -70,7 +70,7 @@ jobs:
           PGOPTIONS: "-c statement_timeout=30000 -c lock_timeout=5000"
 
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
