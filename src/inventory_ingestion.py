@@ -11,6 +11,7 @@ from uuid import UUID
 from .models import Vehicle
 from .source_registry_db import _connect, enabled
 from .canonical_identity import candidate_identity
+from .india_geo import normalize_seller_location
 
 
 @dataclass(frozen=True)
@@ -28,6 +29,19 @@ def _listing_key(v: Vehicle) -> str:
     if not raw:
         raw=f"{v.source_name}|{v.title}|{v.price_lakh}|{v.mileage_km}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+
+def _seller_state_for_ingestion(v: Vehicle) -> str | None:
+    """Preserve explicit seller state; infer only from an unambiguous known city.
+
+    Never infer from free-form addresses, multiple locations or the buyer's
+    destination. Unknown state stays unknown rather than guessing.
+    """
+    explicit = str(v.seller_state or "").strip()
+    if explicit:
+        return explicit
+    return normalize_seller_location(v.seller_city)["canonical_state"]
 
 
 def ingest_vehicles(vehicles: list[Vehicle], *, _connection=None,
@@ -77,6 +91,7 @@ def ingest_vehicles(vehicles: list[Vehicle], *, _connection=None,
                 continue
             if not v.live_verified or v.price_lakh is None or not v.brand or not v.model:
                 continue
+            seller_state = _seller_state_for_ingestion(v)
             cur.execute("select source_id from public.sources where name=%s and enabled=true limit 1",(str(v.source_name or "").strip(),))
             source=cur.fetchone()
             if not source: continue
@@ -107,7 +122,7 @@ def ingest_vehicles(vehicles: list[Vehicle], *, _connection=None,
                     (provisional_key,identity_state,json.dumps(evidence),v.brand,v.model,v.variant,
                      v.year_manufacture,v.year_registration,v.manufacture_date,v.registration_date,
                      str(v.condition_signal or "used").lower() if str(v.condition_signal or "used").lower() in {"used","demo"} else "unknown",
-                     v.fuel,v.transmission,v.seller_city,v.seller_state,v.registration_state,
+                     v.fuel,v.transmission,v.seller_city,seller_state,v.registration_state,
                      identity_confidence,
                      json.dumps({"identity_mode":evidence.get("mode"),"image_urls":list(v.image_urls or []),
                                  "vin":v.vin,"chassis_number":v.chassis_number,**dict(v.metadata or {})})))
@@ -141,7 +156,7 @@ def ingest_vehicles(vehicles: list[Vehicle], *, _connection=None,
                      title=excluded.title,seller_city=excluded.seller_city,seller_state=excluded.seller_state,
                      condition=excluded.condition,status='active',freshness_state='fresh',last_seen_at=now(),last_verified_at=now(),
                      metadata=excluded.metadata returning listing_id""",
-                (source_id,vehicle_id,listing_key,v.url,v.final_url,v.title,None,v.seller_city,v.seller_state,
+                (source_id,vehicle_id,listing_key,v.url,v.final_url,v.title,None,v.seller_city,seller_state,
                  str(v.condition_signal or "used").lower() if str(v.condition_signal or "used").lower() in {"used","demo"} else "unknown",
                  json.dumps({"identity_confidence":identity_confidence,
                   "identity_evidence":evidence,"image_urls":list(v.image_urls or []),
@@ -155,7 +170,7 @@ def ingest_vehicles(vehicles: list[Vehicle], *, _connection=None,
                     live_verified,data_consistent,sold_signal,identity_confidence,snapshot)
                    values (%s,%s,%s,now(),%s,%s,%s,%s,%s,%s,%s,%s,true,%s,false,%s,%s)""" + returning,
                 (vehicle_id,listing_id,source_id,v.price_lakh,v.mileage_km,v.owner_count,
-                 v.year_manufacture,v.year_registration,v.seller_city,v.seller_state,v.registration_state,
+                 v.year_manufacture,v.year_registration,v.seller_city,seller_state,v.registration_state,
                  bool(v.data_consistent),identity_confidence,
                  json.dumps({"url":v.url,"final_url":v.final_url,"title":v.title,"source":v.source_name,
                   "condition":v.condition_signal,"identity_evidence":evidence,"vin":v.vin,"chassis_number":v.chassis_number,
