@@ -49,6 +49,8 @@ known_sources:
 
 - name: Cars24 Luxury Used
   parser_strategy: cars24_cards
+  # Cars24 uses 'landrover' in its verified brand/model URLs, not 'land-rover'.
+  brand_slug_overrides: {Land Rover: landrover}
   url: https://www.cars24.com/buy-used-luxury-cars/
   tier: 1
   source_type: used_retailer
