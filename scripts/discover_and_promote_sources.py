@@ -90,6 +90,34 @@ def validate_candidate(candidate: object) -> tuple[int, str | None]:
         return 0, f"{type(exc).__name__}: {str(exc)[:160]}"
 
 
+
+def summarize_probe_outcomes(results: list[dict], selected: int, *, plan_only: bool = False) -> dict:
+    """Separate successful execution from actual new sources staged for review.
+
+    A staged candidate is NOT a live search source or proof of new inventory.
+    Keep counts bounded and avoid publishing URLs or source-specific error text.
+    """
+    counts = {status: 0 for status in ("staged", "rejected", "deferred", "superseded", "validated")}
+    for result in results:
+        status = result.get("status")
+        if status in counts:
+            counts[status] += 1
+    if plan_only:
+        outcome = "plan_only"
+    elif counts["staged"]:
+        outcome = "staged_for_review"
+    elif selected:
+        outcome = "no_sources_staged"
+    else:
+        outcome = "no_candidates_selected"
+    return {
+        "selected_candidates": selected,
+        "probe_status_counts": counts,
+        "outcome": outcome,
+        "new_live_sources_verified": False,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="config/settings.yaml")
@@ -140,6 +168,8 @@ def main() -> None:
         path.write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
     save_report()
     if args.plan_only:
+        report['summary'] = summarize_probe_outcomes([], len(candidates), plan_only=True)
+        save_report()
         print(f'planned={len(candidates)}; no probes or writes performed')
         return
 
@@ -207,11 +237,13 @@ def main() -> None:
                 f"brand={item.brand_hint or 'all'} condition={item.condition}"
             )
 
+    report['summary'] = summarize_probe_outcomes(report['results'], len(candidates))
     report['completed_at'] = datetime.now(timezone.utc).isoformat()
     save_report()
     print(
         f"discovered={len(found)} candidates={len(candidates)} "
-        f"recorded={recorded} staged={len(promoted)} rejected={rejected}"
+        f"recorded={recorded} staged={len(promoted)} rejected={rejected} "
+        f"outcome={report['summary']['outcome']}"
     )
 
 
