@@ -73,6 +73,30 @@ def coverage_report(*,renewal_limit=10,interval_minutes=15):
         'brands':makes}
 
 
+def cli_summary(report, *, operations_only=False):
+    """Do not report empty brand gaps when the fast audit never checked brands.
+
+    A sparse source/model matrix is not a make-by-make used/demo availability
+    audit. None means unmeasured, whereas [] means checked with no gaps.
+    """
+    brands = report.get('brands', [])
+    evaluated = not operations_only and bool(brands)
+    return {
+        'brands_checked': len(brands),
+        'brand_coverage_evaluated': evaluated,
+        'matrix_cells': len(report['coverage_matrix']),
+        'declared_scopes': len(report['declared_scopes']),
+        'used_coverage_gaps': (
+            [b['brand'] for b in brands if not b['conditions']['used']['indexed_results']]
+            if evaluated else None
+        ),
+        'demo_coverage_gaps': (
+            [b['brand'] for b in brands if not b['conditions']['demo']['indexed_results']]
+            if evaluated else None
+        ),
+    }
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,required=True)
@@ -88,10 +112,7 @@ def main():
     if args.markdown:
         args.markdown.parent.mkdir(parents=True,exist_ok=True)
         args.markdown.write_text(markdown_report(report),encoding='utf-8')
-    print(json.dumps({'brands_checked':len(report.get('brands',[])),
-        'matrix_cells':len(report['coverage_matrix']),'declared_scopes':len(report['declared_scopes']),
-        'used_coverage_gaps':[b['brand'] for b in report.get('brands',[]) if not b['conditions']['used']['indexed_results']],
-        'demo_coverage_gaps':[b['brand'] for b in report.get('brands',[]) if not b['conditions']['demo']['indexed_results']]}))
+    print(json.dumps(cli_summary(report, operations_only=args.operations_only)))
 
 
 if __name__=='__main__':
