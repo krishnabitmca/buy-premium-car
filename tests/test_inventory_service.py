@@ -36,3 +36,46 @@ def test_acquisition_failure_still_runs_listing_renewal(monkeypatch,stage):
     with pytest.raises(RuntimeError,match='acquisition failed'):
         service.run_cycle(10)
     assert calls==[10]
+
+
+def test_cycle_emits_bounded_bucket_progress(monkeypatch, caplog):
+    """A long scheduled acquisition exposes the active work class without source URLs."""
+    import logging
+
+    monkeypatch.setattr(service, 'schedule_refreshes', lambda **kwargs: 2)
+    monkeypatch.setattr(service, 'run_batch',
+                        lambda budget, **kwargs: {'completed': budget, 'failed': 0})
+    monkeypatch.setattr(service, 'renew_listings', lambda limit: {'expired': 0})
+    with caplog.at_level(logging.INFO, logger=service.__name__):
+        result = service.run_cycle(2)
+    messages = [record.getMessage() for record in caplog.records
+                if record.name == service.__name__]
+    assert result['completed'] == 2
+    assert 'Acquisition scheduling complete limit=2 scheduled=2' in messages
+    assert 'Acquisition bucket start kind=general budget=1' in messages
+    assert 'Acquisition bucket end kind=general completed=1 deferred=0 failed=0 superseded=0' in messages
+    assert 'Acquisition bucket start kind=demo budget=1' in messages
+    assert 'Acquisition bucket end kind=demo completed=1 deferred=0 failed=0 superseded=0' in messages
+    assert all('https://' not in message for message in messages)
+
+
+def test_cycle_logs_fallback_progress_without_changing_result(monkeypatch, caplog):
+    import logging
+
+    calls = []
+    monkeypatch.setattr(service, 'schedule_refreshes', lambda **kwargs: 0)
+
+    def consume(budget, **kwargs):
+        calls.append((budget, kwargs))
+        return {'completed': 0, 'failed': 0} if len(calls) < 3 else {'completed': budget, 'failed': 0}
+
+    monkeypatch.setattr(service, 'run_batch', consume)
+    monkeypatch.setattr(service, 'renew_listings', lambda limit: {'expired': 0})
+    with caplog.at_level(logging.INFO, logger=service.__name__):
+        result = service.run_cycle(2)
+    messages = [record.getMessage() for record in caplog.records
+                if record.name == service.__name__]
+    assert result == {'scheduled': 0, 'completed': 2, 'failed': 0, 'lifecycle': {'expired': 0}}
+    assert len(calls) == 3
+    assert 'Acquisition fallback start budget=2' in messages
+    assert 'Acquisition fallback end completed=2 deferred=0 failed=0 superseded=0' in messages

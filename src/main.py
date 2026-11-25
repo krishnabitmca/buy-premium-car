@@ -6,6 +6,7 @@ Legacy SQLite/browser reports are available explicitly via
 from __future__ import annotations
 
 import argparse
+import logging
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,6 +23,8 @@ def main() -> None:
     parser.add_argument("--max-source-failures", type=int, default=0,
                         help="Allow this many isolated source failures only when acquisition succeeds")
     args = parser.parse_args()
+    # Surface bounded per-bucket progress before a hosted job reaches its timeout.
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
     require_database()
     result = run_cycle(args.limit)
     if args.export_json:
